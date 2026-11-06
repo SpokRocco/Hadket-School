@@ -1,53 +1,146 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lock, User, ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Lock, User, ArrowLeft, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AdminUser,
   DEFAULT_ROLE_PERMISSIONS,
+  getLocalLoginPortals,
+  getLocalUsers,
+  LoginPortalLink,
+  normalizeRole,
   ROLE_INFO,
+  saveLocalUsers,
   setCurrentAdminUser,
 } from '@/utils/authUtils';
 
 const AdminLogin = () => {
-  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [activePortal, setActivePortal] = useState<LoginPortalLink | null>(null);
+  const [portalRevoked, setPortalRevoked] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const portalParam = searchParams.get('portal');
+  const tokenParam = searchParams.get('token');
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  useEffect(() => {
+    validatePortalLink();
+  }, [portalParam, tokenParam]);
+
+  const validatePortalLink = async () => {
+    if (!portalParam && !tokenParam) {
+      setActivePortal(null);
+      setPortalRevoked(false);
+      return;
+    }
+
+    let portals = getLocalLoginPortals();
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from('login_portals')
+        .select('*');
+      if (!error && Array.isArray(data) && data.length > 0) {
+        portals = data;
+      }
+    } catch {
+      // Fallback to localStorage portals
+    }
+
+    const matched = portals.find((p) => {
+      if (tokenParam && p.token === tokenParam) return true;
+      if (portalParam && p.portal_key.toLowerCase() === portalParam.toLowerCase()) return true;
+      return false;
+    });
+
+    if (!matched || !matched.is_active) {
+      setPortalRevoked(true);
+      setActivePortal(null);
+    } else {
+      setPortalRevoked(false);
+      setActivePortal(matched);
+    }
+  };
+
+  const routeAfterLogin = (user: AdminUser) => {
+    const normalizedRole = normalizeRole(user.role);
+    setCurrentAdminUser({ ...user, role: normalizedRole });
+
+    const roleMeta = ROLE_INFO[normalizedRole] || ROLE_INFO.staff;
+    toast({
+      title: 'เข้าสู่ระบบสำเร็จ',
+      description: `ยินดีต้อนรับ ${user.display_name} (${roleMeta.label})`,
+    });
+
+    navigate(`/admin/dashboard?tab=${roleMeta.defaultTab}`);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (portalRevoked) {
+      toast({
+        title: 'ไม่สามารถเข้าสู่ระบบผ่านลิงก์นี้ได้',
+        description: 'ลิงก์ทางเข้าสู่ระบบนี้ถูกยกเลิกหรือหมดอายุแล้ว',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const trimmedUsername = username.trim();
+      const trimmedId = identifier.trim();
 
       // 1. ตรวจสอบจากตาราง admin_users ในฐานข้อมูล Supabase
-      const { data: dbUser, error } = await (supabase as any)
+      const { data: dbUsers, error } = await (supabase as any)
         .from('admin_users')
         .select('*')
-        .eq('username', trimmedUsername)
-        .eq('password', password)
-        .maybeSingle();
+        .or(`username.eq.${trimmedId},email.eq.${trimmedId}`);
+
+      const dbUser = Array.isArray(dbUsers)
+        ? dbUsers.find((u: any) => u.password === password)
+        : null;
 
       if (!error && dbUser) {
         if (!dbUser.is_active) {
           toast({
             title: 'บัญชีถูกระงับการใช้งาน',
-            description: 'กรุณาติดต่อผู้ดูแลระบบสูงสุด (Super Admin)',
+            description: 'กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อเปิดสิทธิ์การเข้าใช้งาน',
             variant: 'destructive',
           });
           setIsLoading(false);
           return;
         }
 
-        // อัปเดตเวลาเข้าสู่ระบบล่าสุด
+        const userRole = normalizeRole(dbUser.role);
+
+        // หากเข้าผ่านลิงก์เฉพาะกลุ่ม ให้ตรวจสอบว่าตรงกับกลุ่มเป้าหมายหรือไม่ (ยกเว้น Admin เข้าได้ทุกลิงก์)
+        if (
+          activePortal &&
+          activePortal.target_role !== 'all' &&
+          userRole !== 'admin' &&
+          normalizeRole(activePortal.target_role) !== userRole
+        ) {
+          toast({
+            title: 'ลิงก์ทางเข้าไม่ตรงกับบทบาทของคุณ',
+            description: `ลิงก์นี้สำหรับ ${ROLE_INFO[normalizeRole(activePortal.target_role)]?.label}`,
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
         await (supabase as any)
           .from('admin_users')
           .update({ last_login: new Date().toISOString() })
@@ -58,74 +151,81 @@ const AdminLogin = () => {
           username: dbUser.username,
           display_name: dbUser.display_name,
           email: dbUser.email,
-          role: dbUser.role,
-          permissions: Array.isArray(dbUser.permissions)
+          role: userRole,
+          subject_department: dbUser.subject_department || null,
+          custom_link_slug: dbUser.custom_link_slug || null,
+          google_site_url: dbUser.google_site_url || null,
+          permissions: Array.isArray(dbUser.permissions) && dbUser.permissions.length > 0
             ? dbUser.permissions
-            : DEFAULT_ROLE_PERMISSIONS[dbUser.role as keyof typeof DEFAULT_ROLE_PERMISSIONS] || DEFAULT_ROLE_PERMISSIONS.staff,
+            : DEFAULT_ROLE_PERMISSIONS[userRole],
           is_active: dbUser.is_active,
           last_login: new Date().toISOString(),
         };
 
-        setCurrentAdminUser(loggedInUser);
-        toast({
-          title: 'เข้าสู่ระบบสำเร็จ',
-          description: `ยินดีต้อนรับ ${loggedInUser.display_name} (${ROLE_INFO[loggedInUser.role]?.label || loggedInUser.role})`,
-        });
-        navigate('/admin/dashboard');
+        routeAfterLogin(loggedInUser);
         return;
       }
 
-      // 2. Fallback กรณีที่ยังไม่ได้รัน SQL สร้างตาราง admin_users หรือใช้บัญชีเริ่มต้น
-      if (error || !dbUser) {
-        if (trimmedUsername === 'admin' && password === 'admin123') {
-          const fallbackAdmin: AdminUser = {
-            id: 'default-super-admin',
-            username: 'admin',
-            display_name: 'ผู้ดูแลระบบสูงสุด',
-            email: 'admin@school.ac.th',
-            role: 'super_admin',
-            permissions: DEFAULT_ROLE_PERMISSIONS.super_admin,
-            is_active: true,
-          };
-          setCurrentAdminUser(fallbackAdmin);
+      // 2. ตรวจสอบจาก Local State (Seed & LocalStorage Users)
+      const localUsers = getLocalUsers();
+      const matchedLocal = localUsers.find(
+        (u) =>
+          (u.username.toLowerCase() === trimmedId.toLowerCase() ||
+            (u.email && u.email.toLowerCase() === trimmedId.toLowerCase())) &&
+          u.password === password
+      );
+
+      if (matchedLocal) {
+        if (!matchedLocal.is_active) {
           toast({
-            title: 'เข้าสู่ระบบสำเร็จ',
-            description: `ยินดีต้อนรับ ${fallbackAdmin.display_name} (${ROLE_INFO.super_admin.label})`,
+            title: 'บัญชีถูกระงับการใช้งาน',
+            description: 'กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อเปิดสิทธิ์การเข้าใช้งาน',
+            variant: 'destructive',
           });
-          navigate('/admin/dashboard');
+          setIsLoading(false);
           return;
         }
 
-        if (trimmedUsername === 'staff' && password === 'staff123') {
-          const fallbackStaff: AdminUser = {
-            id: 'default-staff',
-            username: 'staff',
-            display_name: 'เจ้าหน้าที่ประชาสัมพันธ์และทะเบียน',
-            email: 'staff@school.ac.th',
-            role: 'staff',
-            permissions: DEFAULT_ROLE_PERMISSIONS.staff,
-            is_active: true,
-          };
-          setCurrentAdminUser(fallbackStaff);
+        const userRole = normalizeRole(matchedLocal.role);
+
+        if (
+          activePortal &&
+          activePortal.target_role !== 'all' &&
+          userRole !== 'admin' &&
+          normalizeRole(activePortal.target_role) !== userRole
+        ) {
           toast({
-            title: 'เข้าสู่ระบบสำเร็จ',
-            description: `ยินดีต้อนรับ ${fallbackStaff.display_name} (${ROLE_INFO.staff.label})`,
+            title: 'ลิงก์ทางเข้าไม่ตรงกับบทบาทของคุณ',
+            description: `ลิงก์นี้สำหรับ ${ROLE_INFO[normalizeRole(activePortal.target_role)]?.label}`,
+            variant: 'destructive',
           });
-          navigate('/admin/dashboard');
+          setIsLoading(false);
           return;
         }
+
+        const updatedUser: AdminUser = {
+          ...matchedLocal,
+          role: userRole,
+          last_login: new Date().toISOString(),
+        };
+
+        const updatedList = localUsers.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+        saveLocalUsers(updatedList);
+
+        routeAfterLogin(updatedUser);
+        return;
       }
 
       toast({
         title: 'เข้าสู่ระบบไม่สำเร็จ',
-        description: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+        description: 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง',
         variant: 'destructive',
       });
     } catch (err) {
       console.error('Login error:', err);
       toast({
         title: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',
-        description: 'กรุณาลองใหม่อีกครั้ง',
+        description: 'กรุณาตรวจสอบการเชื่อมต่อและลองใหม่อีกครั้ง',
         variant: 'destructive',
       });
     } finally {
@@ -134,71 +234,110 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/95 to-navy-light flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+      <div className="absolute -top-32 -right-32 w-96 h-96 bg-accent/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-400/15 rounded-full blur-3xl pointer-events-none" />
 
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-0">
-        <CardHeader className="text-center pb-2">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-accent font-bold text-2xl">วค</span>
+      <Card className="w-full max-w-md relative z-10 shadow-2xl border border-border/50 rounded-2xl overflow-hidden">
+        <div className="h-2 bg-gradient-to-r from-primary via-accent to-primary" />
+        <CardHeader className="text-center pb-3 pt-8">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-primary shadow-lg flex items-center justify-center border-2 border-accent/40">
+            <ShieldCheck className="w-10 h-10 text-accent" />
           </div>
-          <CardTitle className="text-2xl text-primary">ระบบจัดการโรงเรียน</CardTitle>
-          <CardDescription>กรุณาเข้าสู่ระบบสำหรับ Admin และ Staff</CardDescription>
+          {activePortal && (
+            <div className="mb-2">
+              <Badge
+                variant="outline"
+                className={
+                  activePortal.target_role !== 'all'
+                    ? ROLE_INFO[normalizeRole(activePortal.target_role)]?.badgeClass
+                    : 'bg-primary/10 text-primary'
+                }
+              >
+                {activePortal.title}
+              </Badge>
+            </div>
+          )}
+          <CardTitle className="text-2xl font-bold text-primary">
+            ระบบจัดการหลังบ้านของสถานศึกษา
+          </CardTitle>
+          <CardDescription>
+            {activePortal
+              ? activePortal.description
+              : 'School Back-Office Management System'}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">ชื่อผู้ใช้</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="กรอกชื่อผู้ใช้ (เช่น admin หรือ staff)"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">รหัสผ่าน</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="กรอกรหัสผ่าน"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-            </Button>
-          </form>
 
-          <div className="mt-6 text-center">
+        <CardContent className="pb-8 px-6 sm:px-8">
+          {portalRevoked ? (
+            <div className="p-6 rounded-xl bg-destructive/10 border border-destructive/30 text-center space-y-3">
+              <AlertTriangle className="w-12 h-12 text-destructive mx-auto" />
+              <h3 className="font-bold text-destructive text-base">
+                ลิงก์ทางเข้าสู่ระบบนี้ถูกยกเลิกแล้ว
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                ลิงก์ทางเข้าเฉพาะกิจที่คุณใช้งานอาจถูกยกเลิกหรือลบโดยผู้ดูแลระบบ กรุณาเข้าสู่ระบบผ่านหน้าล็อกอินหลัก
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/admin')}
+                className="w-full"
+              >
+                ไปยังหน้าเข้าสู่ระบบหลัก
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="identifier">ชื่อผู้ใช้ หรือ อีเมล (Username / Email)</Label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="identifier"
+                    type="text"
+                    placeholder="กรอกชื่อผู้ใช้หรืออีเมล"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="pl-10 h-11"
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">รหัสผ่าน (Password)</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="กรอกรหัสผ่าน"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 h-11"
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full h-11 font-semibold text-base" disabled={isLoading}>
+                {isLoading ? 'กำลังตรวจสอบสิทธิ์...' : 'เข้าสู่ระบบ'}
+              </Button>
+            </form>
+          )}
+
+          <div className="mt-6 pt-4 border-t border-border text-center">
             <button
               onClick={() => navigate('/')}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              กลับสู่หน้าหลัก
+              กลับสู่หน้าเว็บไซต์หลัก
             </button>
-          </div>
-
-          <div className="mt-4 p-3 bg-secondary rounded-lg space-y-1">
-            <p className="text-xs text-center text-muted-foreground">
-              <strong>Super Admin (Level 3):</strong> admin | รหัสผ่าน: admin123
-            </p>
-            <p className="text-xs text-center text-muted-foreground">
-              <strong>Staff (Level 1):</strong> staff | รหัสผ่าน: staff123
-            </p>
           </div>
         </CardContent>
       </Card>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +18,16 @@ import {
   PlusCircle,
   Eye,
   MonitorPlay,
+  Video,
+  FileText,
+  Palette,
+  X,
 } from 'lucide-react';
+import {
+  getLocalTeacherMedia,
+  TeacherMediaItem,
+  TeacherMediaType,
+} from '@/components/admin/portals/TeacherPortal';
 
 export interface MediaResource {
   id: string;
@@ -150,8 +159,23 @@ export const DEFAULT_MEDIA_RESOURCES: MediaResource[] = [
   },
 ];
 
+const MEDIA_TYPE_BADGES: Record<
+  TeacherMediaType,
+  { label: string; color: string; icon: any }
+> = {
+  video: { label: 'วิดีโอการสอน', color: 'bg-rose-500/10 text-rose-700 border-rose-200', icon: Video },
+  pdf: { label: 'เอกสาร PDF / ใบงาน', color: 'bg-blue-500/10 text-blue-700 border-blue-200', icon: FileText },
+  canva: { label: 'สไลด์ Canva', color: 'bg-purple-500/10 text-purple-700 border-purple-200', icon: Palette },
+  google_site: { label: 'Google Site', color: 'bg-emerald-500/10 text-emerald-700 border-emerald-200', icon: Globe },
+  interactive: { label: 'สื่ออินเทอร์แอคทีฟ', color: 'bg-amber-500/10 text-amber-800 border-amber-200', icon: Sparkles },
+};
+
 const MediaLibrary = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const teacherFilter = searchParams.get('teacher');
+
   const [resources, setResources] = useState<MediaResource[]>([]);
+  const [teacherMedia, setTeacherMedia] = useState<TeacherMediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('ทั้งหมด');
@@ -163,6 +187,22 @@ const MediaLibrary = () => {
   const fetchMediaResources = async () => {
     try {
       setLoading(true);
+      const localItems = getLocalTeacherMedia();
+
+      try {
+        const { data: tmData, error: tmErr } = await (supabase as any)
+          .from('teacher_media_items')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!tmErr && tmData && tmData.length > 0) {
+          setTeacherMedia(tmData);
+        } else {
+          setTeacherMedia(localItems);
+        }
+      } catch {
+        setTeacherMedia(localItems);
+      }
+
       const { data, error } = await (supabase as any)
         .from('media_resources')
         .select('*')
@@ -204,6 +244,20 @@ const MediaLibrary = () => {
       }
     }
   };
+
+  const filteredTeacherMedia = teacherMedia.filter((item) => {
+    if (teacherFilter && item.teacher_username !== teacherFilter) return false;
+    const matchesSubject =
+      selectedSubject === 'ทั้งหมด' || item.subject_department === selectedSubject;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      item.title.toLowerCase().includes(q) ||
+      item.teacher_name.toLowerCase().includes(q) ||
+      item.subject_department.toLowerCase().includes(q) ||
+      (item.description && item.description.toLowerCase().includes(q));
+    return matchesSubject && matchesSearch;
+  });
 
   const filteredResources = resources.filter((item) => {
     const matchesSubject =
@@ -267,7 +321,7 @@ const MediaLibrary = () => {
         <section className="section-padding">
           <div className="container mx-auto px-4">
             {/* Subject Filter Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-10 scrollbar-none">
+            <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 scrollbar-none">
               <div className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground mr-2 flex-shrink-0">
                 <Layers className="w-4 h-4 text-primary" />
                 <span>กลุ่มสาระฯ:</span>
@@ -289,6 +343,99 @@ const MediaLibrary = () => {
                 );
               })}
             </div>
+
+            {/* Active Teacher Workspace Filter Banner */}
+            {teacherFilter && (
+              <div className="mb-8 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-700">
+                      กำลังแสดงพื้นที่คลังสื่อการสอนประจำตัวครู (Personal Teacher Workspace)
+                    </p>
+                    <h3 className="font-bold text-foreground">
+                      รหัสผู้สอน: @{teacherFilter} ({filteredTeacherMedia.length} รายการสื่อ)
+                    </h3>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchParams({})}
+                  className="gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-500/10"
+                >
+                  <X className="w-4 h-4" />
+                  ดูคลังสื่อของครูทุกคน
+                </Button>
+              </div>
+            )}
+
+            {/* Personal Teacher Media Items Section */}
+            {filteredTeacherMedia.length > 0 && (
+              <div className="mb-14">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                      <Sparkles className="w-6 h-6 text-emerald-600" />
+                      สื่อการสอนและใบงานออนไลน์รายวิชา
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      รวมวิดีโอการสอน เอกสาร PDF สไลด์ Canva และสื่ออินเทอร์แอคทีฟที่ครูผู้สอนอัปโหลดในพื้นที่ประจำตัว
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {filteredTeacherMedia.map((tm) => {
+                    const typeInfo = MEDIA_TYPE_BADGES[tm.media_type] || MEDIA_TYPE_BADGES.video;
+                    const IconComp = typeInfo.icon;
+                    return (
+                      <div
+                        key={tm.id}
+                        className="bg-card rounded-2xl p-5 border border-border shadow-sm hover:shadow-lg hover:border-emerald-500/40 transition-all flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <Badge variant="outline" className={`gap-1.5 ${typeInfo.color}`}>
+                              <IconComp className="w-3.5 h-3.5" />
+                              {typeInfo.label}
+                            </Badge>
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {tm.grade_level}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-lg text-foreground mb-1.5 line-clamp-2">
+                            {tm.title}
+                          </h3>
+                          {tm.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                              {tm.description}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-3 border-t border-border flex items-center justify-between gap-2 mt-2">
+                          <div className="text-xs text-muted-foreground truncate">
+                            <span className="font-semibold text-foreground">{tm.teacher_name}</span>
+                          </div>
+                          <a
+                            href={tm.media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex-shrink-0"
+                          >
+                            เปิดสื่อการสอน
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Loading / Empty / Cards Grid */}
             {loading ? (

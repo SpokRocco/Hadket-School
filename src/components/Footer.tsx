@@ -32,9 +32,17 @@ const Footer = () => {
           {/* School Info */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
-                <span className="text-accent-foreground font-bold text-xl">วค</span>
-              </div>
+              {settings.school_logo_url ? (
+                <img
+                  src={settings.school_logo_url}
+                  alt={settings.school_name}
+                  className="w-12 h-12 rounded-full object-contain bg-white p-0.5 shadow-sm"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
+                  <span className="text-accent-foreground font-bold text-xl">{settings.school_short_name || 'วค'}</span>
+                </div>
+              )}
               <div>
                 <h3 className="text-lg font-bold">{settings.school_name}</h3>
                 <p className="text-sm text-primary-foreground/70">{settings.school_tagline}</p>

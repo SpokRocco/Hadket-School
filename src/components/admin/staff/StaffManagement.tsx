@@ -4,15 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Edit, Trash2, Users, Briefcase } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Users, Briefcase, Award, Layers, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '../shared/ImageUpload';
 import { deleteStorageImage } from '@/utils/storageUtils';
 
-interface Staff {
+export type PersonnelType = 'director' | 'teaching' | 'support';
+
+export interface PersonnelItem {
     id: string;
     name: string;
     position: string;
@@ -20,17 +23,20 @@ interface Staff {
     subject: string;
     education: string;
     experience: string;
+    quote: string;
     photo_url: string;
-    staff_type: 'teaching' | 'support';
+    staff_type: PersonnelType;
     order_position: number;
+    source_table: 'administrators' | 'staff';
 }
 
 export const StaffManagement = () => {
-    const [staffList, setStaffList] = useState<Staff[]>([]);
+    const [personnelList, setPersonnelList] = useState<PersonnelItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
-    const [activeTab, setActiveTab] = useState('teaching');
+    const [editingItem, setEditingItem] = useState<PersonnelItem | null>(null);
+    const [activeTab, setActiveTab] = useState<'all' | PersonnelType>('all');
     const [formData, setFormData] = useState({
         name: '',
         position: '',
@@ -38,27 +44,77 @@ export const StaffManagement = () => {
         subject: '',
         education: '',
         experience: '',
+        quote: '',
         photo_url: '',
-        staff_type: 'teaching' as 'teaching' | 'support',
+        staff_type: 'teaching' as PersonnelType,
+        order_position: 1,
     });
     const { toast } = useToast();
 
     useEffect(() => {
-        fetchStaff();
+        fetchAllPersonnel();
     }, []);
 
-    const fetchStaff = async () => {
+    const fetchAllPersonnel = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('staff')
-                .select('*')
-                .order('order_position', { ascending: true });
+            const [adminRes, staffRes] = await Promise.all([
+                supabase
+                    .from('administrators')
+                    .select('*')
+                    .order('order_position', { ascending: true }),
+                supabase
+                    .from('staff')
+                    .select('*')
+                    .order('order_position', { ascending: true }),
+            ]);
 
-            if (error) throw error;
-            setStaffList(data || []);
+            if (adminRes.error) throw adminRes.error;
+            if (staffRes.error) throw staffRes.error;
+
+            const directorsFromAdmin: PersonnelItem[] = (adminRes.data || []).map((a: any) => ({
+                id: a.id,
+                name: a.name || '',
+                position: a.position || 'ผู้อำนวยการโรงเรียน',
+                department: 'ผู้บริหารสถานศึกษา',
+                subject: '',
+                education: a.education || '',
+                experience: '',
+                quote: a.quote || '',
+                photo_url: a.photo_url || '',
+                staff_type: 'director',
+                order_position: a.order_position ?? 1,
+                source_table: 'administrators',
+            }));
+
+            const staffItems: PersonnelItem[] = (staffRes.data || []).map((s: any) => {
+                const rawType = s.staff_type;
+                const mappedType: PersonnelType =
+                    rawType === 'director' || s.department === '__director__'
+                        ? 'director'
+                        : rawType === 'support'
+                            ? 'support'
+                            : 'teaching';
+
+                return {
+                    id: s.id,
+                    name: s.name || '',
+                    position: s.position || '',
+                    department: s.department === '__director__' ? '' : (s.department || ''),
+                    subject: s.subject || '',
+                    education: s.education || '',
+                    experience: s.experience || '',
+                    quote: s.experience || '',
+                    photo_url: s.photo_url || '',
+                    staff_type: mappedType,
+                    order_position: s.order_position ?? 1,
+                    source_table: 'staff',
+                };
+            });
+
+            setPersonnelList([...directorsFromAdmin, ...staffItems]);
         } catch (error: any) {
-            console.error('Error fetching staff:', error);
+            console.error('Error fetching personnel:', error);
             toast({
                 variant: 'destructive',
                 title: 'เกิดข้อผิดพลาด',
@@ -69,131 +125,229 @@ export const StaffManagement = () => {
         }
     };
 
-    const resetForm = () => {
+    const getDefaultTypeForAdd = (presetType?: PersonnelType): PersonnelType => {
+        if (presetType) return presetType;
+        if (activeTab === 'director' || activeTab === 'teaching' || activeTab === 'support') {
+            return activeTab;
+        }
+        return 'teaching';
+    };
+
+    const resetForm = (presetType?: PersonnelType) => {
+        const targetType = getDefaultTypeForAdd(presetType);
+        const sameTypeItems = personnelList.filter((p) => p.staff_type === targetType);
+        const nextOrder =
+            sameTypeItems.length > 0
+                ? Math.max(...sameTypeItems.map((s) => s.order_position || 0)) + 1
+                : 1;
+
         setFormData({
             name: '',
-            position: '',
+            position: targetType === 'director' ? 'ผู้อำนวยการโรงเรียน' : '',
             department: '',
             subject: '',
             education: '',
             experience: '',
+            quote: '',
             photo_url: '',
-            staff_type: activeTab === 'support' ? 'support' : 'teaching',
+            staff_type: targetType,
+            order_position: nextOrder,
         });
-        setEditingStaff(null);
+        setEditingItem(null);
     };
 
-    const handleOpenDialog = (staff?: Staff) => {
-        if (staff) {
-            setEditingStaff(staff);
+    const handleOpenDialog = (item?: PersonnelItem, presetType?: PersonnelType) => {
+        if (item) {
+            setEditingItem(item);
             setFormData({
-                name: staff.name,
-                position: staff.position,
-                department: staff.department || '',
-                subject: staff.subject || '',
-                education: staff.education || '',
-                experience: staff.experience || '',
-                photo_url: staff.photo_url || '',
-                staff_type: staff.staff_type,
+                name: item.name,
+                position: item.position,
+                department: item.department || '',
+                subject: item.subject || '',
+                education: item.education || '',
+                experience: item.experience || '',
+                quote: item.quote || '',
+                photo_url: item.photo_url || '',
+                staff_type: item.staff_type,
+                order_position: item.order_position || 1,
             });
         } else {
-            resetForm();
+            resetForm(presetType);
         }
         setIsDialogOpen(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (saving) return;
 
         try {
-            if (editingStaff) {
-                const { error } = await supabase
-                    .from('staff')
-                    .update({
-                        name: formData.name,
-                        position: formData.position,
-                        department: formData.department,
-                        subject: formData.subject,
-                        education: formData.education,
-                        experience: formData.experience,
-                        photo_url: formData.photo_url,
-                        staff_type: formData.staff_type,
-                    })
-                    .eq('id', editingStaff.id);
+            setSaving(true);
+            const targetType = formData.staff_type;
+            const orderPos = Number(formData.order_position) || 1;
 
-                if (error) throw error;
+            if (editingItem) {
+                // กรณีแก้ไขข้อมูลเดิม
+                if (targetType === 'director') {
+                    if (editingItem.source_table === 'administrators') {
+                        const { data, error } = await supabase
+                            .from('administrators')
+                            .update({
+                                name: formData.name.trim(),
+                                position: formData.position.trim(),
+                                education: formData.education.trim(),
+                                quote: formData.quote.trim(),
+                                photo_url: formData.photo_url,
+                                order_position: orderPos,
+                            })
+                            .eq('id', editingItem.id)
+                            .select();
+
+                        if (error) throw error;
+                        if (!data || data.length === 0) {
+                            throw new Error('ไม่พบรายการที่ต้องการอัปเดตในฐานข้อมูล');
+                        }
+                    } else {
+                        // ย้ายจากตาราง staff ไปยัง administrators
+                        const { error: insertErr } = await supabase
+                            .from('administrators')
+                            .insert({
+                                name: formData.name.trim(),
+                                position: formData.position.trim(),
+                                education: formData.education.trim(),
+                                quote: formData.quote.trim() || formData.experience.trim(),
+                                photo_url: formData.photo_url,
+                                order_position: orderPos,
+                            });
+                        if (insertErr) throw insertErr;
+
+                        await supabase.from('staff').delete().eq('id', editingItem.id);
+                    }
+                } else {
+                    // targetType === 'teaching' | 'support'
+                    if (editingItem.source_table === 'staff') {
+                        const { data, error } = await supabase
+                            .from('staff')
+                            .update({
+                                name: formData.name.trim(),
+                                position: formData.position.trim(),
+                                department: formData.department.trim(),
+                                subject: formData.subject.trim(),
+                                education: formData.education.trim(),
+                                experience: formData.experience.trim(),
+                                photo_url: formData.photo_url,
+                                staff_type: targetType,
+                                order_position: orderPos,
+                            })
+                            .eq('id', editingItem.id)
+                            .select();
+
+                        if (error) throw error;
+                        if (!data || data.length === 0) {
+                            throw new Error('ไม่พบรายการที่ต้องการอัปเดตในฐานข้อมูล');
+                        }
+                    } else {
+                        // ย้ายจากตาราง administrators มายัง staff
+                        const { error: insertErr } = await supabase
+                            .from('staff')
+                            .insert({
+                                name: formData.name.trim(),
+                                position: formData.position.trim(),
+                                department: formData.department.trim(),
+                                subject: formData.subject.trim(),
+                                education: formData.education.trim(),
+                                experience: formData.experience.trim() || formData.quote.trim(),
+                                photo_url: formData.photo_url,
+                                staff_type: targetType,
+                                order_position: orderPos,
+                            });
+                        if (insertErr) throw insertErr;
+
+                        await supabase.from('administrators').delete().eq('id', editingItem.id);
+                    }
+                }
 
                 toast({
-                    title: 'สำเร็จ',
-                    description: 'แก้ไขข้อมูลบุคลากรเรียบร้อยแล้ว',
+                    title: 'บันทึกสำเร็จ',
+                    description: 'อัปเดตข้อมูลบุคลากรลงในฐานข้อมูลเรียบร้อยแล้ว',
                 });
             } else {
-                const maxOrder = staffList.length > 0
-                    ? Math.max(...staffList.map(s => s.order_position))
-                    : 0;
+                // กรณีเพิ่มบุคลากรใหม่
+                if (targetType === 'director') {
+                    const { error } = await supabase
+                        .from('administrators')
+                        .insert({
+                            name: formData.name.trim(),
+                            position: formData.position.trim(),
+                            education: formData.education.trim(),
+                            quote: formData.quote.trim(),
+                            photo_url: formData.photo_url,
+                            order_position: orderPos,
+                        });
 
-                const { error } = await supabase
-                    .from('staff')
-                    .insert({
-                        name: formData.name,
-                        position: formData.position,
-                        department: formData.department,
-                        subject: formData.subject,
-                        education: formData.education,
-                        experience: formData.experience,
-                        photo_url: formData.photo_url,
-                        staff_type: formData.staff_type,
-                        order_position: maxOrder + 1,
-                    });
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase
+                        .from('staff')
+                        .insert({
+                            name: formData.name.trim(),
+                            position: formData.position.trim(),
+                            department: formData.department.trim(),
+                            subject: formData.subject.trim(),
+                            education: formData.education.trim(),
+                            experience: formData.experience.trim(),
+                            photo_url: formData.photo_url,
+                            staff_type: targetType,
+                            order_position: orderPos,
+                        });
 
-                if (error) throw error;
+                    if (error) throw error;
+                }
 
                 toast({
-                    title: 'สำเร็จ',
-                    description: 'เพิ่มบุคลากรใหม่เรียบร้อยแล้ว',
+                    title: 'เพิ่มข้อมูลสำเร็จ',
+                    description: 'เพิ่มบุคลากรใหม่ลงในฐานข้อมูลเรียบร้อยแล้ว',
                 });
             }
 
             setIsDialogOpen(false);
             resetForm();
-            fetchStaff();
+            await fetchAllPersonnel();
         } catch (error: any) {
             console.error('Error saving staff:', error);
             toast({
                 variant: 'destructive',
-                title: 'เกิดข้อผิดพลาด',
-                description: 'ไม่สามารถบันทึกข้อมูลได้',
+                title: 'เกิดข้อผิดพลาดในการบันทึก',
+                description: error?.message || 'ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้',
             });
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('ต้องการลบบุคลากรนี้หรือไม่?')) return;
+    const handleDelete = async (item: PersonnelItem) => {
+        if (!confirm(`ต้องการลบข้อมูลของ "${item.name}" หรือไม่?`)) return;
 
         try {
-            // Find the staff to get the photo_url
-            const staffToDelete = staffList.find(s => s.id === id);
-
-            // Delete image from storage if exists
-            if (staffToDelete?.photo_url) {
-                await deleteStorageImage(staffToDelete.photo_url);
+            if (item.photo_url) {
+                await deleteStorageImage(item.photo_url);
             }
 
             const { error } = await supabase
-                .from('staff')
+                .from(item.source_table)
                 .delete()
-                .eq('id', id);
+                .eq('id', item.id);
 
             if (error) throw error;
 
             toast({
-                title: 'สำเร็จ',
-                description: 'ลบบุคลากรเรียบร้อยแล้ว',
+                title: 'ลบข้อมูลสำเร็จ',
+                description: 'ลบข้อมูลบุคลากรเรียบร้อยแล้ว',
             });
 
-            fetchStaff();
+            await fetchAllPersonnel();
         } catch (error: any) {
-            console.error('Error deleting staff:', error);
+            console.error('Error deleting personnel:', error);
             toast({
                 variant: 'destructive',
                 title: 'เกิดข้อผิดพลาด',
@@ -202,48 +356,92 @@ export const StaffManagement = () => {
         }
     };
 
-    const teachingStaff = staffList.filter(s => s.staff_type === 'teaching');
-    const supportStaff = staffList.filter(s => s.staff_type === 'support');
+    const directors = personnelList
+        .filter((s) => s.staff_type === 'director')
+        .sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
 
-    if (loading) {
-        return (
-            <div className="p-8">
-                <div className="text-center py-12">
-                    <p className="text-muted-foreground">กำลังโหลด...</p>
-                </div>
-            </div>
-        );
-    }
+    const teachingStaff = personnelList
+        .filter((s) => s.staff_type === 'teaching')
+        .sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
 
-    const StaffCard = ({ staff }: { staff: Staff }) => (
-        <Card className="overflow-hidden">
-            <div className="h-24 bg-gradient-to-br from-primary to-navy-light flex items-center justify-center">
-                {staff.photo_url ? (
+    const supportStaff = personnelList
+        .filter((s) => s.staff_type === 'support')
+        .sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
+
+    const renderPersonnelCard = (person: PersonnelItem, isFeaturedDirector = false) => (
+        <Card
+            key={`${person.source_table}-${person.id}`}
+            className={`overflow-hidden border transition-shadow hover:shadow-md ${
+                isFeaturedDirector ? 'max-w-md mx-auto w-full border-accent/50 shadow-md' : ''
+            }`}
+        >
+            <div
+                className={`${
+                    isFeaturedDirector ? 'h-32' : 'h-28'
+                } bg-gradient-to-br from-primary to-navy-light flex items-center justify-center relative`}
+            >
+                <span className="absolute top-2 right-2 text-[10px] bg-black/30 text-white px-2 py-0.5 rounded-full">
+                    ลำดับ #{person.order_position}
+                </span>
+                {person.photo_url ? (
                     <img
-                        src={staff.photo_url}
-                        alt={staff.name}
-                        className="w-16 h-16 rounded-full object-cover border-2 border-white/50"
+                        src={person.photo_url}
+                        alt={person.name}
+                        className={`${
+                            isFeaturedDirector ? 'w-24 h-24' : 'w-20 h-20'
+                        } rounded-full object-cover border-2 border-white/70 shadow-md`}
                     />
                 ) : (
-                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/50">
-                        <span className="text-xl font-bold text-white">
-                            {staff.name.charAt(0)}
+                    <div
+                        className={`${
+                            isFeaturedDirector ? 'w-24 h-24' : 'w-20 h-20'
+                        } rounded-full bg-white/20 flex items-center justify-center border-2 border-white/50`}
+                    >
+                        <span className="text-2xl font-bold text-white">
+                            {person.name ? person.name.charAt(0) : '?'}
                         </span>
                     </div>
                 )}
             </div>
-            <CardContent className="p-4">
-                <h3 className="font-bold text-foreground text-sm">{staff.name}</h3>
-                <p className="text-xs text-accent font-medium">{staff.position}</p>
-                {staff.subject && <p className="text-xs text-muted-foreground mt-1">วิชา: {staff.subject}</p>}
-                {staff.department && <p className="text-xs text-muted-foreground">{staff.department}</p>}
-                <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="outline" onClick={() => handleOpenDialog(staff)} className="text-xs">
-                        <Edit className="w-3 h-3 mr-1" />
+            <CardContent className="p-4 text-center">
+                <h3 className="font-bold text-foreground text-base">{person.name}</h3>
+                <p className="text-xs text-accent font-semibold mt-0.5">{person.position}</p>
+                {person.subject && (
+                    <p className="text-xs text-muted-foreground mt-1">กลุ่มสาระ/วิชา: {person.subject}</p>
+                )}
+                {person.department && person.staff_type !== 'director' && (
+                    <p className="text-xs text-muted-foreground mt-0.5">ฝ่าย/งาน: {person.department}</p>
+                )}
+                {person.education && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{person.education}</p>
+                )}
+                {person.experience && person.staff_type !== 'director' && (
+                    <p className="text-xs text-muted-foreground mt-0.5">ประสบการณ์: {person.experience}</p>
+                )}
+                {person.quote && person.staff_type === 'director' && (
+                    <p className="text-xs text-muted-foreground italic mt-2 bg-secondary/60 p-2 rounded-lg">
+                        "{person.quote}"
+                    </p>
+                )}
+                <div className="flex gap-2 justify-center mt-4">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenDialog(person)}
+                        className="text-xs"
+                    >
+                        <Edit className="w-3.5 h-3.5 mr-1" />
                         แก้ไข
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(staff.id)} className="text-xs">
-                        <Trash2 className="w-3 h-3 mr-1" />
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(person)}
+                        className="text-xs"
+                    >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
                         ลบ
                     </Button>
                 </div>
@@ -251,153 +449,408 @@ export const StaffManagement = () => {
         </Card>
     );
 
+    if (loading) {
+        return (
+            <div className="p-8">
+                <div className="text-center py-12">
+                    <p className="text-muted-foreground">กำลังโหลดข้อมูลบุคลากร...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-8">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">จัดการบุคลากร</h1>
-                    <p className="text-muted-foreground mt-1">เพิ่ม แก้ไข หรือลบข้อมูลครูและบุคลากร</p>
+                    <h1 className="text-3xl font-bold text-foreground">จัดการทำเนียบบุคลากร</h1>
+                    <p className="text-muted-foreground mt-1">
+                        จัดเรียงการแสดงผล 3 แถว: แถวที่ 1 ผู้อำนวยการ • แถวที่ 2 ครูและบุคลากรทางการศึกษา • แถวที่ 3 บุคลากรสายสนับสนุน
+                    </p>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={() => handleOpenDialog()} className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            เพิ่มบุคลากร
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {editingStaff ? 'แก้ไขบุคลากร' : 'เพิ่มบุคลากรใหม่'}
-                            </DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="staff_type">ประเภทบุคลากร *</Label>
-                                <Select
-                                    value={formData.staff_type}
-                                    onValueChange={(value: 'teaching' | 'support') =>
-                                        setFormData({ ...formData, staff_type: value })
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="เลือกประเภท" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="teaching">ครูผู้สอน</SelectItem>
-                                        <SelectItem value="support">บุคลากรสนับสนุน</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
+                <Button onClick={() => handleOpenDialog()} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    เพิ่มบุคลากร
+                </Button>
+            </div>
+
+            <Dialog
+                open={isDialogOpen}
+                onOpenChange={(open) => {
+                    setIsDialogOpen(open);
+                    if (!open) setEditingItem(null);
+                }}
+            >
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingItem ? 'แก้ไขข้อมูลบุคลากร' : 'เพิ่มบุคลากรใหม่'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="staff_type">แถวที่แสดงผล / ประเภทบุคลากร *</Label>
+                            <Select
+                                value={formData.staff_type}
+                                onValueChange={(value: PersonnelType) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        staff_type: value,
+                                        position:
+                                            value === 'director' && !prev.position
+                                                ? 'ผู้อำนวยการโรงเรียน'
+                                                : prev.position,
+                                    }))
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="เลือกแถวที่แสดงผล" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="director">แถวที่ 1: ผู้อำนวยการ</SelectItem>
+                                    <SelectItem value="teaching">แถวที่ 2: ครูและบุคลากรทางการศึกษา</SelectItem>
+                                    <SelectItem value="support">แถวที่ 3: บุคลากรสายสนับสนุน</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="col-span-2 space-y-2">
                                 <Label htmlFor="name">ชื่อ-นามสกุล *</Label>
                                 <Input
                                     id="name"
                                     value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="นายสมชาย ใจดี"
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({ ...prev, name: e.target.value }))
+                                    }
+                                    placeholder="เช่น นายสมชาย ใจดี"
                                     required
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="position">ตำแหน่ง *</Label>
+                                <Label htmlFor="order_position">ลำดับที่</Label>
                                 <Input
-                                    id="position"
-                                    value={formData.position}
-                                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                                    placeholder="หัวหน้ากลุ่มสาระการเรียนรู้..."
-                                    required
+                                    id="order_position"
+                                    type="number"
+                                    min={1}
+                                    value={formData.order_position}
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            order_position: parseInt(e.target.value, 10) || 1,
+                                        }))
+                                    }
                                 />
                             </div>
-                            {formData.staff_type === 'teaching' && (
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="position">ตำแหน่ง *</Label>
+                            <Input
+                                id="position"
+                                value={formData.position}
+                                onChange={(e) =>
+                                    setFormData((prev) => ({ ...prev, position: e.target.value }))
+                                }
+                                placeholder={
+                                    formData.staff_type === 'director'
+                                        ? 'ผู้อำนวยการโรงเรียน'
+                                        : formData.staff_type === 'teaching'
+                                            ? 'ครูชำนาญการ / หัวหน้ากลุ่มสาระฯ'
+                                            : 'เจ้าหน้าที่ธุรการ / นักจัดการงานทั่วไป'
+                                }
+                                required
+                            />
+                        </div>
+
+                        {formData.staff_type === 'teaching' && (
+                            <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                    <Label htmlFor="subject">วิชาที่สอน</Label>
+                                    <Label htmlFor="subject">กลุ่มสาระ/วิชาที่สอน</Label>
                                     <Input
                                         id="subject"
                                         value={formData.subject}
-                                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                                        placeholder="ภาษาไทย"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({ ...prev, subject: e.target.value }))
+                                        }
+                                        placeholder="เช่น ภาษาไทย, คณิตศาสตร์"
                                     />
                                 </div>
-                            )}
-                            {formData.staff_type === 'support' && (
                                 <div className="space-y-2">
-                                    <Label htmlFor="department">แผนก/ฝ่าย</Label>
+                                    <Label htmlFor="department">ฝ่าย/แผนก (ถ้ามี)</Label>
                                     <Input
                                         id="department"
                                         value={formData.department}
-                                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                        placeholder="ฝ่ายบริหารทั่วไป"
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({ ...prev, department: e.target.value }))
+                                        }
+                                        placeholder="เช่น ฝ่ายวิชาการ"
                                     />
                                 </div>
-                            )}
+                            </div>
+                        )}
+
+                        {formData.staff_type === 'support' && (
                             <div className="space-y-2">
-                                <Label htmlFor="education">การศึกษา</Label>
+                                <Label htmlFor="department">แผนก/ฝ่ายงาน</Label>
                                 <Input
-                                    id="education"
-                                    value={formData.education}
-                                    onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                                    placeholder="ปริญญาโท ภาษาไทย"
+                                    id="department"
+                                    value={formData.department}
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({ ...prev, department: e.target.value }))
+                                    }
+                                    placeholder="เช่น ฝ่ายบริหารทั่วไป, งานธุรการ"
                                 />
                             </div>
+                        )}
+
+                        <div className="space-y-2">
+                            <Label htmlFor="education">วุฒิการศึกษา</Label>
+                            <Input
+                                id="education"
+                                value={formData.education}
+                                onChange={(e) =>
+                                    setFormData((prev) => ({ ...prev, education: e.target.value }))
+                                }
+                                placeholder="เช่น ปริญญาโท การบริหารการศึกษา"
+                            />
+                        </div>
+
+                        {formData.staff_type === 'director' ? (
                             <div className="space-y-2">
-                                <Label htmlFor="experience">ประสบการณ์</Label>
+                                <Label htmlFor="quote">คำคม / วิสัยทัศน์ผู้บริหาร</Label>
+                                <Input
+                                    id="quote"
+                                    value={formData.quote}
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({ ...prev, quote: e.target.value }))
+                                    }
+                                    placeholder="เช่น มุ่งพัฒนาผู้เรียนให้มีความรู้คู่คุณธรรม"
+                                />
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <Label htmlFor="experience">ประสบการณ์ทำงาน</Label>
                                 <Input
                                     id="experience"
                                     value={formData.experience}
-                                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                                    placeholder="15 ปี"
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({ ...prev, experience: e.target.value }))
+                                    }
+                                    placeholder="เช่น 10 ปี"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>รูปภาพ</Label>
-                                <ImageUpload
-                                    currentImage={formData.photo_url}
-                                    onUploadComplete={(url) => setFormData({ ...formData, photo_url: url })}
-                                    folder="staff"
-                                    maxSizeMB={5}
-                                    compressionPreset="profile"
-                                />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                                    ยกเลิก
-                                </Button>
-                                <Button type="submit">
-                                    {editingStaff ? 'บันทึก' : 'เพิ่ม'}
-                                </Button>
-                            </div>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                        )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-6">
+                        <div className="space-y-2">
+                            <Label>รูปภาพบุคลากร</Label>
+                            <ImageUpload
+                                currentImage={formData.photo_url}
+                                onUploadComplete={(url) =>
+                                    setFormData((prev) => ({ ...prev, photo_url: url }))
+                                }
+                                folder={formData.staff_type === 'director' ? 'administrators' : 'staff'}
+                                maxSizeMB={5}
+                                compressionPreset="profile"
+                            />
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsDialogOpen(false)}
+                                disabled={saving}
+                            >
+                                ยกเลิก
+                            </Button>
+                            <Button type="submit" disabled={saving}>
+                                {saving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        กำลังบันทึก...
+                                    </>
+                                ) : editingItem ? (
+                                    'บันทึกการแก้ไข'
+                                ) : (
+                                    'เพิ่มบุคลากร'
+                                )}
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+                <TabsList className="mb-6 flex-wrap h-auto gap-1">
+                    <TabsTrigger value="all" className="gap-2">
+                        <Layers className="w-4 h-4" />
+                        แสดงทั้งหมดตามลำดับแถว ({personnelList.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="director" className="gap-2">
+                        <Award className="w-4 h-4" />
+                        แถวที่ 1: ผู้อำนวยการ ({directors.length})
+                    </TabsTrigger>
                     <TabsTrigger value="teaching" className="gap-2">
                         <Users className="w-4 h-4" />
-                        ครูผู้สอน ({teachingStaff.length})
+                        แถวที่ 2: ครูและบุคลากรทางการศึกษา ({teachingStaff.length})
                     </TabsTrigger>
                     <TabsTrigger value="support" className="gap-2">
                         <Briefcase className="w-4 h-4" />
-                        บุคลากรสนับสนุน ({supportStaff.length})
+                        แถวที่ 3: บุคลากรสายสนับสนุน ({supportStaff.length})
                     </TabsTrigger>
                 </TabsList>
+
+                {/* แท็บแสดงผลรวมทั้ง 3 แถวตามลำดับ */}
+                <TabsContent value="all" className="space-y-10">
+                    {/* แถวที่ 1: ผู้อำนวยการ */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div className="flex items-center gap-3">
+                                <Badge className="bg-accent text-accent-foreground font-bold px-3 py-1">
+                                    แถวที่ 1
+                                </Badge>
+                                <h2 className="text-xl font-bold text-foreground">
+                                    ผู้อำนวยการสถานศึกษา ({directors.length})
+                                </h2>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenDialog(undefined, 'director')}
+                            >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                เพิ่มผู้อำนวยการ
+                            </Button>
+                        </div>
+                        {directors.length === 0 ? (
+                            <Card>
+                                <CardContent className="p-8 text-center text-muted-foreground">
+                                    ยังไม่มีข้อมูลในแถวที่ 1 (ผู้อำนวยการ)
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div
+                                className={
+                                    directors.length === 1
+                                        ? 'flex justify-center'
+                                        : 'grid md:grid-cols-2 lg:grid-cols-3 gap-6'
+                                }
+                            >
+                                {directors.map((d) => renderPersonnelCard(d, directors.length === 1))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* แถวที่ 2: ครูและบุคลากรทางการศึกษา */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div className="flex items-center gap-3">
+                                <Badge className="bg-primary text-primary-foreground font-bold px-3 py-1">
+                                    แถวที่ 2
+                                </Badge>
+                                <h2 className="text-xl font-bold text-foreground">
+                                    ครูและบุคลากรทางการศึกษา ({teachingStaff.length})
+                                </h2>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenDialog(undefined, 'teaching')}
+                            >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                เพิ่มครูและบุคลากรทางการศึกษา
+                            </Button>
+                        </div>
+                        {teachingStaff.length === 0 ? (
+                            <Card>
+                                <CardContent className="p-8 text-center text-muted-foreground">
+                                    ยังไม่มีข้อมูลในแถวที่ 2 (ครูและบุคลากรทางการศึกษา)
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {teachingStaff.map((s) => renderPersonnelCard(s))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* แถวที่ 3: บุคลากรสายสนับสนุน */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                            <div className="flex items-center gap-3">
+                                <Badge variant="secondary" className="font-bold px-3 py-1">
+                                    แถวที่ 3
+                                </Badge>
+                                <h2 className="text-xl font-bold text-foreground">
+                                    บุคลากรสายสนับสนุน ({supportStaff.length})
+                                </h2>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenDialog(undefined, 'support')}
+                            >
+                                <Plus className="w-3.5 h-3.5 mr-1" />
+                                เพิ่มบุคลากรสายสนับสนุน
+                            </Button>
+                        </div>
+                        {supportStaff.length === 0 ? (
+                            <Card>
+                                <CardContent className="p-8 text-center text-muted-foreground">
+                                    ยังไม่มีข้อมูลในแถวที่ 3 (บุคลากรสายสนับสนุน)
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {supportStaff.map((s) => renderPersonnelCard(s))}
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="director">
+                    {directors.length === 0 ? (
+                        <Card>
+                            <CardContent className="p-12 text-center">
+                                <Award className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                                <h3 className="text-xl font-semibold mb-2">ยังไม่มีข้อมูลผู้อำนวยการ</h3>
+                                <Button onClick={() => handleOpenDialog(undefined, 'director')}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    เพิ่มผู้อำนวยการ
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div
+                            className={
+                                directors.length === 1
+                                    ? 'flex justify-center'
+                                    : 'grid md:grid-cols-2 lg:grid-cols-3 gap-6'
+                            }
+                        >
+                            {directors.map((d) => renderPersonnelCard(d, directors.length === 1))}
+                        </div>
+                    )}
+                </TabsContent>
 
                 <TabsContent value="teaching">
                     {teachingStaff.length === 0 ? (
                         <Card>
                             <CardContent className="p-12 text-center">
                                 <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                                <h3 className="text-xl font-semibold mb-2">ยังไม่มีข้อมูลครูผู้สอน</h3>
-                                <p className="text-muted-foreground mb-4">เริ่มต้นเพิ่มครูผู้สอนได้เลย</p>
+                                <h3 className="text-xl font-semibold mb-2">
+                                    ยังไม่มีข้อมูลครูและบุคลากรทางการศึกษา
+                                </h3>
+                                <Button onClick={() => handleOpenDialog(undefined, 'teaching')}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    เพิ่มครูและบุคลากรทางการศึกษา
+                                </Button>
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {teachingStaff.map((staff) => (
-                                <StaffCard key={staff.id} staff={staff} />
-                            ))}
+                            {teachingStaff.map((staff) => renderPersonnelCard(staff))}
                         </div>
                     )}
                 </TabsContent>
@@ -407,15 +860,18 @@ export const StaffManagement = () => {
                         <Card>
                             <CardContent className="p-12 text-center">
                                 <Briefcase className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                                <h3 className="text-xl font-semibold mb-2">ยังไม่มีข้อมูลบุคลากรสนับสนุน</h3>
-                                <p className="text-muted-foreground mb-4">เริ่มต้นเพิ่มบุคลากรสนับสนุนได้เลย</p>
+                                <h3 className="text-xl font-semibold mb-2">
+                                    ยังไม่มีข้อมูลบุคลากรสายสนับสนุน
+                                </h3>
+                                <Button onClick={() => handleOpenDialog(undefined, 'support')}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    เพิ่มบุคลากรสายสนับสนุน
+                                </Button>
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {supportStaff.map((staff) => (
-                                <StaffCard key={staff.id} staff={staff} />
-                            ))}
+                            {supportStaff.map((staff) => renderPersonnelCard(staff))}
                         </div>
                     )}
                 </TabsContent>

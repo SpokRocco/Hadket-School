@@ -10,6 +10,7 @@ const navLinks = [
   { name: 'ข่าวประชาสัมพันธ์', href: '/news' },
   { name: 'จดหมายข่าว', href: '/newsletters' },
   { name: 'คลังสื่อการสอน', href: '/media-library' },
+  { name: 'สภานักเรียน', href: '/student-council' },
   { name: 'บุคลากร', href: '/staff' },
   { name: 'นักเรียน', href: '/students' },
   { name: 'หลักสูตร', href: '/curriculum' },
@@ -44,9 +45,17 @@ const Navbar = () => {
         <nav className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-accent font-bold text-xl">วค</span>
-            </div>
+            {settings.school_logo_url ? (
+              <img
+                src={settings.school_logo_url}
+                alt={settings.school_name}
+                className="w-12 h-12 rounded-full object-contain bg-white/90 p-0.5 shadow-sm"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-accent font-bold text-xl">{settings.school_short_name || 'วค'}</span>
+              </div>
+            )}
             <div className="hidden sm:block">
               <h1 className={`text-lg font-bold transition-colors ${scrolled || !isHomePage ? 'text-primary' : 'text-card'}`}>
                 {settings.school_name}

@@ -18,6 +18,10 @@ import { MessagesManagement } from '@/components/admin/messages/MessagesManageme
 import { UsersManagement } from '@/components/admin/users/UsersManagement';
 import { MediaLibraryManagement } from '@/components/admin/media/MediaLibraryManagement';
 import { NewslettersManagement } from '@/components/admin/newsletters/NewslettersManagement';
+import { LoginPortalsManagement } from '@/components/admin/portals/LoginPortalsManagement';
+import { ExecutivePortal } from '@/components/admin/portals/ExecutivePortal';
+import { TeacherPortal } from '@/components/admin/portals/TeacherPortal';
+import { SaphaPlusDashboard } from '@/components/admin/saphaplus/SaphaPlusDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,11 +36,16 @@ import {
   Shield,
   ShieldAlert,
   MonitorPlay,
+  Sparkles,
+  Link2,
+  BarChart3,
+  FolderKanban,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   getCurrentAdminUser,
   hasMenuPermission,
+  normalizeRole,
   ROLE_INFO,
 } from '@/utils/authUtils';
 
@@ -45,6 +54,7 @@ const AdminDashboard = () => {
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'dashboard';
   const currentUser = getCurrentAdminUser();
+  const normalizedRole = currentUser ? normalizeRole(currentUser.role) : 'admin';
 
   const [stats, setStats] = useState({
     news: 0,
@@ -94,7 +104,6 @@ const AdminDashboard = () => {
   };
 
   const renderTabContent = () => {
-    // ตรวจสอบสิทธิ์การเข้าถึงเมนู
     if (currentUser && !hasMenuPermission(currentUser, activeTab)) {
       return (
         <div className="p-8">
@@ -105,9 +114,11 @@ const AdminDashboard = () => {
               </div>
               <h3 className="text-xl font-semibold mb-2">ไม่มีสิทธิ์เข้าถึงส่วนนี้ (Access Denied)</h3>
               <p className="text-muted-foreground mb-6">
-                ระดับผู้ใช้งานของคุณ ({ROLE_INFO[currentUser.role]?.label || currentUser.role}) ไม่ได้รับอนุญาตให้เข้าถึงเมนูนี้
+                บทบาทผู้ใช้งานของคุณ ({ROLE_INFO[normalizedRole]?.label}) ไม่ได้รับอนุญาตให้เข้าถึงเมนูนี้
               </p>
-              <Button onClick={() => navigate('/admin/dashboard')}>กลับสู่หน้าแดชบอร์ด</Button>
+              <Button onClick={() => navigate(`/admin/dashboard?tab=${ROLE_INFO[normalizedRole].defaultTab}`)}>
+                กลับสู่หน้าหลักของคุณ
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -115,6 +126,18 @@ const AdminDashboard = () => {
     }
 
     switch (activeTab) {
+      case 'executive_view':
+        return <ExecutivePortal />;
+
+      case 'sapha_plus':
+        return <SaphaPlusDashboard />;
+
+      case 'teacher_workspace':
+        return <TeacherPortal />;
+
+      case 'login_portals':
+        return <LoginPortalsManagement />;
+
       case 'news':
         return <NewsManagement />;
 
@@ -167,6 +190,11 @@ const AdminDashboard = () => {
         return <NewslettersManagement />;
 
       case 'dashboard': {
+        // หากเป็น Executive, Teacher หรือ Sapha Plus เมื่อกดหน้าแดชบอร์ดหลัก ให้แสดงพอร์ทัลเฉพาะของบทบาทนั้นทันที
+        if (normalizedRole === 'executive') return <ExecutivePortal />;
+        if (normalizedRole === 'sapha_plus') return <SaphaPlusDashboard />;
+        if (normalizedRole === 'teacher') return <TeacherPortal />;
+
         const allStats = [
           { label: 'ข่าวประชาสัมพันธ์', value: stats.news, icon: Newspaper, color: 'bg-orange-500', tab: 'news' },
           { label: 'แกลเลอรี่', value: stats.gallery, icon: Image, color: 'bg-green-500', tab: 'gallery' },
@@ -177,18 +205,21 @@ const AdminDashboard = () => {
         ];
 
         const quickActions = [
-          { label: 'คลังสื่อการสอน', tab: 'media', icon: MonitorPlay, desc: 'เพิ่มลิงก์ Google Site' },
-          { label: 'ข่าวประชาสัมพันธ์', tab: 'news', icon: Newspaper, desc: 'เพิ่ม/แก้ไขข่าว' },
-          { label: 'จดหมายข่าว', tab: 'newsletters', icon: FileText, desc: 'ออกจดหมายข่าวโรงเรียน' },
-          { label: 'จัดการแกลเลอรี่', tab: 'gallery', icon: Image, desc: 'อัปโหลดรูปภาพ' },
-          { label: 'จัดการกิจกรรม', tab: 'events', icon: Calendar, desc: 'เพิ่มกิจกรรมปฏิทิน' },
+          { label: 'จัดการผู้ใช้ & สิทธิ์ (5 Roles)', tab: 'users', icon: Shield, desc: 'เพิ่มครู เจ้าหน้าที่ และสภา' },
+          { label: 'จัดการลิงก์ทางเข้า (Portals)', tab: 'login_portals', icon: Link2, desc: 'สร้าง/ยกเลิกลิงก์ล็อกอิน' },
+          { label: 'ระบบสภาพลัส (Sapha Plus)', tab: 'sapha_plus', icon: Sparkles, desc: 'โครงการและลิงก์สภานักเรียน' },
+          { label: 'รายงานผู้บริหาร (Executive)', tab: 'executive_view', icon: BarChart3, desc: 'ดูรายงานภาพรวมทั้งระบบ' },
+          { label: 'พื้นที่สื่อการสอนครู', tab: 'teacher_workspace', icon: FolderKanban, desc: 'คลังสื่อรายบุคคลของครู' },
+          { label: 'คลังสื่อรวม (Google Site)', tab: 'media', icon: MonitorPlay, desc: 'พอร์ทัล Google Site' },
+          { label: 'ข่าวประชาสัมพันธ์', tab: 'news', icon: Newspaper, desc: 'เพิ่ม/แก้ไขข่าวและประกาศ' },
+          { label: 'จดหมายข่าวโรงเรียน', tab: 'newsletters', icon: FileText, desc: 'ออกจดหมายข่าว A4' },
+          { label: 'จัดการแกลเลอรี่', tab: 'gallery', icon: Image, desc: 'อัปโหลดรูปภาพกิจกรรม' },
+          { label: 'ปฏิทินกิจกรรม', tab: 'events', icon: Calendar, desc: 'เพิ่มกิจกรรมโรงเรียน' },
           { label: 'ข้อมูลนักเรียน', tab: 'students', icon: GraduationCap, desc: 'สถิติและสภานักเรียน' },
-          { label: 'ใบสมัครเรียน', tab: 'admissions', icon: FileText, desc: 'ตรวจสอบผู้สมัคร' },
-          { label: 'ตั้งค่าโรงเรียน', tab: 'settings', icon: Settings, desc: 'แก้ไขข้อมูลทั่วไป' },
-          { label: 'จัดการผู้ใช้/สิทธิ์', tab: 'users', icon: Shield, desc: 'กำหนดสิทธิ์ Admin & Staff' },
+          { label: 'ตั้งค่าระบบโรงเรียน', tab: 'settings', icon: Settings, desc: 'แก้ไขข้อมูลทั่วไป' },
         ].filter((item) => !currentUser || hasMenuPermission(currentUser, item.tab));
 
-        const roleInfo = currentUser ? ROLE_INFO[currentUser.role] : ROLE_INFO.super_admin;
+        const roleInfo = ROLE_INFO[normalizedRole] || ROLE_INFO.admin;
 
         return (
           <div className="p-8">
@@ -197,17 +228,15 @@ const AdminDashboard = () => {
                 <h1 className="text-3xl font-bold text-foreground mb-1">
                   ยินดีต้อนรับ, {currentUser?.display_name || 'ผู้ดูแลระบบ'}
                 </h1>
-                <p className="text-muted-foreground">ภาพรวมข้อมูลและการจัดการในส่วนที่คุณรับผิดชอบ</p>
+                <p className="text-muted-foreground">{roleInfo.description}</p>
               </div>
-              {roleInfo && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${roleInfo.badgeClass}`}
-                  >
-                    ระดับสิทธิ์: {roleInfo.label}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs font-semibold px-3.5 py-1.5 rounded-full border ${roleInfo.badgeClass}`}
+                >
+                  บทบาท: {roleInfo.label}
+                </span>
+              </div>
             </div>
 
             {/* Stats Grid */}
@@ -247,18 +276,18 @@ const AdminDashboard = () => {
             {/* Quick Actions */}
             <Card>
               <CardContent className="p-8">
-                <h3 className="text-lg font-semibold mb-4">เมนูลัดที่คุณเข้าถึงได้</h3>
+                <h3 className="text-lg font-semibold mb-4">โมดูลบริหารจัดการที่คุณมีสิทธิ์เข้าถึง</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {quickActions.map((item) => (
                     <button
                       key={item.tab}
                       onClick={() => navigate(`/admin/dashboard?tab=${item.tab}`)}
-                      className="flex flex-col items-center gap-2 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors text-center"
+                      className="flex flex-col items-center gap-2 p-5 rounded-2xl bg-secondary hover:bg-secondary/80 border border-border/60 transition-all hover:-translate-y-0.5 text-center"
                     >
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                         <item.icon className="w-6 h-6 text-primary" />
                       </div>
-                      <span className="font-medium text-foreground">{item.label}</span>
+                      <span className="font-bold text-sm text-foreground">{item.label}</span>
                       <span className="text-xs text-muted-foreground">{item.desc}</span>
                     </button>
                   ))}

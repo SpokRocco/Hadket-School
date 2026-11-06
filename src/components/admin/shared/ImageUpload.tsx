@@ -130,6 +130,7 @@ export const ImageUpload = ({
                         className="w-full h-64 object-cover rounded-lg border-2 border-border"
                     />
                     <Button
+                        type="button"
                         variant="destructive"
                         size="icon"
                         className="absolute top-2 right-2"

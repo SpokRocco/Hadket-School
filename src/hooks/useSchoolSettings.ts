@@ -9,6 +9,8 @@ export interface SocialLink {
 export interface SchoolSettings {
     // ข้อมูลทั่วไป
     school_name: string;
+    school_short_name: string;
+    school_logo_url: string;
     school_tagline: string;
     school_description: string;
     school_vision: string;
@@ -81,6 +83,8 @@ export interface SchoolSettings {
 
 const defaultSettings: SchoolSettings = {
     school_name: 'โรงเรียนห้องสื่อครูคอมวิทยาคม',
+    school_short_name: 'วค',
+    school_logo_url: '',
     school_tagline: 'ก้าวสู่อนาคตด้วยปัญญา',
     school_description: 'สถาบันการศึกษาชั้นนำระดับมัธยมศึกษา มุ่งมั่นพัฒนาผู้เรียนให้มีความเป็นเลิศทางวิชาการ',
     school_vision: 'มุ่งมั่นพัฒนาผู้เรียนให้มีความเป็นเลิศทางวิชาการ มีคุณธรรม จริยธรรม',
@@ -189,6 +193,8 @@ export const useSchoolSettings = () => {
 
                 const newSettings: SchoolSettings = {
                     school_name: settingsMap.school_name || defaultSettings.school_name,
+                    school_short_name: settingsMap.school_short_name || defaultSettings.school_short_name,
+                    school_logo_url: settingsMap.school_logo_url || defaultSettings.school_logo_url,
                     school_tagline: settingsMap.school_tagline || defaultSettings.school_tagline,
                     school_description: settingsMap.school_description || defaultSettings.school_description,
                     school_vision: settingsMap.school_vision || defaultSettings.school_vision,

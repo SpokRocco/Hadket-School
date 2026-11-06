@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Settings, Save } from 'lucide-react';
+import { Settings, Save, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ImageUpload } from '@/components/admin/shared/ImageUpload';
 
 interface Setting {
     key: string;
@@ -78,6 +79,9 @@ export const SettingsManagement = () => {
                 if (error) throw error;
             }
 
+            // Clear cached settings so changes reflect immediately across the site
+            localStorage.removeItem('school_settings_cache');
+
             toast({
                 title: 'สำเร็จ',
                 description: 'บันทึกการตั้งค่าเรียบร้อยแล้ว',
@@ -126,6 +130,75 @@ export const SettingsManagement = () => {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <div className="grid md:grid-cols-2 gap-6 p-4 rounded-xl bg-secondary/40 border border-border">
+                            <div className="space-y-3">
+                                <Label className="flex items-center gap-2 font-semibold">
+                                    <ImageIcon className="w-4 h-4 text-primary" />
+                                    รูปโลโก้โรงเรียน
+                                </Label>
+                                <ImageUpload
+                                    currentImage={settings.school_logo_url || ''}
+                                    onUploadComplete={(url) => handleChange('school_logo_url', url)}
+                                    folder="school_logo"
+                                    compressionPreset="avatar"
+                                />
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="school_logo_url" className="text-xs text-muted-foreground">
+                                        หรือใส่ลิงก์รูปภาพโลโก้ (URL) โดยตรง
+                                    </Label>
+                                    <Input
+                                        id="school_logo_url"
+                                        value={settings.school_logo_url || ''}
+                                        onChange={(e) => handleChange('school_logo_url', e.target.value)}
+                                        placeholder="https://... หรือ /logo.png"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="school_short_name">อักษรย่อโรงเรียน (ใช้แสดงเมื่อไม่มีรูปโลโก้)</Label>
+                                    <Input
+                                        id="school_short_name"
+                                        value={settings.school_short_name || ''}
+                                        onChange={(e) => handleChange('school_short_name', e.target.value)}
+                                        placeholder="วค"
+                                        maxLength={6}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        หากไม่ได้อัปโหลดรูปโลโก้ ระบบจะแสดงวงกลมพร้อมตัวอักษรย่อนี้แทน
+                                    </p>
+                                </div>
+
+                                <div className="p-4 rounded-lg bg-card border border-border space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground">ตัวอย่างการแสดงผลบนแถบเมนู:</p>
+                                    <div className="flex items-center gap-3 p-2 rounded-lg bg-primary text-primary-foreground">
+                                        {settings.school_logo_url ? (
+                                            <img
+                                                src={settings.school_logo_url}
+                                                alt="Logo Preview"
+                                                className="w-12 h-12 rounded-full object-contain bg-white p-0.5 shadow-sm"
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
+                                                <span className="text-accent-foreground font-bold text-xl">
+                                                    {settings.school_short_name || 'วค'}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold truncate">
+                                                {settings.school_name || 'โรงเรียนห้องสื่อครูคอมวิทยาคม'}
+                                            </p>
+                                            <p className="text-xs text-primary-foreground/75 truncate">
+                                                {settings.school_tagline || 'ก้าวสู่อนาคตด้วยปัญญา'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="school_name">ชื่อโรงเรียน</Label>
                             <Input

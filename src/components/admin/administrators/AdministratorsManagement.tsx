@@ -93,18 +93,22 @@ export const AdministratorsManagement = () => {
         try {
             if (editingAdmin) {
                 // Update
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .from('administrators')
                     .update({
-                        name: formData.name,
-                        position: formData.position,
-                        education: formData.education,
-                        quote: formData.quote,
+                        name: formData.name.trim(),
+                        position: formData.position.trim(),
+                        education: formData.education.trim(),
+                        quote: formData.quote.trim(),
                         photo_url: formData.photo_url,
                     })
-                    .eq('id', editingAdmin.id);
+                    .eq('id', editingAdmin.id)
+                    .select();
 
                 if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error('ไม่สามารถอัปเดตข้อมูลผู้บริหารในฐานข้อมูลได้');
+                }
 
                 toast({
                     title: 'สำเร็จ',
@@ -256,7 +260,7 @@ export const AdministratorsManagement = () => {
                                 <Label>รูปภาพ</Label>
                                 <ImageUpload
                                     currentImage={formData.photo_url}
-                                    onUploadComplete={(url) => setFormData({ ...formData, photo_url: url })}
+                                    onUploadComplete={(url) => setFormData((prev) => ({ ...prev, photo_url: url }))}
                                     folder="administrators"
                                     maxSizeMB={5}
                                     compressionPreset="profile"
