@@ -222,12 +222,12 @@ const News = () => {
       {/* Hero Section */}
       <section className="bg-primary pt-28 pb-16">
         <div className="container mx-auto px-4 text-center">
-          <span className="inline-block text-accent font-semibold mb-4">ข่าวสารและกิจกรรม</span>
+          <span className="inline-block text-accent font-semibold mb-4">ข่าวประชาสัมพันธ์</span>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6">
-            ข่าวสาร<span className="text-accent">และกิจกรรม</span>
+            ข่าว<span className="text-accent">ประชาสัมพันธ์</span>
           </h1>
           <p className="text-xl text-primary-foreground/80 max-w-3xl mx-auto">
-            ติดตามข่าวสารและกิจกรรมต่างๆ ของโรงเรียนได้ที่นี่
+            ติดตามข่าวประชาสัมพันธ์ ประกาศ และกิจกรรมต่างๆ ของโรงเรียนได้ที่นี่
           </p>
         </div>
       </section>

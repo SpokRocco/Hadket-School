@@ -677,6 +677,153 @@ export type Database = {
                 }
                 Relationships: []
             }
+            newsletters: {
+                Row: {
+                    id: string
+                    issue_no: string
+                    academic_year: string
+                    issue_date: string
+                    title: string
+                    summary: string | null
+                    content: string | null
+                    category: string
+                    image_url: string | null
+                    file_url: string | null
+                    views: number
+                    is_published: boolean
+                    order_position: number
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    issue_no?: string
+                    academic_year?: string
+                    issue_date?: string
+                    title: string
+                    summary?: string | null
+                    content?: string | null
+                    category?: string
+                    image_url?: string | null
+                    file_url?: string | null
+                    views?: number
+                    is_published?: boolean
+                    order_position?: number
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    issue_no?: string
+                    academic_year?: string
+                    issue_date?: string
+                    title?: string
+                    summary?: string | null
+                    content?: string | null
+                    category?: string
+                    image_url?: string | null
+                    file_url?: string | null
+                    views?: number
+                    is_published?: boolean
+                    order_position?: number
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
+            media_resources: {
+                Row: {
+                    id: string
+                    teacher_name: string
+                    teacher_photo_url: string | null
+                    subject_department: string
+                    title: string
+                    description: string | null
+                    google_site_url: string
+                    grade_level: string | null
+                    badge_color: string
+                    views: number
+                    order_position: number
+                    is_active: boolean
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    teacher_name: string
+                    teacher_photo_url?: string | null
+                    subject_department?: string
+                    title: string
+                    description?: string | null
+                    google_site_url: string
+                    grade_level?: string | null
+                    badge_color?: string
+                    views?: number
+                    order_position?: number
+                    is_active?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    teacher_name?: string
+                    teacher_photo_url?: string | null
+                    subject_department?: string
+                    title?: string
+                    description?: string | null
+                    google_site_url?: string
+                    grade_level?: string | null
+                    badge_color?: string
+                    views?: number
+                    order_position?: number
+                    is_active?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
+            admin_users: {
+                Row: {
+                    id: string
+                    username: string
+                    password: string
+                    display_name: string
+                    email: string | null
+                    role: string
+                    permissions: string[]
+                    is_active: boolean
+                    last_login: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    username: string
+                    password: string
+                    display_name: string
+                    email?: string | null
+                    role?: string
+                    permissions?: string[]
+                    is_active?: boolean
+                    last_login?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    username?: string
+                    password?: string
+                    display_name?: string
+                    email?: string | null
+                    role?: string
+                    permissions?: string[]
+                    is_active?: boolean
+                    last_login?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never

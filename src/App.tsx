@@ -18,6 +18,8 @@ import Administrators from "./pages/Administrators";
 import Staff from "./pages/Staff";
 import Students from "./pages/Students";
 import Events from "./pages/Events";
+import MediaLibrary from "./pages/MediaLibrary";
+import Newsletters from "./pages/Newsletters";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +36,9 @@ const App = () => (
           <Route path="/staff" element={<Staff />} />
           <Route path="/students" element={<Students />} />
           <Route path="/curriculum" element={<Curriculum />} />
+          <Route path="/media-library" element={<MediaLibrary />} />
           <Route path="/news" element={<News />} />
+          <Route path="/newsletters" element={<Newsletters />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />

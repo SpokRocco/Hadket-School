@@ -461,12 +461,9 @@ ON administrators FOR ALL
 USING (true)
 WITH CHECK (true);
 
--- Insert default data
+-- Insert default data (Single School Director)
 INSERT INTO administrators (name, position, education, quote, order_position) VALUES
-('ดร.สมศักดิ์ วิทยาการ', 'ผู้อำนวยการโรงเรียน', 'ปริญญาเอก บริหารการศึกษา', 'การศึกษาคือกุญแจสู่อนาคตที่สดใส', 1),
-('นางสาวประภา สุขสวัสดิ์', 'รองผู้อำนวยการฝ่ายวิชาการ', 'ปริญญาโท หลักสูตรและการสอน', 'มุ่งมั่นพัฒนาคุณภาพการเรียนการสอน', 2),
-('นายวิชัย บุญมี', 'รองผู้อำนวยการฝ่ายบริหาร', 'ปริญญาโท บริหารธุรกิจ', 'บริหารด้วยความโปร่งใสและมีประสิทธิภาพ', 3),
-('นางรัชนี แสงทอง', 'รองผู้อำนวยการฝ่ายกิจการนักเรียน', 'ปริญญาโท จิตวิทยาการศึกษา', 'ดูแลนักเรียนด้วยหัวใจ', 4);
+('ดร.สมศักดิ์ วิทยาการ', 'ผู้อำนวยการโรงเรียน', 'ปริญญาเอก บริหารการศึกษา', 'การศึกษาคือกุญแจสู่อนาคตที่สดใส มุ่งพัฒนาผู้เรียนให้มีความรู้คู่คุณธรรม', 1);
 -- Drop existing table (CASCADE will drop policies automatically)
 DROP TABLE IF EXISTS staff CASCADE;
 
@@ -915,3 +912,233 @@ BEGIN
   WHERE id = news_id;
 END;
 $$;
+
+
+-- =============================================
+-- 011_admin_users_roles.sql
+-- Admin & Staff Users with Role Levels & Custom Permissions
+-- =============================================
+
+DROP TABLE IF EXISTS public.admin_users CASCADE;
+
+CREATE TABLE public.admin_users (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  password TEXT NOT NULL,
+  display_name VARCHAR(200) NOT NULL,
+  email VARCHAR(200),
+  role VARCHAR(30) NOT NULL DEFAULT 'staff' CHECK (role IN ('super_admin', 'admin', 'staff')),
+  permissions TEXT[] NOT NULL DEFAULT ARRAY['dashboard', 'media', 'news', 'gallery', 'events', 'students', 'admissions'],
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  last_login TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.admin_users IS 'ตารางเก็บข้อมูลบัญชีผู้ใช้งานระบบหลังบ้าน (Admin & Staff) และสิทธิ์การเข้าถึงเมนู';
+COMMENT ON COLUMN public.admin_users.role IS 'ระดับผู้ใช้งาน: super_admin (Level 3), admin (Level 2), staff (Level 1)';
+COMMENT ON COLUMN public.admin_users.permissions IS 'รายการเมนูที่อนุญาตให้เข้าถึง (Array ของ menu id)';
+
+-- Enable RLS
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow full access for admin_users" ON public.admin_users;
+CREATE POLICY "Allow full access for admin_users"
+  ON public.admin_users
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_admin_users_updated_at ON public.admin_users;
+CREATE TRIGGER update_admin_users_updated_at
+  BEFORE UPDATE ON public.admin_users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Insert default Admin & Staff accounts
+INSERT INTO public.admin_users (username, password, display_name, email, role, permissions, is_active) VALUES
+  (
+    'admin',
+    'admin123',
+    'ผู้ดูแลระบบสูงสุด (Super Admin)',
+    'admin@school.ac.th',
+    'super_admin',
+    ARRAY['dashboard', 'media', 'news', 'gallery', 'events', 'students', 'admissions', 'staff', 'administrators', 'curriculum', 'activities', 'milestones', 'facilities', 'messages', 'faq', 'settings', 'users'],
+    true
+  ),
+  (
+    'staff',
+    'staff123',
+    'เจ้าหน้าที่และคณะครู (Staff)',
+    'staff@school.ac.th',
+    'staff',
+    ARRAY['dashboard', 'media', 'news', 'gallery', 'events', 'students', 'admissions'],
+    true
+  )
+ON CONFLICT (username) DO NOTHING;
+
+-- =============================================
+-- 012_media_resources.sql
+-- Teacher Media Repository (Google Sites Link Panel)
+-- =============================================
+
+DROP TABLE IF EXISTS public.media_resources CASCADE;
+
+CREATE TABLE public.media_resources (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  teacher_name VARCHAR(200) NOT NULL,
+  teacher_photo_url TEXT,
+  subject_department VARCHAR(150) NOT NULL DEFAULT 'ภาษาไทย',
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  google_site_url TEXT NOT NULL,
+  grade_level VARCHAR(100) DEFAULT 'ทุกระดับชั้น',
+  badge_color VARCHAR(50) DEFAULT 'blue',
+  views INTEGER NOT NULL DEFAULT 0,
+  order_position INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.media_resources IS 'ตารางเก็บลิงก์คลังสื่อการสอน (Google Sites) ของครูแต่ละคน';
+
+ALTER TABLE public.media_resources ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow full access for media_resources" ON public.media_resources;
+CREATE POLICY "Allow full access for media_resources"
+  ON public.media_resources
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+DROP TRIGGER IF EXISTS update_media_resources_updated_at ON public.media_resources;
+CREATE TRIGGER update_media_resources_updated_at
+  BEFORE UPDATE ON public.media_resources
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+INSERT INTO public.media_resources (teacher_name, subject_department, title, description, google_site_url, grade_level, badge_color, views, order_position) VALUES
+  (
+    'นายสมชาย ใจดี',
+    'ภาษาไทย',
+    'คลังสื่อการสอนภาษาไทยและวรรณคดีไทย',
+    'รวมบทเรียนออนไลน์ ใบงาน วิดีโอสอนหลักภาษาไทย และการอ่านคิดวิเคราะห์',
+    'https://sites.google.com/',
+    'ม.1 - ม.6',
+    'blue',
+    128,
+    1
+  ),
+  (
+    'นางสาวสุภา รักเรียน',
+    'คณิตศาสตร์',
+    'ห้องเรียนคณิตศาสตร์ออนไลน์ (Math Google Site)',
+    'สรุปสูตรคณิตศาสตร์ แบบฝึกหัดพร้อมเฉลยละเอียด และข้อสอบติว O-NET / A-Level',
+    'https://sites.google.com/',
+    'ม.1 - ม.6',
+    'emerald',
+    245,
+    2
+  ),
+  (
+    'นายวิทยา ฉลาดคิด',
+    'วิทยาศาสตร์และเทคโนโลยี',
+    'คลังสื่อวิทยาศาสตร์และเทคโนโลยีดิจิทัล (Sci-Tech Portal)',
+    'สื่อการทดลองเสมือนจริง โครงงานวิทยาศาสตร์ และการเขียนโปรแกรมเบื้องต้น',
+    'https://sites.google.com/',
+    'ทุกระดับชั้น',
+    'purple',
+    310,
+    3
+  ),
+  (
+    'นางภาวินี สุขสม',
+    'ภาษาต่างประเทศ',
+    'English & Foreign Languages Learning Center',
+    'คลังคำศัพท์ บทสนทนาภาษาอังกฤษ สื่อฝึกฟัง-พูด และแบบทดสอบออนไลน์',
+    'https://sites.google.com/',
+    'ม.1 - ม.6',
+    'rose',
+    189,
+    4
+  );
+
+
+-- =============================================
+-- 013_newsletters.sql
+-- School Newsletters (จดหมายข่าวประชาสัมพันธ์)
+-- =============================================
+
+DROP TABLE IF EXISTS public.newsletters CASCADE;
+
+CREATE TABLE public.newsletters (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  issue_no VARCHAR(50) NOT NULL DEFAULT '01',
+  academic_year VARCHAR(20) NOT NULL DEFAULT '2568',
+  issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  title VARCHAR(255) NOT NULL,
+  summary TEXT,
+  content TEXT,
+  category VARCHAR(100) NOT NULL DEFAULT 'กิจกรรมสถานศึกษา',
+  image_url TEXT,
+  file_url TEXT,
+  views INTEGER NOT NULL DEFAULT 0,
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  order_position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.newsletters IS 'ตารางเก็บจดหมายข่าวประชาสัมพันธ์ของโรงเรียน (School Newsletter)';
+
+ALTER TABLE public.newsletters ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow full access for newsletters" ON public.newsletters;
+CREATE POLICY "Allow full access for newsletters"
+  ON public.newsletters
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+DROP TRIGGER IF EXISTS update_newsletters_updated_at ON public.newsletters;
+CREATE TRIGGER update_newsletters_updated_at
+  BEFORE UPDATE ON public.newsletters
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+INSERT INTO public.newsletters (issue_no, academic_year, issue_date, title, summary, content, category, views, order_position) VALUES
+  (
+    '01',
+    '2568',
+    CURRENT_DATE,
+    'กิจกรรมปฐมนิเทศนักเรียนใหม่ และประชุมผู้ปกครองประจำภาคเรียนที่ 1',
+    'ผู้อำนวยการโรงเรียนเป็นประธานในพิธีปฐมนิเทศนักเรียนใหม่ พร้อมชี้แจงนโยบายการจัดการศึกษาและแนวทางการพัฒนาผู้เรียนร่วมกับผู้ปกครอง',
+    'ทางโรงเรียนได้จัดกิจกรรมปฐมนิเทศนักเรียนใหม่และประชุมผู้ปกครองประจำภาคเรียนที่ 1 เพื่อสร้างความเข้าใจอันดีระหว่างบ้านและโรงเรียน พร้อมแนะนำคณะครูประจำชั้นและแนวทางการส่งเสริมการเรียนรู้ในยุคดิจิทัล',
+    'กิจกรรมสถานศึกษา',
+    156,
+    1
+  ),
+  (
+    '02',
+    '2568',
+    CURRENT_DATE,
+    'การอบรมเชิงปฏิบัติการพัฒนาสื่อการสอนออนไลน์ด้วยเทคโนโลยีดิจิทัลและ AI',
+    'คณะครูเข้าร่วมการอบรมพัฒนาคลังสื่อการสอนออนไลน์ (Google Sites) เพื่อยกระดับการจัดการเรียนรู้ในศตวรรษที่ 21',
+    'คณะครูทุกกลุ่มสาระการเรียนรู้เข้าร่วมกิจกรรมพัฒนาวิชาชีพ (PLC) ในการสร้างและพัฒนาคลังสื่อการสอนออนไลน์ เพื่อให้นักเรียนสามารถทบทวนบทเรียนได้ทุกที่ทุกเวลา',
+    'งานวิชาการ',
+    142,
+    2
+  ),
+  (
+    '03',
+    '2568',
+    CURRENT_DATE,
+    'ขอแสดงความยินดีกับนักเรียนที่ได้รับรางวัลชนะเลิศการแข่งขันทักษะวิชาการ',
+    'ตัวแทนนักเรียนคว้ารางวัลเหรียญทองจากการแข่งขันทักษะวิชาการระดับเขตพื้นที่การศึกษา สร้างชื่อเสียงและความภาคภูมิใจให้แก่โรงเรียน',
+    'โรงเรียนขอแสดงความยินดีกับนักเรียนและครูผู้ฝึกซ้อมที่ได้รับรางวัลเหรียญทองชนะเลิศจากการแข่งขันทักษะวิชาการ เป็นแบบอย่างที่ดีด้านความมุ่งมั่นตั้งใจศึกษาเล่าเรียน',
+    'ผลงานและความภูมิใจ',
+    218,
+    3
+  );

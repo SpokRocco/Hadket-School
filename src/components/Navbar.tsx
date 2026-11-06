@@ -7,13 +7,14 @@ import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 const navLinks = [
   { name: 'หน้าแรก', href: '/' },
   { name: 'เกี่ยวกับเรา', href: '/about' },
-  { name: 'ผู้บริหาร', href: '/administrators' },
+  { name: 'ข่าวประชาสัมพันธ์', href: '/news' },
+  { name: 'จดหมายข่าว', href: '/newsletters' },
+  { name: 'คลังสื่อการสอน', href: '/media-library' },
   { name: 'บุคลากร', href: '/staff' },
   { name: 'นักเรียน', href: '/students' },
   { name: 'หลักสูตร', href: '/curriculum' },
   { name: 'แกลเลอรี่', href: '/gallery' },
   { name: 'ปฏิทิน', href: '/calendar' },
-  { name: 'ข่าวสาร', href: '/news' },
   { name: 'ติดต่อ', href: '/contact' },
 ];
 
@@ -57,12 +58,12 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-0.5">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 to={link.href}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:bg-accent/20 ${location.pathname === link.href
+                className={`px-2.5 py-2 text-sm whitespace-nowrap rounded-lg font-medium transition-all duration-200 hover:bg-accent/20 ${location.pathname === link.href
                   ? 'bg-primary text-primary-foreground shadow-md font-bold'
                   : scrolled || !isHomePage
                     ? 'text-foreground hover:text-primary'

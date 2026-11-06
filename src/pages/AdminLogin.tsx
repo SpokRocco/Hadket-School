@@ -6,6 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, User, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  AdminUser,
+  DEFAULT_ROLE_PERMISSIONS,
+  ROLE_INFO,
+  setCurrentAdminUser,
+} from '@/utils/authUtils';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
@@ -18,37 +25,125 @@ const AdminLogin = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Demo login - ในระบบจริงต้องเชื่อมต่อกับ Backend
-    setTimeout(() => {
-      if (username === 'admin' && password === 'admin123') {
-        sessionStorage.setItem('adminLoggedIn', 'true');
+    try {
+      const trimmedUsername = username.trim();
+
+      // 1. ตรวจสอบจากตาราง admin_users ในฐานข้อมูล Supabase
+      const { data: dbUser, error } = await (supabase as any)
+        .from('admin_users')
+        .select('*')
+        .eq('username', trimmedUsername)
+        .eq('password', password)
+        .maybeSingle();
+
+      if (!error && dbUser) {
+        if (!dbUser.is_active) {
+          toast({
+            title: 'บัญชีถูกระงับการใช้งาน',
+            description: 'กรุณาติดต่อผู้ดูแลระบบสูงสุด (Super Admin)',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // อัปเดตเวลาเข้าสู่ระบบล่าสุด
+        await (supabase as any)
+          .from('admin_users')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', dbUser.id);
+
+        const loggedInUser: AdminUser = {
+          id: dbUser.id,
+          username: dbUser.username,
+          display_name: dbUser.display_name,
+          email: dbUser.email,
+          role: dbUser.role,
+          permissions: Array.isArray(dbUser.permissions)
+            ? dbUser.permissions
+            : DEFAULT_ROLE_PERMISSIONS[dbUser.role as keyof typeof DEFAULT_ROLE_PERMISSIONS] || DEFAULT_ROLE_PERMISSIONS.staff,
+          is_active: dbUser.is_active,
+          last_login: new Date().toISOString(),
+        };
+
+        setCurrentAdminUser(loggedInUser);
         toast({
           title: 'เข้าสู่ระบบสำเร็จ',
-          description: 'ยินดีต้อนรับเข้าสู่ระบบจัดการ',
+          description: `ยินดีต้อนรับ ${loggedInUser.display_name} (${ROLE_INFO[loggedInUser.role]?.label || loggedInUser.role})`,
         });
         navigate('/admin/dashboard');
-      } else {
-        toast({
-          title: 'เข้าสู่ระบบไม่สำเร็จ',
-          description: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
-          variant: 'destructive',
-        });
+        return;
       }
+
+      // 2. Fallback กรณีที่ยังไม่ได้รัน SQL สร้างตาราง admin_users หรือใช้บัญชีเริ่มต้น
+      if (error || !dbUser) {
+        if (trimmedUsername === 'admin' && password === 'admin123') {
+          const fallbackAdmin: AdminUser = {
+            id: 'default-super-admin',
+            username: 'admin',
+            display_name: 'ผู้ดูแลระบบสูงสุด',
+            email: 'admin@school.ac.th',
+            role: 'super_admin',
+            permissions: DEFAULT_ROLE_PERMISSIONS.super_admin,
+            is_active: true,
+          };
+          setCurrentAdminUser(fallbackAdmin);
+          toast({
+            title: 'เข้าสู่ระบบสำเร็จ',
+            description: `ยินดีต้อนรับ ${fallbackAdmin.display_name} (${ROLE_INFO.super_admin.label})`,
+          });
+          navigate('/admin/dashboard');
+          return;
+        }
+
+        if (trimmedUsername === 'staff' && password === 'staff123') {
+          const fallbackStaff: AdminUser = {
+            id: 'default-staff',
+            username: 'staff',
+            display_name: 'เจ้าหน้าที่ประชาสัมพันธ์และทะเบียน',
+            email: 'staff@school.ac.th',
+            role: 'staff',
+            permissions: DEFAULT_ROLE_PERMISSIONS.staff,
+            is_active: true,
+          };
+          setCurrentAdminUser(fallbackStaff);
+          toast({
+            title: 'เข้าสู่ระบบสำเร็จ',
+            description: `ยินดีต้อนรับ ${fallbackStaff.display_name} (${ROLE_INFO.staff.label})`,
+          });
+          navigate('/admin/dashboard');
+          return;
+        }
+      }
+
+      toast({
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        description: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+        variant: 'destructive',
+      });
+    } catch (err) {
+      console.error('Login error:', err);
+      toast({
+        title: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',
+        description: 'กรุณาลองใหม่อีกครั้ง',
+        variant: 'destructive',
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-      
+
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-0">
         <CardHeader className="text-center pb-2">
           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary flex items-center justify-center">
             <span className="text-accent font-bold text-2xl">วค</span>
           </div>
           <CardTitle className="text-2xl text-primary">ระบบจัดการโรงเรียน</CardTitle>
-          <CardDescription>กรุณาเข้าสู่ระบบเพื่อจัดการข้อมูล</CardDescription>
+          <CardDescription>กรุณาเข้าสู่ระบบสำหรับ Admin และ Staff</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -59,7 +154,7 @@ const AdminLogin = () => {
                 <Input
                   id="username"
                   type="text"
-                  placeholder="กรอกชื่อผู้ใช้"
+                  placeholder="กรอกชื่อผู้ใช้ (เช่น admin หรือ staff)"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10"
@@ -86,7 +181,7 @@ const AdminLogin = () => {
               {isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </Button>
           </form>
-          
+
           <div className="mt-6 text-center">
             <button
               onClick={() => navigate('/')}
@@ -97,9 +192,12 @@ const AdminLogin = () => {
             </button>
           </div>
 
-          <div className="mt-4 p-3 bg-secondary rounded-lg">
+          <div className="mt-4 p-3 bg-secondary rounded-lg space-y-1">
             <p className="text-xs text-center text-muted-foreground">
-              <strong>Demo:</strong> ชื่อผู้ใช้: admin | รหัสผ่าน: admin123
+              <strong>Super Admin (Level 3):</strong> admin | รหัสผ่าน: admin123
+            </p>
+            <p className="text-xs text-center text-muted-foreground">
+              <strong>Staff (Level 1):</strong> staff | รหัสผ่าน: staff123
             </p>
           </div>
         </CardContent>

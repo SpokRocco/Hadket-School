@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import AdministratorsSection from '@/components/AdministratorsSection';
 import { Target, Eye, Heart, Star, Users, Award, BookOpen, GraduationCap, Building2, History, LucideIcon, Dumbbell, Monitor, FlaskConical } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,6 +104,9 @@ const About = () => {
             </p>
           </div>
         </section>
+
+        {/* School Director Featured at Top of About Us */}
+        <AdministratorsSection />
 
         {/* Vision Mission Section */}
         <section className="section-padding bg-background">

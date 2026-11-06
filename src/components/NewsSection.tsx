@@ -88,9 +88,9 @@ const NewsSection = () => {
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
           <div>
-            <span className="inline-block text-accent font-semibold mb-4">ข่าวสารและกิจกรรม</span>
+            <span className="inline-block text-accent font-semibold mb-4">ข่าวประชาสัมพันธ์</span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">
-              <span className="text-primary">ข่าวสาร</span>ล่าสุด
+              <span className="text-primary">ข่าวประชาสัมพันธ์</span>ล่าสุด
             </h2>
           </div>
           <Button
