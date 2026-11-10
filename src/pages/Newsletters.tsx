@@ -136,14 +136,11 @@ const Newsletters = () => {
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        setNewsletters(data);
-      } else {
-        setNewsletters(DEFAULT_NEWSLETTERS);
-      }
+      // Always use data from DB if available (even empty array means user deleted all items)
+      setNewsletters(data || []);
     } catch (error) {
       console.error('Error fetching newsletters:', error);
-      setNewsletters(DEFAULT_NEWSLETTERS);
+      setNewsletters([]);
     } finally {
       setLoading(false);
     }

@@ -189,10 +189,16 @@ export const NewslettersManagement = () => {
     if (!confirm(`ต้องการลบจดหมายข่าว "${title}" หรือไม่?`)) return;
 
     try {
-      const { error } = await (supabase as any)
+      const itemToDelete = newsletters.find((n) => n.id === id);
+      if (itemToDelete?.image_url) {
+        await deleteStorageImage(itemToDelete.image_url);
+      }
+
+      const { data, error } = await (supabase as any)
         .from('newsletters')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select();
 
       if (error) throw error;
 
@@ -206,7 +212,7 @@ export const NewslettersManagement = () => {
       toast({
         variant: 'destructive',
         title: 'เกิดข้อผิดพลาด',
-        description: 'ไม่สามารถลบจดหมายข่าวได้',
+        description: error.message || 'ไม่สามารถลบจดหมายข่าวได้',
       });
     }
   };

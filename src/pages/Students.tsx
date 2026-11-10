@@ -157,7 +157,7 @@ const Students = () => {
                 จำนวนนักเรียนแยกตามระดับชั้น
               </h2>
               <p className="text-muted-foreground">
-                ข้อมูลจำนวนนักเรียนในแต่ละระดับชั้น ปีการศึกษา 2567
+                ข้อมูลจำนวนนักเรียนในแต่ละระดับชั้น
               </p>
             </div>
 
@@ -182,13 +182,29 @@ const Students = () => {
                       <td className="px-6 py-4 text-center text-primary font-bold">{grade.students}</td>
                     </tr>
                   ))}
-                  <tr className="bg-secondary/50 font-bold">
-                    <td className="px-6 py-4 text-foreground">รวมทั้งหมด</td>
-                    <td className="px-6 py-4 text-center text-muted-foreground">36</td>
-                    <td className="px-6 py-4 text-center text-blue-500">623</td>
-                    <td className="px-6 py-4 text-center text-pink-500">627</td>
-                    <td className="px-6 py-4 text-center text-primary">1,250</td>
-                  </tr>
+                  {gradeData.length > 0 ? (
+                    <tr className="bg-secondary/50 font-bold border-t-2 border-border">
+                      <td className="px-6 py-4 text-foreground">รวมทั้งหมด</td>
+                      <td className="px-6 py-4 text-center text-muted-foreground">
+                        {gradeData.reduce((sum, g) => sum + (Number(g.rooms) || 0), 0)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-blue-500">
+                        {gradeData.reduce((sum, g) => sum + (Number(g.boys) || 0), 0)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-pink-500">
+                        {gradeData.reduce((sum, g) => sum + (Number(g.girls) || 0), 0)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-primary">
+                        {gradeData.reduce((sum, g) => sum + (Number(g.students) || 0), 0)}
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                        ยังไม่มีข้อมูลจำนวนนักเรียน
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

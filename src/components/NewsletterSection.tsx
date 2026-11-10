@@ -37,19 +37,15 @@ const NewsletterSection = () => {
         .limit(3);
 
       if (error) throw error;
-      if (data && data.length > 0) {
-        setNewsletters(data);
-      } else {
-        setNewsletters(DEFAULT_NEWSLETTERS.slice(0, 3));
-      }
+      setNewsletters(data || []);
     } catch {
-      setNewsletters(DEFAULT_NEWSLETTERS.slice(0, 3));
+      setNewsletters([]);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return null;
+  if (loading || newsletters.length === 0) return null;
 
   return (
     <section id="newsletters" className="section-padding bg-secondary/30">
