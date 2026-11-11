@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,56 +37,14 @@ interface CouncilMember {
   order_position: number;
 }
 
-const DEFAULT_COUNCIL_MEMBERS: CouncilMember[] = [
-  {
-    id: 'sc-1',
-    name: 'นายประสิทธิ์ เก่งมาก',
-    position: 'ประธานสภานักเรียน',
-    class: 'ม.6/1',
-    initial: 'ป',
-    image_url: null,
-    order_position: 1,
-  },
-  {
-    id: 'sc-2',
-    name: 'นางสาวสุดา รักเรียน',
-    position: 'รองประธานสภานักเรียนฝ่ายบริหาร',
-    class: 'ม.6/2',
-    initial: 'ส',
-    image_url: null,
-    order_position: 2,
-  },
-  {
-    id: 'sc-3',
-    name: 'นายวิชัย ใจดี',
-    position: 'เลขานุการสภานักเรียน',
-    class: 'ม.5/1',
-    initial: 'ว',
-    image_url: null,
-    order_position: 3,
-  },
-  {
-    id: 'sc-4',
-    name: 'นางสาวกานดา พัฒนา',
-    position: 'หัวหน้าฝ่ายประชาสัมพันธ์ (Sapha Plus)',
-    class: 'ม.5/2',
-    initial: 'ก',
-    image_url: null,
-    order_position: 4,
-  },
-];
-
 const StudentCouncil = () => {
   const { settings } = useSchoolSettings();
-  const [members, setMembers] = useState<CouncilMember[]>(DEFAULT_COUNCIL_MEMBERS);
+  const [members, setMembers] = useState<CouncilMember[]>([]);
   const [projects, setProjects] = useState<SaphaProject[]>([]);
   const [links, setLinks] = useState<SaphaSystemLink[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
 
-  useEffect(() => {
-    loadCouncilData();
-  }, []);
-
-  const loadCouncilData = async () => {
+  const loadCouncilData = useCallback(async () => {
     setProjects(getLocalSaphaProjects());
     setLinks(getLocalSaphaLinks().filter((l) => l.is_active));
 
@@ -108,8 +66,8 @@ const StudentCouncil = () => {
           .order('order_position', { ascending: true }),
       ]);
 
-      if (membersRes.data && membersRes.data.length > 0) {
-        setMembers(membersRes.data);
+      if (!membersRes.error) {
+        setMembers(membersRes.data || []);
       }
       if (!projRes.error && Array.isArray(projRes.data) && projRes.data.length > 0) {
         setProjects(projRes.data);
@@ -118,9 +76,20 @@ const StudentCouncil = () => {
         setLinks(linkRes.data);
       }
     } catch {
-      // Uses localStorage & default data fallback
+      // Fallback safely without fake high-school members
+    } finally {
+      setLoadingMembers(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCouncilData();
+    return subscribeToRealtimeTables(
+      'realtime_student_council_page',
+      ['student_council', 'sapha_projects', 'sapha_links'],
+      loadCouncilData
+    );
+  }, [loadCouncilData]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -260,39 +229,61 @@ const StudentCouncil = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-              {members.map((member) => (
-                <Card
-                  key={member.id}
-                  className="overflow-hidden border border-border hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-center"
-                >
-                  <div className="h-24 bg-gradient-to-r from-primary via-indigo-800 to-violet-800 relative" />
-                  <CardContent className="p-6 pt-0">
-                    <div className="-mt-12 mb-4 flex justify-center relative z-10">
-                      {member.image_url ? (
-                        <img
-                          src={member.image_url}
-                          alt={member.name}
-                          className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-lg bg-card"
-                        />
-                      ) : (
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 border-4 border-card shadow-lg flex items-center justify-center text-slate-950 font-extrabold text-3xl">
-                          {member.initial || member.name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
+            {loadingMembers ? (
+              <div className="text-center py-10 text-muted-foreground">
+                กำลังโหลดข้อมูลคณะกรรมการสภานักเรียน...
+              </div>
+            ) : members.length === 0 ? (
+              <div className="max-w-xl mx-auto bg-card rounded-2xl p-8 text-center border border-border shadow-sm">
+                <Users className="w-10 h-10 text-primary/70 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-foreground mb-1">
+                  ยังไม่มีรายชื่อคณะกรรมการสภานักเรียนในฐานข้อมูล
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  ผู้ดูแลระบบสามารถเพิ่มรายชื่อคณะกรรมการสภานักเรียนของ {settings.school_name} ได้ที่เมนูจัดการข้อมูลนักเรียน
+                </p>
+                <Link to="/admin/dashboard?tab=students">
+                  <Button variant="outline" size="sm">
+                    จัดการข้อมูลสภานักเรียน
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {members.map((member) => (
+                  <Card
+                    key={member.id}
+                    className="overflow-hidden border border-border hover:shadow-xl transition-all duration-300 hover:-translate-y-1 text-center"
+                  >
+                    <div className="h-24 bg-gradient-to-r from-primary via-indigo-800 to-violet-800 relative" />
+                    <CardContent className="p-6 pt-0">
+                      <div className="-mt-12 mb-4 flex justify-center relative z-10">
+                        {member.image_url ? (
+                          <img
+                            src={member.image_url}
+                            alt={member.name}
+                            referrerPolicy="no-referrer"
+                            className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-lg bg-card"
+                          />
+                        ) : (
+                          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 border-4 border-card shadow-lg flex items-center justify-center text-slate-950 font-extrabold text-3xl">
+                            {member.initial || member.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
 
-                    <h3 className="text-lg font-bold text-foreground mb-1">{member.name}</h3>
-                    <p className="text-sm font-semibold text-violet-600 mb-2">{member.position}</p>
-                    {member.class && (
-                      <Badge variant="secondary" className="text-xs">
-                        ชั้น {member.class}
-                      </Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <h3 className="text-lg font-bold text-foreground mb-1">{member.name}</h3>
+                      <p className="text-sm font-semibold text-violet-600 mb-2">{member.position}</p>
+                      {member.class && (
+                        <Badge variant="secondary" className="text-xs">
+                          ชั้น {member.class}
+                        </Badge>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

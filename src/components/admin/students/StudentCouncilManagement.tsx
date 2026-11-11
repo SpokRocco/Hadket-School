@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -135,6 +135,7 @@ export const StudentCouncilManagement = () => {
             }
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('student_council');
             fetchData();
         } catch (error) {
             toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถบันทึกได้' });
@@ -152,6 +153,7 @@ export const StudentCouncilManagement = () => {
 
             const { error } = await supabase.from('student_council').delete().eq('id', id);
             if (error) throw error;
+            notifyLocalRealtimeListeners('student_council');
             toast({ title: 'สำเร็จ', description: 'ลบเรียบร้อยแล้ว' });
             fetchData();
         } catch (error) {

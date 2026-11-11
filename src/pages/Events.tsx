@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,11 +20,7 @@ const Events = () => {
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchEvents();
-    }, []);
-
-    const fetchEvents = async () => {
+    const fetchEvents = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from('events')
@@ -41,7 +37,16 @@ const Events = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchEvents();
+        return subscribeToRealtimeTables(
+            'realtime_events_page',
+            ['events'],
+            fetchEvents
+        );
+    }, [fetchEvents]);
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -116,6 +121,7 @@ const Events = () => {
                                                     <img
                                                         src={event.image_url}
                                                         alt={event.title}
+                                                        referrerPolicy="no-referrer"
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>

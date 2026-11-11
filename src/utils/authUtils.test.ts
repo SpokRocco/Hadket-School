@@ -21,14 +21,17 @@ test('hasMenuPermission enforces role-based access control across 5 roles', () =
   const saphaUser = SEED_ADMIN_USERS.find((u) => u.role === 'sapha_plus')!;
 
   assert.equal(hasMenuPermission(adminUser, 'users'), true);
+  assert.equal(hasMenuPermission(adminUser, 'homepage_layout'), true);
   assert.equal(hasMenuPermission(adminUser, 'settings'), true);
 
   assert.equal(hasMenuPermission(execUser, 'executive_view'), true);
   assert.equal(hasMenuPermission(execUser, 'users'), false);
+  assert.equal(hasMenuPermission(execUser, 'homepage_layout'), false);
 
   assert.equal(hasMenuPermission(teacherUser, 'teacher_workspace'), true);
   assert.equal(hasMenuPermission(teacherUser, 'media'), true);
   assert.equal(hasMenuPermission(teacherUser, 'settings'), false);
+  assert.equal(hasMenuPermission(teacherUser, 'homepage_layout'), false);
 
   assert.equal(hasMenuPermission(saphaUser, 'sapha_plus'), true);
   assert.equal(hasMenuPermission(saphaUser, 'students'), true);

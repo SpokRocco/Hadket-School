@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { BookOpen, FlaskConical, Languages, Calculator, Monitor, Palette, Music, Dumbbell, Clock, Users, Award, LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 
 interface CurriculumProgram {
@@ -44,24 +44,7 @@ const Curriculum = () => {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Scroll to program when hash changes
-  useEffect(() => {
-    if (!loading && location.hash) {
-      const id = location.hash.replace('#', '');
-      const element = document.getElementById(id);
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-      }
-    }
-  }, [loading, location.hash]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [programsRes, activitiesRes] = await Promise.all([
         supabase
@@ -86,7 +69,29 @@ const Curriculum = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    return subscribeToRealtimeTables(
+      'realtime_curriculum_page',
+      ['curriculum_programs', 'curriculum_activities'],
+      fetchData
+    );
+  }, [fetchData]);
+
+  // Scroll to program when hash changes
+  useEffect(() => {
+    if (!loading && location.hash) {
+      const id = location.hash.replace('#', '');
+      const element = document.getElementById(id);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  }, [loading, location.hash]);
 
   const getIconComponent = (iconName: string): LucideIcon => {
     return iconMap[iconName] || BookOpen;

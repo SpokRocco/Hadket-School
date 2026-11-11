@@ -5,12 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
+import { extractGoogleMapsEmbedSrc } from '@/utils/homepageLayoutUtils';
 
 
 
 const ContactSection = () => {
   const { toast } = useToast();
   const { settings } = useSchoolSettings();
+  const mapEmbedSrc = extractGoogleMapsEmbedSrc(settings.google_maps_embed);
 
   const contactInfo = [
     {
@@ -153,9 +155,9 @@ const ContactSection = () => {
 
             {/* Map */}
             <div className="bg-card rounded-2xl overflow-hidden shadow-lg border border-border h-64">
-              {settings.google_maps_embed ? (
+              {mapEmbedSrc ? (
                 <iframe
-                  src={settings.google_maps_embed}
+                  src={mapEmbedSrc}
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}

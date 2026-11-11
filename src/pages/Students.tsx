@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Users, GraduationCap, Trophy, BookOpen, TrendingUp, Star, LucideIcon } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 
 interface StudentStat {
   id: string;
@@ -56,58 +56,52 @@ const Students = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [studentCouncil, setStudentCouncil] = useState<StudentCouncil[]>([]);
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
-      // Fetch student stats
-      const { data: statsData } = await supabase
-        .from('student_stats')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_position', { ascending: true });
-      if (statsData) setStudentStats(statsData);
+      const [statsRes, gradeRes, achievementsRes, activitiesRes, councilRes] = await Promise.all([
+        supabase
+          .from('student_stats')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('grade_data')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('student_achievements')
+          .select('*')
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('student_activities')
+          .select('*')
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('student_council')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+      ]);
 
-      // Fetch grade data
-      const { data: gradeDataResult } = await supabase
-        .from('grade_data')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_position', { ascending: true });
-      if (gradeDataResult) setGradeData(gradeDataResult);
-
-      // Fetch achievements
-      const { data: achievementsData } = await supabase
-        .from('student_achievements')
-        .select('*')
-        .order('order_position', { ascending: true });
-      if (achievementsData) setAchievements(achievementsData);
-
-      // Fetch activities
-      const { data: activitiesData } = await supabase
-        .from('student_activities')
-        .select('*')
-        .order('order_position', { ascending: true });
-      if (activitiesData) setActivities(activitiesData);
-
-      // Fetch student council
-      const { data: councilData } = await supabase
-        .from('student_council')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_position', { ascending: true });
-      if (councilData) setStudentCouncil(councilData);
+      if (!statsRes.error) setStudentStats(statsRes.data || []);
+      if (!gradeRes.error) setGradeData(gradeRes.data || []);
+      if (!achievementsRes.error) setAchievements(achievementsRes.data || []);
+      if (!activitiesRes.error) setActivities(activitiesRes.data || []);
+      if (!councilRes.error) setStudentCouncil(councilRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Use defaults if fetch fails
-      setStudentStats([
-        { id: '1', label: 'นักเรียนทั้งหมด', value: '1,250', icon: 'Users', color: 'text-primary' },
-        { id: '2', label: 'ม.ปลาย', value: '650', icon: 'GraduationCap', color: 'text-accent' },
-      ]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAllData();
+    return subscribeToRealtimeTables(
+      'realtime_students_page',
+      ['student_stats', 'grade_data', 'student_achievements', 'student_activities', 'student_council'],
+      fetchAllData
+    );
+  }, [fetchAllData]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -286,20 +280,26 @@ const Students = () => {
                 ตัวแทนนักเรียนที่ได้รับเลือกตั้งเพื่อทำหน้าที่เป็นสื่อกลางระหว่างนักเรียนและโรงเรียน
               </p>
               <div className="grid md:grid-cols-3 gap-6">
-                {studentCouncil.map((member) => (
-                  <div key={member.id} className="bg-primary-foreground/10 backdrop-blur-sm rounded-2xl p-6 border border-primary-foreground/20">
-                    {member.image_url ? (
-                      <img src={member.image_url} alt={member.name} className="w-16 h-16 rounded-full object-cover mx-auto mb-4" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl font-bold text-accent-foreground">{member.initial || member.name.charAt(0)}</span>
-                      </div>
-                    )}
-                    <h3 className="text-lg font-bold text-primary-foreground">{member.name}</h3>
-                    <p className="text-accent font-semibold">{member.position}</p>
-                    <p className="text-primary-foreground/70 text-sm mt-2">{member.class}</p>
-                  </div>
-                ))}
+                {studentCouncil.length === 0 ? (
+                  <p className="text-primary-foreground/75 text-sm col-span-full">
+                    ยังไม่มีข้อมูลคณะกรรมการสภานักเรียนในฐานข้อมูล
+                  </p>
+                ) : (
+                  studentCouncil.map((member) => (
+                    <div key={member.id} className="bg-primary-foreground/10 backdrop-blur-sm rounded-2xl p-6 border border-primary-foreground/20">
+                      {member.image_url ? (
+                        <img src={member.image_url} alt={member.name} referrerPolicy="no-referrer" className="w-16 h-16 rounded-full object-cover mx-auto mb-4" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mx-auto mb-4">
+                          <span className="text-2xl font-bold text-accent-foreground">{member.initial || member.name.charAt(0)}</span>
+                        </div>
+                      )}
+                      <h3 className="text-lg font-bold text-primary-foreground">{member.name}</h3>
+                      <p className="text-accent font-semibold">{member.position}</p>
+                      <p className="text-primary-foreground/70 text-sm mt-2">{member.class}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

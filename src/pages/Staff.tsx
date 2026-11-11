@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import {
   Mail,
@@ -55,13 +55,8 @@ const Staff = () => {
   const [supportStaff, setSupportStaff] = useState<StaffItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPersonnelData();
-  }, []);
-
-  const fetchPersonnelData = async () => {
+  const fetchPersonnelData = useCallback(async () => {
     try {
-      setLoading(true);
       const [adminRes, staffRes] = await Promise.all([
         supabase
           .from('administrators')
@@ -139,7 +134,16 @@ const Staff = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPersonnelData();
+    return subscribeToRealtimeTables(
+      'realtime_staff_page',
+      ['administrators', 'staff'],
+      fetchPersonnelData
+    );
+  }, [fetchPersonnelData]);
 
   const totalPersonnel = directors.length + teachingStaff.length + supportStaff.length;
 
@@ -251,6 +255,7 @@ const Staff = () => {
                                 <img
                                   src={director.photo_url}
                                   alt={director.name}
+                                  referrerPolicy="no-referrer"
                                   className="w-full h-full rounded-full object-cover border-4 border-primary"
                                 />
                               ) : (
@@ -305,6 +310,7 @@ const Staff = () => {
                             <img
                               src={director.photo_url}
                               alt={director.name}
+                              referrerPolicy="no-referrer"
                               className="w-24 h-24 rounded-full object-cover border-4 border-accent shadow-lg"
                             />
                           ) : (
@@ -370,6 +376,7 @@ const Staff = () => {
                               <img
                                 src={teacher.photo_url}
                                 alt={teacher.name}
+                                referrerPolicy="no-referrer"
                                 className="w-24 h-24 rounded-full object-cover border-4 border-white/80 shadow-md"
                               />
                             ) : (
@@ -433,6 +440,7 @@ const Staff = () => {
                           <img
                             src={staff.photo_url}
                             alt={staff.name}
+                            referrerPolicy="no-referrer"
                             className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-2 border-primary/20 shadow-sm"
                           />
                         ) : (

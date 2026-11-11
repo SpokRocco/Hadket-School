@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Calendar, Clock, MapPin, BookOpen, GraduationCap, Trophy, Users } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 
 const semesters = [
@@ -40,11 +40,7 @@ const AcademicCalendar = () => {
   const [loading, setLoading] = useState(true);
   const { settings } = useSchoolSettings();
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('events')
@@ -59,7 +55,16 @@ const AcademicCalendar = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchEvents();
+    return subscribeToRealtimeTables(
+      'realtime_calendar_page',
+      ['events'],
+      fetchEvents
+    );
+  }, [fetchEvents]);
 
   // Group events by semester based on date
   const getEventsBySemester = (semester: string) => {
@@ -188,6 +193,7 @@ const AcademicCalendar = () => {
                                     <img
                                       src={event.image_url}
                                       alt={event.title}
+                                      referrerPolicy="no-referrer"
                                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
                                       onClick={() => window.open(event.image_url!, '_blank')}
                                     />

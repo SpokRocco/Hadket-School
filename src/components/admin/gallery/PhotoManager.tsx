@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { deleteStorageImage } from '@/utils/storageUtils';
@@ -126,6 +126,8 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
 
                 if (insertError) throw insertError;
 
+                notifyLocalRealtimeListeners('gallery_photos');
+                notifyLocalRealtimeListeners('gallery_albums');
                 toast({
                     title: 'อัปโหลดสำเร็จ',
                     description: `อัปโหลดรูปภาพ ${uploadedPhotos.length} รูปเรียบร้อยแล้ว`,
@@ -160,6 +162,8 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
             // Delete from storage
             await deleteStorageImage(photo.photo_url);
 
+            notifyLocalRealtimeListeners('gallery_photos');
+            notifyLocalRealtimeListeners('gallery_albums');
             toast({
                 title: 'ลบสำเร็จ',
                 description: 'ลบรูปภาพเรียบร้อยแล้ว',

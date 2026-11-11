@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import heroImage from '@/assets/hero-school.jpg';
 import studentScienceLab from '@/assets/images/student_science_lab_1794379512287.jpg';
@@ -186,35 +186,11 @@ const CurriculumSection = () => {
 
   useEffect(() => {
     fetchData();
-
-    const channel = (supabase as any)
-      .channel('realtime_curriculum_home')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'curriculum_programs' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'curriculum_activities' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'grade_data' }, fetchData)
-      .subscribe();
-
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (
-        !detail ||
-        detail.table === 'curriculum_programs' ||
-        detail.table === 'curriculum_activities' ||
-        detail.table === 'grade_data' ||
-        detail.table === '*'
-      ) {
-        fetchData();
-      }
-    };
-
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
-
-    return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
-    };
+    return subscribeToRealtimeTables(
+      'realtime_curriculum_home',
+      ['curriculum_programs', 'curriculum_activities', 'grade_data'],
+      fetchData
+    );
   }, [fetchData]);
 
   const getIconComponent = (iconName: string) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, BookOpen, Palette, Music, Dumbbell, Heart, Trophy, Users, Gamepad2 } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, Palette, Music, Dumbbell, Heart, Trophy, Users, Gamepad2, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Activity {
@@ -140,6 +140,7 @@ export const ActivitiesManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('curriculum_activities');
             fetchActivities();
         } catch (error: any) {
             console.error('Error saving activity:', error);
@@ -162,6 +163,7 @@ export const ActivitiesManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('curriculum_activities');
             toast({
                 title: 'สำเร็จ',
                 description: 'ลบกิจกรรมเรียบร้อยแล้ว',
@@ -175,6 +177,33 @@ export const ActivitiesManagement = () => {
                 title: 'เกิดข้อผิดพลาด',
                 description: 'ไม่สามารถลบข้อมูลได้',
             });
+        }
+    };
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= activities.length) return;
+
+        const clone = [...activities];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const reordered = clone.map((item, idx) => ({ ...item, order_position: idx + 1 }));
+        setActivities(reordered);
+
+        try {
+            await Promise.all(
+                reordered.map((item) =>
+                    supabase
+                        .from('curriculum_activities')
+                        .update({ order_position: item.order_position })
+                        .eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('curriculum_activities');
+            toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับกิจกรรมเสริมใหม่แล้ว' });
+        } catch {
+            toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถบันทึกลำดับได้' });
+            fetchActivities();
         }
     };
 
@@ -290,11 +319,14 @@ export const ActivitiesManagement = () => {
                 </Card>
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {activities.map((activity) => {
+                    {activities.map((activity, idx) => {
                         const IconComponent = getIconComponent(activity.icon);
                         return (
                             <Card key={activity.id} className={`${!activity.is_active ? 'opacity-50' : ''}`}>
                                 <CardContent className="p-4 text-center">
+                                    <div className="flex justify-end mb-1">
+                                        <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
+                                    </div>
                                     <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
                                         <IconComponent className="w-6 h-6 text-primary" />
                                     </div>
@@ -302,7 +334,29 @@ export const ActivitiesManagement = () => {
                                     <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
                                         {activity.description || '-'}
                                     </p>
-                                    <div className="flex gap-1 justify-center">
+                                    <div className="flex flex-wrap gap-1 justify-center">
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7"
+                                            disabled={idx === 0}
+                                            onClick={() => handleMoveOrder(idx, 'up')}
+                                            title="เลื่อนขึ้น"
+                                        >
+                                            <ArrowUp className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7"
+                                            disabled={idx === activities.length - 1}
+                                            onClick={() => handleMoveOrder(idx, 'down')}
+                                            title="เลื่อนลง"
+                                        >
+                                            <ArrowDown className="w-3 h-3" />
+                                        </Button>
                                         <Button size="sm" variant="outline" onClick={() => handleOpenDialog(activity)} className="text-xs px-2">
                                             <Edit className="w-3 h-3 mr-1" />
                                             แก้ไข

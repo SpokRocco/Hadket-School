@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { X, ChevronLeft, ChevronRight, Image as ImageIcon, Calendar, MapPin } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -43,11 +43,7 @@ const Gallery = () => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAlbums();
-  }, []);
-
-  const fetchAlbums = async () => {
+  const fetchAlbums = useCallback(async () => {
     try {
       const { data: albumsData, error: albumsError } = await supabase
         .from('gallery_albums' as any)
@@ -91,7 +87,16 @@ const Gallery = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAlbums();
+    return subscribeToRealtimeTables(
+      'realtime_gallery_page',
+      ['gallery_albums', 'gallery_photos'],
+      fetchAlbums
+    );
+  }, [fetchAlbums]);
 
   const filteredAlbums =
     selectedCategory === 'ทั้งหมด'
@@ -171,6 +176,7 @@ const Gallery = () => {
                     <img
                       src={album.cover_photo_url}
                       alt={album.title}
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
@@ -235,6 +241,7 @@ const Gallery = () => {
                   key={currentPhotoIndex}
                   src={selectedAlbum.photos[currentPhotoIndex].photo_url}
                   alt={selectedAlbum.photos[currentPhotoIndex].caption || `รูปที่ ${currentPhotoIndex + 1}`}
+                  referrerPolicy="no-referrer"
                   className="max-w-full max-h-full object-contain p-4 sm:p-12 transition-all duration-500 animate-in zoom-in-95"
                 />
 
@@ -309,6 +316,7 @@ const Gallery = () => {
                             <img
                               src={photo.photo_url}
                               alt={`รูปที่ ${idx + 1}`}
+                              referrerPolicy="no-referrer"
                               className="w-full h-full object-cover"
                             />
                             {/* Overlay for inactive */}

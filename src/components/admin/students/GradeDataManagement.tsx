@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,6 +80,7 @@ export const GradeDataManagement = () => {
             }
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('grade_data');
             fetchData();
         } catch (error) {
             toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถบันทึกได้' });
@@ -91,6 +92,7 @@ export const GradeDataManagement = () => {
         try {
             const { error } = await supabase.from('grade_data').delete().eq('id', id);
             if (error) throw error;
+            notifyLocalRealtimeListeners('grade_data');
             toast({ title: 'สำเร็จ', description: 'ลบเรียบร้อยแล้ว' });
             fetchData();
         } catch (error) {

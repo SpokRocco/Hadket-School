@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { ExternalLink, Globe, ChevronRight, PlusCircle, BookOpen } from 'lucide-react';
 import type { MediaResource } from '@/pages/MediaLibrary';
 import type { TeacherMediaItem } from '@/components/admin/portals/TeacherPortal';
@@ -85,33 +85,11 @@ const MediaLibrarySection = () => {
 
   useEffect(() => {
     fetchTopResources();
-
-    const channel = (supabase as any)
-      .channel('realtime_media_home')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_resources' }, fetchTopResources)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_media_items' }, fetchTopResources)
-      .subscribe();
-
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (
-        !detail ||
-        detail.table === 'media_resources' ||
-        detail.table === 'teacher_media_items' ||
-        detail.table === '*'
-      ) {
-        fetchTopResources();
-      }
-    };
-
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
-
-    return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
-    };
+    return subscribeToRealtimeTables(
+      'realtime_media_home',
+      ['media_resources', 'teacher_media_items'],
+      fetchTopResources
+    );
   }, [fetchTopResources]);
 
   if (loading) return null;

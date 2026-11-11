@@ -36,6 +36,7 @@ const Footer = () => {
                 <img
                   src={settings.school_logo_url}
                   alt={settings.school_name}
+                  referrerPolicy="no-referrer"
                   className="w-12 h-12 rounded-full object-contain bg-white p-0.5 shadow-sm"
                 />
               ) : (

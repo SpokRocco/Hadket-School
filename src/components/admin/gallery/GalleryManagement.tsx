@@ -3,7 +3,7 @@ import { Plus, Search, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumForm } from './AlbumForm';
 import { AlbumList } from './AlbumList';
@@ -101,6 +101,7 @@ export const GalleryManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('gallery_albums');
             toast({
                 title: 'ลบสำเร็จ',
                 description: 'ลบอัลบั้มเรียบร้อยแล้ว',
@@ -125,6 +126,7 @@ export const GalleryManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('gallery_albums');
             toast({
                 title: 'อัปเดตสำเร็จ',
                 description: !album.is_published ? 'เผยแพร่อัลบั้มแล้ว' : 'ซ่อนอัลบั้มแล้ว',

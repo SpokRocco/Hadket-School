@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -159,6 +159,7 @@ export const StudentsManagement = () => {
             }
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('student_achievements');
             fetchData();
         } catch (error: any) {
             console.error('Error saving achievement:', error);
@@ -197,6 +198,7 @@ export const StudentsManagement = () => {
             }
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('student_activities');
             fetchData();
         } catch (error: any) {
             console.error('Error saving activity:', error);
@@ -209,6 +211,7 @@ export const StudentsManagement = () => {
         try {
             const { error } = await supabase.from('student_achievements').delete().eq('id', id);
             if (error) throw error;
+            notifyLocalRealtimeListeners('student_achievements');
             toast({ title: 'สำเร็จ', description: 'ลบผลงานเรียบร้อยแล้ว' });
             fetchData();
         } catch (error) {
@@ -221,6 +224,7 @@ export const StudentsManagement = () => {
         try {
             const { error } = await supabase.from('student_activities').delete().eq('id', id);
             if (error) throw error;
+            notifyLocalRealtimeListeners('student_activities');
             toast({ title: 'สำเร็จ', description: 'ลบกิจกรรมเรียบร้อยแล้ว' });
             fetchData();
         } catch (error) {

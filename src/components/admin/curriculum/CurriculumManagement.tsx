@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, BookOpen, FlaskConical, Languages, Calculator, Monitor, Palette, Music, Dumbbell, GraduationCap, Award } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, FlaskConical, Languages, Calculator, Monitor, Palette, Music, Dumbbell, GraduationCap, Award, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CurriculumProgram {
@@ -175,6 +175,7 @@ export const CurriculumManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('curriculum_programs');
             fetchPrograms();
         } catch (error: any) {
             console.error('Error saving program:', error);
@@ -197,6 +198,7 @@ export const CurriculumManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('curriculum_programs');
             toast({
                 title: 'สำเร็จ',
                 description: 'ลบหลักสูตรเรียบร้อยแล้ว',
@@ -210,6 +212,33 @@ export const CurriculumManagement = () => {
                 title: 'เกิดข้อผิดพลาด',
                 description: 'ไม่สามารถลบข้อมูลได้',
             });
+        }
+    };
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= programs.length) return;
+
+        const clone = [...programs];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const reordered = clone.map((item, idx) => ({ ...item, order_position: idx + 1 }));
+        setPrograms(reordered);
+
+        try {
+            await Promise.all(
+                reordered.map((item) =>
+                    supabase
+                        .from('curriculum_programs')
+                        .update({ order_position: item.order_position })
+                        .eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('curriculum_programs');
+            toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับหลักสูตรใหม่แล้ว' });
+        } catch {
+            toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถบันทึกลำดับได้' });
+            fetchPrograms();
         }
     };
 
@@ -369,11 +398,14 @@ export const CurriculumManagement = () => {
                 </Card>
             ) : (
                 <div className="grid md:grid-cols-2 gap-6">
-                    {programs.map((program) => {
+                    {programs.map((program, idx) => {
                         const IconComponent = getIconComponent(program.icon);
                         return (
                             <Card key={program.id} className={`overflow-hidden ${!program.is_active ? 'opacity-50' : ''}`}>
-                                <div className={`h-24 ${program.color} flex items-center justify-center`}>
+                                <div className={`h-24 ${program.color} flex items-center justify-center relative`}>
+                                    <span className="absolute top-2 right-2 text-[10px] bg-black/30 text-white px-2 py-0.5 rounded-full font-mono">
+                                        #{idx + 1}
+                                    </span>
                                     <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
                                         <IconComponent className="w-7 h-7 text-white" />
                                     </div>
@@ -404,7 +436,29 @@ export const CurriculumManagement = () => {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-8 w-8"
+                                            disabled={idx === 0}
+                                            onClick={() => handleMoveOrder(idx, 'up')}
+                                            title="เลื่อนขึ้น"
+                                        >
+                                            <ArrowUp className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-8 w-8"
+                                            disabled={idx === programs.length - 1}
+                                            onClick={() => handleMoveOrder(idx, 'down')}
+                                            title="เลื่อนลง"
+                                        >
+                                            <ArrowDown className="w-3.5 h-3.5" />
+                                        </Button>
                                         <Button size="sm" variant="outline" onClick={() => handleOpenDialog(program)}>
                                             <Edit className="w-4 h-4 mr-1" />
                                             แก้ไข

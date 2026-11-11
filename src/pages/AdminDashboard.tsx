@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/shared/AdminLayout';
 import { NewsManagement } from '@/components/admin/news/NewsManagement';
 import { GalleryManagement } from '@/components/admin/gallery/GalleryManagement';
 import { EventsManagement } from '@/components/admin/events/EventsManagement';
 import { SettingsManagement } from '@/components/admin/settings/SettingsManagement';
+import { HomepageLayoutAndPopupManagement } from '@/components/admin/settings/HomepageLayoutAndPopupManagement';
 import { AdministratorsManagement } from '@/components/admin/administrators/AdministratorsManagement';
 import { StaffManagement } from '@/components/admin/staff/StaffManagement';
 import { StudentsManagement } from '@/components/admin/students/StudentsManagement';
@@ -26,6 +27,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Settings,
+  LayoutTemplate,
   Newspaper,
   Image,
   Calendar,
@@ -41,7 +43,7 @@ import {
   BarChart3,
   FolderKanban,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import {
   getCurrentAdminUser,
   hasMenuPermission,
@@ -73,11 +75,7 @@ const AdminDashboard = () => {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const [newsRes, galleryRes, eventsRes, adminsRes, staffRes, admissionsRes] = await Promise.all([
         supabase.from('news').select('id', { count: 'exact', head: true }),
@@ -101,7 +99,16 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+    return subscribeToRealtimeTables(
+      'realtime_admin_dashboard',
+      ['news', 'gallery_albums', 'events', 'administrators', 'staff', 'admissions'],
+      fetchStats
+    );
+  }, [fetchStats]);
 
   const renderTabContent = () => {
     if (currentUser && !hasMenuPermission(currentUser, activeTab)) {
@@ -180,6 +187,9 @@ const AdminDashboard = () => {
       case 'settings':
         return <SettingsManagement />;
 
+      case 'homepage_layout':
+        return <HomepageLayoutAndPopupManagement />;
+
       case 'users':
         return <UsersManagement />;
 
@@ -216,6 +226,7 @@ const AdminDashboard = () => {
           { label: 'จัดการแกลเลอรี่', tab: 'gallery', icon: Image, desc: 'อัปโหลดรูปภาพกิจกรรม' },
           { label: 'ปฏิทินกิจกรรม', tab: 'events', icon: Calendar, desc: 'เพิ่มกิจกรรมโรงเรียน' },
           { label: 'ข้อมูลนักเรียน', tab: 'students', icon: GraduationCap, desc: 'สถิติและสภานักเรียน' },
+          { label: 'จัดลำดับหน้าแรก · ป๊อปอัป', tab: 'homepage_layout', icon: LayoutTemplate, desc: 'เรียงส่วนหน้าเว็บ ป๊อปอัป & Realtime' },
           { label: 'ตั้งค่าระบบโรงเรียน', tab: 'settings', icon: Settings, desc: 'แก้ไขข้อมูลทั่วไป' },
         ].filter((item) => !currentUser || hasMenuPermission(currentUser, item.tab));
 

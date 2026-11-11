@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { FileText, ChevronRight } from 'lucide-react';
 import { formatThaiDate, SchoolNewsletter } from '@/pages/Newsletters';
@@ -32,31 +32,11 @@ const NewsletterSection = () => {
 
   useEffect(() => {
     fetchLatestNewsletters();
-
-    const channel = (supabase as any)
-      .channel('realtime_newsletters_home')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'newsletters' },
-        fetchLatestNewsletters
-      )
-      .subscribe();
-
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (!detail || detail.table === 'newsletters' || detail.table === '*') {
-        fetchLatestNewsletters();
-      }
-    };
-
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
-
-    return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
-    };
+    return subscribeToRealtimeTables(
+      'realtime_newsletters_home',
+      ['newsletters'],
+      fetchLatestNewsletters
+    );
   }, [fetchLatestNewsletters]);
 
   if (loading || newsletters.length === 0) return null;
@@ -105,6 +85,7 @@ const NewsletterSection = () => {
                     <img
                       src={settings.school_logo_url}
                       alt={settings.school_name}
+                      referrerPolicy="no-referrer"
                       className="w-7 h-7 rounded-full object-contain bg-white p-0.5 shrink-0"
                     />
                   ) : (

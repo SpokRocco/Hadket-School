@@ -278,6 +278,23 @@ export const reorderItemsById = <T extends { id: string; order: number }>(
   }));
 };
 
+export const mergeFilteredReorder = <T extends { id: string }>(
+  allItems: T[],
+  reorderedFiltered: T[]
+): T[] => {
+  const subsetIds = new Set(reorderedFiltered.map((item) => item.id));
+  if (subsetIds.size === 0) return allItems;
+
+  const byId = new Map(reorderedFiltered.map((item) => [item.id, item]));
+  let cursor = 0;
+
+  return allItems.map((item) => {
+    if (!subsetIds.has(item.id)) return item;
+    const replacement = reorderedFiltered[cursor++];
+    return replacement ? byId.get(replacement.id) ?? replacement : item;
+  });
+};
+
 export const parseWelcomePopupConfig = (
   settingsMap: Record<string, string | undefined>,
   fallbackImageUrl = ''
@@ -362,4 +379,81 @@ export const isPopupActiveNow = (config: WelcomePopupConfig, nowDate = new Date(
   }
 
   return true;
+};
+
+export const WELCOME_POPUP_SESSION_KEY = 'kk_welcome_popup_dismissed_session';
+export const WELCOME_POPUP_DAY_KEY = 'kk_welcome_popup_dismissed_day';
+
+export const resetWelcomePopupDismissal = (): void => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(WELCOME_POPUP_DAY_KEY);
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(WELCOME_POPUP_SESSION_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
+
+export interface HomepageSectionTableRow {
+  section_key: string;
+  label?: string | null;
+  subtitle?: string | null;
+  enabled?: boolean | null;
+  sort_order?: number | null;
+}
+
+export const mergeHomepageSectionsFromTable = (
+  base: HomepageSectionConfig[],
+  tableRows: HomepageSectionTableRow[]
+): HomepageSectionConfig[] => {
+  if (!Array.isArray(tableRows) || tableRows.length === 0) {
+    return base;
+  }
+
+  const byKey = new Map<string, HomepageSectionTableRow>();
+  for (const row of tableRows) {
+    if (row && typeof row.section_key === 'string') {
+      byKey.set(row.section_key, row);
+    }
+  }
+
+  return base
+    .map((item, idx) => {
+      const row = byKey.get(item.id);
+      if (!row) return item;
+      return {
+        ...item,
+        label: typeof row.label === 'string' && row.label.trim() ? row.label : item.label,
+        subtitle:
+          typeof row.subtitle === 'string' && row.subtitle.trim() ? row.subtitle : item.subtitle,
+        enabled: typeof row.enabled === 'boolean' ? row.enabled : item.enabled,
+        order: typeof row.sort_order === 'number' ? row.sort_order : idx + 1,
+      };
+    })
+    .sort((a, b) => a.order - b.order)
+    .map((item, idx) => ({ ...item, order: idx + 1 }));
+};
+
+export const extractGoogleMapsEmbedSrc = (raw?: string | null): string => {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.toLowerCase().includes('<iframe')) {
+    const srcMatch = trimmed.match(/src\s*=\s*["']([^"']+)["']/i);
+    const extracted = srcMatch?.[1]?.trim() || '';
+    if (extracted.startsWith('https://') || extracted.startsWith('http://')) {
+      return extracted;
+    }
+    return '';
+  }
+
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+    return trimmed;
+  }
+
+  return '';
 };

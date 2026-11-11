@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,7 +122,6 @@ const Newsletters = () => {
 
   const fetchNewsletters = useCallback(async () => {
     try {
-      setLoading(true);
       const { data, error } = await (supabase as any)
         .from('newsletters')
         .select('*')
@@ -144,27 +143,11 @@ const Newsletters = () => {
 
   useEffect(() => {
     fetchNewsletters();
-
-    const channel = (supabase as any)
-      .channel('realtime_newsletters_page')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'newsletters' }, fetchNewsletters)
-      .subscribe();
-
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (!detail || detail.table === 'newsletters' || detail.table === '*') {
-        fetchNewsletters();
-      }
-    };
-
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
-
-    return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
-    };
+    return subscribeToRealtimeTables(
+      'realtime_newsletters_page',
+      ['newsletters'],
+      fetchNewsletters
+    );
   }, [fetchNewsletters]);
 
   const handleViewNewsletter = async (item: SchoolNewsletter) => {
@@ -295,6 +278,7 @@ const Newsletters = () => {
                           <img
                             src={settings.school_logo_url}
                             alt={settings.school_name}
+                            referrerPolicy="no-referrer"
                             className="w-9 h-9 rounded-full object-contain bg-white p-0.5 flex-shrink-0 shadow"
                           />
                         ) : (
@@ -405,6 +389,7 @@ const Newsletters = () => {
                       <img
                         src={settings.school_logo_url}
                         alt={settings.school_name}
+                        referrerPolicy="no-referrer"
                         className="w-14 h-14 rounded-full object-contain bg-white p-0.5 shadow-lg"
                       />
                     ) : (
@@ -458,6 +443,7 @@ const Newsletters = () => {
                     <img
                       src={selectedNewsletter.image_url}
                       alt={selectedNewsletter.title}
+                      referrerPolicy="no-referrer"
                       className="w-full max-h-[750px] object-contain mx-auto"
                     />
                   </div>

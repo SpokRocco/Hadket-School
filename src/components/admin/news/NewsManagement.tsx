@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { NewsForm } from './NewsForm';
 import { NewsList } from './NewsList';
 import { deleteStorageImage } from '@/utils/storageUtils';
+import { mergeFilteredReorder } from '@/utils/homepageLayoutUtils';
 
 export interface NewsItem {
     id: string;
@@ -157,20 +158,29 @@ export const NewsManagement = () => {
 
     const handleReorder = async (reorderedItems: NewsItem[]) => {
         try {
-            // Update sort_order for all items
-            const updates = reorderedItems.map((item, index) => ({
-                id: item.id,
+            const merged = mergeFilteredReorder(news, reorderedItems).map((item, index) => ({
+                ...item,
                 sort_order: index,
             }));
 
-            for (const update of updates) {
-                await supabase
-                    .from('news')
-                    .update({ sort_order: update.sort_order } as any)
-                    .eq('id', update.id);
-            }
+            setNews(merged);
 
-            setNews(reorderedItems);
+            const previousOrderById = new Map(news.map((item) => [item.id, item.sort_order]));
+            const changed = merged.filter(
+                (item) => previousOrderById.get(item.id) !== item.sort_order
+            );
+
+            const results = await Promise.all(
+                changed.map((item) =>
+                    supabase
+                        .from('news')
+                        .update({ sort_order: item.sort_order } as any)
+                        .eq('id', item.id)
+                )
+            );
+            const firstErr = results.find((r) => r.error)?.error;
+            if (firstErr) throw firstErr;
+
             notifyLocalRealtimeListeners('news');
             toast({
                 title: 'จัดเรียงสำเร็จ',
@@ -182,6 +192,7 @@ export const NewsManagement = () => {
                 description: error.message,
                 variant: 'destructive',
             });
+            fetchNews();
         }
     };
 

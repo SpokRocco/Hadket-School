@@ -12,7 +12,7 @@ import {
   Mail,
   Newspaper,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
@@ -99,29 +99,13 @@ const NewsSection = () => {
 
   useEffect(() => {
     fetchNews();
-
-    const channel = (supabase as any)
-      .channel('realtime_home_news')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => {
-        fetchNews();
-      })
-      .subscribe();
-
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (!detail || detail.table === 'news' || detail.table === '*') {
+    return subscribeToRealtimeTables(
+      'realtime_home_news',
+      ['news', 'news_categories'],
+      () => {
         fetchNews();
       }
-    };
-
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
-
-    return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
-    };
+    );
   }, [fetchNews]);
 
   if (isLoading) {
@@ -145,8 +129,11 @@ const NewsSection = () => {
   const prTotalPages = Math.max(1, Math.ceil(prList.length / 3));
   const actTotalPages = Math.max(1, Math.ceil(actList.length / 3));
 
-  const visiblePrCards = prList.slice(prPage * 3, prPage * 3 + 3);
-  const visibleActCards = actList.slice(actPage * 3, actPage * 3 + 3);
+  const safePrPage = Math.min(prPage, prTotalPages - 1);
+  const safeActPage = Math.min(actPage, actTotalPages - 1);
+
+  const visiblePrCards = prList.slice(safePrPage * 3, safePrPage * 3 + 3);
+  const visibleActCards = actList.slice(safeActPage * 3, safeActPage * 3 + 3);
 
   const filteredByTab = filterNewsItems(newsItems, { category: activeCategoryTab });
 
@@ -236,7 +223,7 @@ const NewsSection = () => {
                 aria-label={`ข่าวประชาสัมพันธ์ หน้าที่ ${idx + 1}`}
                 onClick={() => setPrPage(idx)}
                 className={`h-2.5 rounded-full transition-all ${
-                  prPage === idx
+                  safePrPage === idx
                     ? 'w-7 bg-sky-500'
                     : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
                 }`}
@@ -291,7 +278,7 @@ const NewsSection = () => {
                     aria-label={`กิจกรรมล่าสุด หน้าที่ ${idx + 1}`}
                     onClick={() => setActPage(idx)}
                     className={`h-2.5 rounded-full transition-all ${
-                      actPage === idx
+                      safeActPage === idx
                         ? 'w-7 bg-sky-500'
                         : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
                     }`}

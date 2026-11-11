@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -342,6 +342,7 @@ export const SaphaPlusDashboard = () => {
           .eq('id', editingProject.id);
       } catch {}
 
+      notifyLocalRealtimeListeners('sapha_projects');
       toast({ title: 'อัปเดตโครงการสภาสำเร็จ' });
     } else {
       const newProj: SaphaProject = {
@@ -366,6 +367,7 @@ export const SaphaPlusDashboard = () => {
         });
       } catch {}
 
+      notifyLocalRealtimeListeners('sapha_projects');
       toast({ title: 'เพิ่มโครงการสภาใหม่สำเร็จ' });
     }
     setIsProjectDialogOpen(false);
@@ -379,6 +381,7 @@ export const SaphaPlusDashboard = () => {
     try {
       await (supabase as any).from('sapha_projects').delete().eq('id', id);
     } catch {}
+    notifyLocalRealtimeListeners('sapha_projects');
     toast({ title: 'ลบโครงการเรียบร้อยแล้ว' });
   };
 
@@ -444,6 +447,7 @@ export const SaphaPlusDashboard = () => {
           .eq('id', editingLink.id);
       } catch {}
 
+      notifyLocalRealtimeListeners('sapha_links');
       toast({ title: 'อัปเดตลิงก์ระบบสภาพลัสสำเร็จ' });
     } else {
       const newLink: SaphaSystemLink = {
@@ -471,6 +475,7 @@ export const SaphaPlusDashboard = () => {
         });
       } catch {}
 
+      notifyLocalRealtimeListeners('sapha_links');
       toast({ title: 'สร้างลิงก์ระบบย่อยสภาพลัสสำเร็จ' });
     }
     setIsLinkDialogOpen(false);
@@ -484,6 +489,7 @@ export const SaphaPlusDashboard = () => {
     try {
       await (supabase as any).from('sapha_links').delete().eq('id', id);
     } catch {}
+    notifyLocalRealtimeListeners('sapha_links');
     toast({ title: 'ลบลิงก์ระบบเรียบร้อยแล้ว' });
   };
 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, UserCog, GripVertical } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCog, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '../shared/ImageUpload';
 import { deleteStorageImage } from '@/utils/storageUtils';
@@ -141,6 +141,7 @@ export const AdministratorsManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('administrators');
             fetchAdministrators();
         } catch (error: any) {
             console.error('Error saving administrator:', error);
@@ -171,6 +172,7 @@ export const AdministratorsManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('administrators');
             toast({
                 title: 'สำเร็จ',
                 description: 'ลบผู้บริหารเรียบร้อยแล้ว',
@@ -184,6 +186,33 @@ export const AdministratorsManagement = () => {
                 title: 'เกิดข้อผิดพลาด',
                 description: 'ไม่สามารถลบข้อมูลได้',
             });
+        }
+    };
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= administrators.length) return;
+
+        const clone = [...administrators];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const reordered = clone.map((item, idx) => ({ ...item, order_position: idx + 1 }));
+        setAdministrators(reordered);
+
+        try {
+            await Promise.all(
+                reordered.map((item) =>
+                    supabase
+                        .from('administrators')
+                        .update({ order_position: item.order_position })
+                        .eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('administrators');
+            toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับผู้บริหารใหม่แล้ว' });
+        } catch {
+            toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถบันทึกลำดับได้' });
+            fetchAdministrators();
         }
     };
 
@@ -295,9 +324,12 @@ export const AdministratorsManagement = () => {
                 </Card>
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {administrators.map((admin) => (
+                    {administrators.map((admin, idx) => (
                         <Card key={admin.id} className="overflow-hidden">
-                            <div className="h-32 bg-gradient-to-br from-primary to-navy-light flex items-center justify-center">
+                            <div className="h-32 bg-gradient-to-br from-primary to-navy-light flex items-center justify-center relative">
+                                <span className="absolute top-2 right-2 text-[10px] bg-black/35 text-white px-2 py-0.5 rounded-full font-mono">
+                                    #{idx + 1}
+                                </span>
                                 {admin.photo_url ? (
                                     <img
                                         src={admin.photo_url}
@@ -323,7 +355,29 @@ export const AdministratorsManagement = () => {
                                         "{admin.quote}"
                                     </p>
                                 )}
-                                <div className="flex gap-2 mt-4">
+                                <div className="flex flex-wrap items-center gap-2 mt-4">
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-8 w-8"
+                                        disabled={idx === 0}
+                                        onClick={() => handleMoveOrder(idx, 'up')}
+                                        title="เลื่อนขึ้น"
+                                    >
+                                        <ArrowUp className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-8 w-8"
+                                        disabled={idx === administrators.length - 1}
+                                        onClick={() => handleMoveOrder(idx, 'down')}
+                                        title="เลื่อนลง"
+                                    >
+                                        <ArrowDown className="w-3.5 h-3.5" />
+                                    </Button>
                                     <Button
                                         size="sm"
                                         variant="outline"

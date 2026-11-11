@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, HelpCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, HelpCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Faq {
@@ -123,6 +123,7 @@ export const FaqManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('faq');
             fetchFaqItems();
         } catch (error: any) {
             console.error('Error saving FAQ:', error);
@@ -145,6 +146,7 @@ export const FaqManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('faq');
             toast({
                 title: 'สำเร็จ',
                 description: 'ลบ FAQ เรียบร้อยแล้ว',
@@ -158,6 +160,28 @@ export const FaqManagement = () => {
                 title: 'เกิดข้อผิดพลาด',
                 description: 'ไม่สามารถลบข้อมูลได้',
             });
+        }
+    };
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= faqItems.length) return;
+        const clone = [...faqItems];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const reordered = clone.map((item, idx) => ({ ...item, order_position: idx + 1 }));
+        setFaqItems(reordered);
+        try {
+            await Promise.all(
+                reordered.map((item) =>
+                    supabase.from('faq').update({ order_position: item.order_position }).eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('faq');
+            toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับคำถามที่พบบ่อยแล้ว' });
+        } catch {
+            toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถจัดเรียงได้' });
+            fetchFaqItems();
         }
     };
 
@@ -249,7 +273,7 @@ export const FaqManagement = () => {
                 </Card>
             ) : (
                 <div className="space-y-4">
-                    {faqItems.map((faq) => (
+                    {faqItems.map((faq, idx) => (
                         <Card key={faq.id} className={`${!faq.is_active ? 'opacity-50' : ''}`}>
                             <CardContent className="p-4">
                                 <div className="flex items-start justify-between gap-4">
@@ -263,7 +287,9 @@ export const FaqManagement = () => {
                                         </div>
                                         <p className="text-muted-foreground text-sm pl-7">{faq.answer}</p>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={idx === 0} onClick={() => handleMoveOrder(idx, 'up')}><ArrowUp className="w-3.5 h-3.5" /></Button>
+                                        <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={idx === faqItems.length - 1} onClick={() => handleMoveOrder(idx, 'down')}><ArrowDown className="w-3.5 h-3.5" /></Button>
                                         <Button size="sm" variant="outline" onClick={() => handleOpenDialog(faq)}>
                                             <Edit className="w-4 h-4 mr-1" />
                                             แก้ไข

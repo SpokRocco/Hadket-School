@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-school.jpg';
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
   DEFAULT_NEWS_HUB_SUBSECTIONS,
   DEFAULT_WELCOME_POPUP_CONFIG,
+  mergeHomepageSectionsFromTable,
   parseHomepageSections,
   parseNewsHubSubSections,
   parseWelcomePopupConfig,
@@ -105,6 +106,7 @@ export interface SchoolSettings {
   vercel_deploy_hook_url: string;
   github_repo_url: string;
   github_branch: string;
+  extended_tables_ready: boolean;
 }
 
 const defaultSettings: SchoolSettings = {
@@ -179,6 +181,7 @@ const defaultSettings: SchoolSettings = {
   vercel_deploy_hook_url: '',
   github_repo_url: 'https://github.com/SpokRocco/Hadket-School',
   github_branch: 'main',
+  extended_tables_ready: false,
 };
 
 const CACHE_KEY = 'school_settings_cache_v3';
@@ -238,9 +241,75 @@ export const useSchoolSettings = () => {
           }
         }
 
-        const homepageSections = parseHomepageSections(settingsMap.homepage_sections_order);
+        let homepageSections = parseHomepageSections(settingsMap.homepage_sections_order);
         const newsHubSubSections = parseNewsHubSubSections(settingsMap.news_hub_order);
-        const welcomePopup = parseWelcomePopupConfig(settingsMap, heroImage);
+        let welcomePopup = parseWelcomePopupConfig(settingsMap, heroImage);
+        const extendedTablesReady = settingsMap.extended_tables_ready === 'true';
+
+        let resolvedVercelUrl = settingsMap.vercel_site_url || defaultSettings.vercel_site_url;
+        let resolvedDeployHook = settingsMap.vercel_deploy_hook_url || '';
+        let resolvedGithubRepo = settingsMap.github_repo_url || defaultSettings.github_repo_url;
+        let resolvedGithubBranch = settingsMap.github_branch || defaultSettings.github_branch;
+        let resolvedProjectRef =
+          settingsMap.supabase_project_ref || defaultSettings.supabase_project_ref;
+
+        // Read dedicated tables as well once enabled via migration/verification
+        if (extendedTablesReady) {
+          try {
+            const [secRes, popupRes, deployRes] = await Promise.all([
+              (supabase as any)
+                .from('homepage_sections')
+                .select('*')
+                .order('sort_order', { ascending: true }),
+              (supabase as any)
+                .from('site_popups')
+                .select('*')
+                .order('updated_at', { ascending: false })
+                .limit(1),
+              (supabase as any)
+                .from('deployment_configs')
+                .select('*')
+                .eq('id', 'default')
+                .maybeSingle(),
+            ]);
+
+            if (!secRes.error && Array.isArray(secRes.data) && secRes.data.length > 0) {
+              homepageSections = mergeHomepageSectionsFromTable(homepageSections, secRes.data);
+            }
+
+            if (!popupRes.error && Array.isArray(popupRes.data) && popupRes.data[0]) {
+              const row = popupRes.data[0];
+              welcomePopup = {
+                ...welcomePopup,
+                enabled: typeof row.enabled === 'boolean' ? row.enabled : welcomePopup.enabled,
+                layout: row.layout || welcomePopup.layout,
+                badge: row.badge || welcomePopup.badge,
+                title: row.title || welcomePopup.title,
+                subtitle: row.subtitle ?? welcomePopup.subtitle,
+                description: row.description ?? welcomePopup.description,
+                imageUrl: row.image_url || welcomePopup.imageUrl,
+                ctaText: row.cta_text ?? welcomePopup.ctaText,
+                ctaUrl: row.cta_url ?? welcomePopup.ctaUrl,
+                secondaryText: row.secondary_text ?? welcomePopup.secondaryText,
+                secondaryUrl: row.secondary_url ?? welcomePopup.secondaryUrl,
+                frequency: row.frequency || welcomePopup.frequency,
+                themeAccent: row.theme_accent || welcomePopup.themeAccent,
+                startDate: row.start_date || welcomePopup.startDate,
+                endDate: row.end_date || welcomePopup.endDate,
+              };
+            }
+
+            if (!deployRes.error && deployRes.data) {
+              resolvedProjectRef = deployRes.data.supabase_project_ref || resolvedProjectRef;
+              resolvedVercelUrl = deployRes.data.vercel_site_url ?? resolvedVercelUrl;
+              resolvedDeployHook = deployRes.data.vercel_deploy_hook_url ?? resolvedDeployHook;
+              resolvedGithubRepo = deployRes.data.github_repo_url || resolvedGithubRepo;
+              resolvedGithubBranch = deployRes.data.github_branch || resolvedGithubBranch;
+            }
+          } catch {
+            // Silently ignore if optional tables aren't present
+          }
+        }
 
         const newSettings: SchoolSettings = {
           school_name: settingsMap.school_name || defaultSettings.school_name,
@@ -320,12 +389,12 @@ export const useSchoolSettings = () => {
           homepageSections,
           newsHubSubSections,
           welcomePopup,
-          supabase_project_ref:
-            settingsMap.supabase_project_ref || defaultSettings.supabase_project_ref,
-          vercel_site_url: settingsMap.vercel_site_url || defaultSettings.vercel_site_url,
-          vercel_deploy_hook_url: settingsMap.vercel_deploy_hook_url || '',
-          github_repo_url: settingsMap.github_repo_url || defaultSettings.github_repo_url,
-          github_branch: settingsMap.github_branch || defaultSettings.github_branch,
+          supabase_project_ref: resolvedProjectRef,
+          vercel_site_url: resolvedVercelUrl,
+          vercel_deploy_hook_url: resolvedDeployHook,
+          github_repo_url: resolvedGithubRepo,
+          github_branch: resolvedGithubBranch,
+          extended_tables_ready: extendedTablesReady,
         };
 
         setSettings(newSettings);
@@ -341,25 +410,13 @@ export const useSchoolSettings = () => {
   useEffect(() => {
     fetchSettings();
 
-    // Subscribe to Supabase Realtime postgres_changes on school_settings
-    const channel = (supabase as any)
-      .channel('realtime_school_settings')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'school_settings' },
-        () => {
-          fetchSettings();
-        }
-      )
-      .subscribe();
-
-    // Listen to local/cross-tab realtime broadcasts
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (!detail || detail.table === 'school_settings' || detail.table === '*') {
+    const unsubscribeRealtime = subscribeToRealtimeTables(
+      'realtime_school_settings',
+      ['school_settings', 'homepage_sections', 'site_popups', 'deployment_configs'],
+      () => {
         fetchSettings();
       }
-    };
+    );
 
     const handleStorage = (e: StorageEvent) => {
       if (!e.key || e.key.includes('school_settings')) {
@@ -367,15 +424,11 @@ export const useSchoolSettings = () => {
       }
     };
 
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
     window.addEventListener('storage', handleStorage);
 
     return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
+      unsubscribeRealtime();
       window.removeEventListener('storage', handleStorage);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
     };
   }, [fetchSettings]);
 

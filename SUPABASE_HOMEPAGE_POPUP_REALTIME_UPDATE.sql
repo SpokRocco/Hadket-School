@@ -3,12 +3,17 @@
 -- โรงเรียนบ้านหาดเค็ด (Project Reference: fhfckuypfstlokashcmu)
 -- Description:
 --   1. Preserves ALL existing tables and data in the Supabase database
---   2. Adds optional homepage_sections, site_popups, deployment_configs tables
---   3. Safely ensures news categories without overwriting existing records
---   4. Inserts popup/deployment keys into school_settings with ON CONFLICT (key) DO NOTHING
---      so NO existing school data (logo, name, address, phone, stats) is modified
---   5. Enables Supabase Realtime (postgres_changes) across core tables
+--   2. Adds dedicated homepage_sections, site_popups, deployment_configs tables
+--   3. Safely ensures news ordering columns and news categories without overwriting
+--   4. Inserts homepage ordering/popup/deployment keys into school_settings with
+--      ON CONFLICT (key) DO NOTHING so NO existing school data is overwritten
+--   5. Enables Supabase Realtime (postgres_changes) across core + new tables
 -- =================================================================================
+
+-- 0. ENSURE NEWS ORDERING COLUMNS EXIST
+ALTER TABLE public.news
+  ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
 
 -- 1. HOMEPAGE SECTIONS ORDERING TABLE
 CREATE TABLE IF NOT EXISTS public.homepage_sections (
@@ -115,12 +120,15 @@ ON CONFLICT (name) DO NOTHING;
 -- 5. UPSERT NEW SCHOOL_SETTINGS KEYS (DO NOT OVERWRITE EXISTING DATA)
 INSERT INTO public.school_settings (key, value, category, description)
 VALUES
+  ('homepage_sections_order', '[{"id":"hero","label":"1. แบนเนอร์หลักและประกาศสำคัญ (Hero Showcase)","subtitle":"ภาพบรรยากาศโรงเรียน ข้อความต้อนรับ และข้อมูลสถิติสำคัญ","enabled":true,"order":1},{"id":"about","label":"2. ยินดีต้อนรับสู่โรงเรียนและแนวทางการพัฒนา (Welcome & Vision)","subtitle":"วิสัยทัศน์ พันธกิจ ค่านิยมองค์กร และสถิติสำคัญของโรงเรียน","enabled":true,"order":2},{"id":"news","label":"3. ศูนย์รวมข่าวประชาสัมพันธ์และกิจกรรม (News Hub)","subtitle":"ข่าวประชาสัมพันธ์ กิจกรรมนักเรียน ผลงานนักเรียน และประกาศสำคัญ","enabled":true,"order":3},{"id":"curriculum","label":"4. หลักสูตรที่เปิดสอนและกิจกรรมพัฒนาผู้เรียน (Curriculum)","subtitle":"ระดับชั้นที่เปิดสอน หลักสูตร แผนการเรียน และกิจกรรมเสริมหลักสูตร","enabled":true,"order":4},{"id":"administrators","label":"5. ทำเนียบผู้บริหารและสารจากผู้อำนวยการ (Executive Message)","subtitle":"ข้อมูลผู้บริหารสถานศึกษา วิสัยทัศน์ และแนวทางการบริหารงาน","enabled":true,"order":5},{"id":"media","label":"6. คลังสื่อการสอนออนไลน์ & Google Sites (E-Learning Portal)","subtitle":"สื่อการสอนดิจิทัล วิดีโอ เอกสาร PDF และพอร์ทัล Google Sites ของครู","enabled":true,"order":6},{"id":"newsletter","label":"7. วารสารและจดหมายข่าวโรงเรียน (School Newsletters)","subtitle":"แผ่นจดหมายข่าวประชาสัมพันธ์รายเดือนและเอกสารดาวน์โหลด","enabled":true,"order":7},{"id":"contact","label":"8. ข้อมูลติดต่อและแผนที่ตั้งโรงเรียน (Contact & Location)","subtitle":"แบบฟอร์มติดต่อสอบถาม เบอร์โทรศัพท์ และแผนที่การเดินทาง","enabled":true,"order":8}]', 'homepage', 'ลำดับและสถานะการแสดงผลส่วนประกอบหน้าแรก'),
+  ('news_hub_order', '[{"id":"public_relations","label":"หมวดข่าวประชาสัมพันธ์ (Public Relations)","subtitle":"แถวการ์ดข่าวประชาสัมพันธ์และประกาศสำคัญ 3 คอลัมน์","enabled":true,"order":1},{"id":"student_activities","label":"หมวดกิจกรรมล่าสุด (Latest Student Activities)","subtitle":"แถวการ์ดกิจกรรมนักเรียนและโครงการพัฒนาผู้เรียน","enabled":true,"order":2},{"id":"featured_highlight","label":"แบนเนอร์กิจกรรมเด่น (Featured Activity Showcase)","subtitle":"ไฮไลต์ภาพบรรยากาศและลิงก์ประมวลภาพกิจกรรมของโรงเรียน","enabled":true,"order":3},{"id":"spotlight_columns","label":"โซน 3 คอลัมน์ (ผลงานนักเรียน · ความภาคภูมิใจ · ติดต่อเรา)","subtitle":"สรุปผลงานนักเรียน รางวัลความภาคภูมิใจ และข้อมูลติดต่อด่วน","enabled":true,"order":4},{"id":"quick_services","label":"แถบทางลัดบริการด่วน 4 รายการ (Quick Access Strip)","subtitle":"ปฏิทินกิจกรรม, จดหมายข่าวโรงเรียน, การสมัครเรียน, ช่องทางการติดต่อ","enabled":true,"order":5}]', 'homepage', 'ลำดับบล็อกย่อยในศูนย์ข่าวประชาสัมพันธ์หน้าแรก'),
   ('popup_enabled', 'false', 'popup', 'เปิด/ปิด การแสดงผลหน้าต่างป๊อปอัปหน้าแรก'),
   ('popup_layout', 'image_and_text', 'popup', 'รูปแบบป๊อปอัป (image_and_text, image_only, text_only)'),
   ('popup_badge', 'ประกาศสำคัญ · SPECIAL ANNOUNCEMENT', 'popup', 'ป้ายกำกับด้านบนป๊อปอัป'),
   ('popup_title', 'ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด', 'popup', 'หัวข้อหลักของป๊อปอัป'),
   ('popup_subtitle', 'ร่วมมือ วิชาการ งานอาชีพ · ก้าวทันเทคโนโลยี', 'popup', 'หัวข้อรองของป๊อปอัป'),
   ('popup_description', 'ติดตามข่าวสารประชาสัมพันธ์ ปฏิทินกิจกรรม ผลงานนักเรียน และสมัครเรียนออนไลน์ประจำปีการศึกษาได้ที่นี่', 'popup', 'รายละเอียดข้อความในป๊อปอัป'),
+  ('popup_image_url', '', 'popup', 'URL รูปภาพแบนเนอร์/โปสเตอร์ป๊อปอัป'),
   ('popup_cta_text', 'สมัครเรียนออนไลน์', 'popup', 'ข้อความปุ่มหลักในป๊อปอัป'),
   ('popup_cta_url', '/enrollment', 'popup', 'ลิงก์ปลายทางปุ่มหลักในป๊อปอัป'),
   ('popup_secondary_text', 'อ่านข่าวประชาสัมพันธ์ทั้งหมด', 'popup', 'ข้อความปุ่มรองในป๊อปอัป'),
@@ -130,6 +138,8 @@ VALUES
   ('popup_start_date', '', 'popup', 'วันเริ่มต้นแสดงป๊อปอัป (YYYY-MM-DD)'),
   ('popup_end_date', '', 'popup', 'วันสิ้นสุดการแสดงป๊อปอัป (YYYY-MM-DD)'),
   ('supabase_project_ref', 'fhfckuypfstlokashcmu', 'deployment', 'รหัสโปรเจกต์ฐานข้อมูล Supabase'),
+  ('vercel_site_url', '', 'deployment', 'ลิงก์เว็บไซต์ออนไลน์บน Vercel'),
+  ('vercel_deploy_hook_url', '', 'deployment', 'Vercel Deploy Hook URL สำหรับสั่ง Rebuild ออนไลน์'),
   ('github_repo_url', 'https://github.com/SpokRocco/Hadket-School', 'deployment', 'ลิงก์ GitHub Repository ของเว็บไซต์'),
   ('github_branch', 'main', 'deployment', 'Branch หลักที่เชื่อมต่อกับ Vercel และ GitHub')
 ON CONFLICT (key) DO NOTHING;
@@ -156,11 +166,17 @@ BEGIN
     'admissions',
     'curriculum_programs',
     'curriculum_activities',
+    'milestones',
+    'facilities',
+    'faq',
     'media_resources',
+    'teacher_media_items',
     'newsletters',
     'homepage_sections',
     'site_popups',
-    'deployment_configs'
+    'deployment_configs',
+    'sapha_projects',
+    'sapha_links'
   ]
   LOOP
     BEGIN

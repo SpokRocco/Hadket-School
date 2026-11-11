@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Search, X, ExternalLink, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
@@ -43,10 +43,22 @@ const News = () => {
     ...SCHOOL_NEWS_CATEGORIES,
   ]);
   const [isLoading, setIsLoading] = useState(true);
+  const viewedNewsIdRef = useRef<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  const handleNewsClick = useCallback(async (news: NewsItem) => {
+    setSelectedNews(news);
+    viewedNewsIdRef.current = news.id;
+    window.scrollTo(0, 0);
+    try {
+      await (supabase as any).rpc('increment_news_view', { news_id: news.id });
+    } catch (error) {
+      console.error('Error updating views:', error);
+    }
   }, []);
 
   useEffect(() => {
@@ -58,21 +70,21 @@ const News = () => {
 
     const newsId = params.get('id');
     if (!newsId) {
+      viewedNewsIdRef.current = null;
       setSelectedNews(null);
     } else if (allNews.length > 0) {
       const foundNews = allNews.find((n) => n.id === newsId);
       if (foundNews) {
-        handleNewsClick(foundNews);
+        if (viewedNewsIdRef.current === foundNews.id) {
+          setSelectedNews(foundNews);
+        } else {
+          handleNewsClick(foundNews);
+        }
       }
     }
-  }, [allNews, location.search]);
+  }, [allNews, location.search, handleNewsClick]);
 
-  useEffect(() => {
-    fetchNews();
-    fetchCategories();
-  }, []);
-
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('news')
@@ -107,9 +119,9 @@ const News = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('news_categories' as any)
@@ -126,17 +138,20 @@ const News = () => {
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, []);
 
-  const handleNewsClick = async (news: NewsItem) => {
-    setSelectedNews(news);
-    window.scrollTo(0, 0);
-    try {
-      await (supabase as any).rpc('increment_news_view', { news_id: news.id });
-    } catch (error) {
-      console.error('Error updating views:', error);
-    }
-  };
+  useEffect(() => {
+    fetchNews();
+    fetchCategories();
+    return subscribeToRealtimeTables(
+      'realtime_news_page',
+      ['news', 'news_categories'],
+      () => {
+        fetchNews();
+        fetchCategories();
+      }
+    );
+  }, [fetchNews, fetchCategories]);
 
   const filteredNews = filterNewsItems(allNews, {
     category: selectedCategory,

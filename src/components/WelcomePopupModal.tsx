@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Megaphone, ChevronRight, ExternalLink, Calendar } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
-import { isPopupActiveNow, type WelcomePopupConfig } from '@/utils/homepageLayoutUtils';
+import {
+  isPopupActiveNow,
+  WELCOME_POPUP_DAY_KEY,
+  WELCOME_POPUP_SESSION_KEY,
+  type WelcomePopupConfig,
+} from '@/utils/homepageLayoutUtils';
 import heroImage from '@/assets/hero-school.jpg';
 
-const SESSION_DISMISSED_KEY = 'kk_welcome_popup_dismissed_session';
-const DAY_DISMISSED_KEY = 'kk_welcome_popup_dismissed_day';
+const SESSION_DISMISSED_KEY = WELCOME_POPUP_SESSION_KEY;
+const DAY_DISMISSED_KEY = WELCOME_POPUP_DAY_KEY;
 
 interface WelcomePopupModalProps {
   overrideConfig?: WelcomePopupConfig;
@@ -127,7 +132,7 @@ const WelcomePopupModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="welcome-popup-title"
@@ -219,6 +224,7 @@ const WelcomePopupModal = ({
                     <img
                       src={settings.school_logo_url}
                       alt={settings.school_name}
+                      referrerPolicy="no-referrer"
                       className="w-11 h-11 rounded-full object-contain bg-white/95 p-0.5 shadow-md shrink-0"
                     />
                   )}
@@ -241,6 +247,7 @@ const WelcomePopupModal = ({
                   <img
                     src={settings.school_logo_url}
                     alt={settings.school_name}
+                    referrerPolicy="no-referrer"
                     className="w-12 h-12 rounded-full object-contain bg-white p-0.5 shadow-md shrink-0"
                   />
                 )}

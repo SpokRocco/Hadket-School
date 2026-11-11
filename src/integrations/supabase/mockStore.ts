@@ -1200,6 +1200,7 @@ export const createMockSupabaseClient = () => {
           if (statusCb) statusCb('SUBSCRIBED');
           return channelObj;
         },
+        send: async (_payload: any) => 'ok',
         unsubscribe: async () => {
           channelHandlers.forEach((h) => localRealtimeListeners.delete(h));
           return 'ok';

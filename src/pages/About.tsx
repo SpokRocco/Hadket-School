@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AdministratorsSection from '@/components/AdministratorsSection';
 import { Target, Eye, Heart, Star, Users, Award, BookOpen, GraduationCap, Building2, History, LucideIcon, Dumbbell, Monitor, FlaskConical } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 
 interface Milestone {
   id: string;
@@ -28,41 +28,40 @@ const About = () => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      // Fetch milestones
-      const { data: milestonesData } = await supabase
-        .from('milestones')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_position', { ascending: true });
+      const [milestonesRes, facilitiesRes] = await Promise.all([
+        supabase
+          .from('milestones')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('facilities')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+      ]);
 
-      if (milestonesData) setMilestones(milestonesData);
-
-      // Fetch facilities
-      const { data: facilitiesData } = await supabase
-        .from('facilities')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_position', { ascending: true });
-
-      if (facilitiesData) setFacilities(facilitiesData);
+      if (!milestonesRes.error) {
+        setMilestones(milestonesRes.data || []);
+      }
+      if (!facilitiesRes.error) {
+        setFacilities(facilitiesRes.data || []);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Use defaults if fetch fails
-      setMilestones([
-        { id: '1', year: '2517', event: 'ก่อตั้งโรงเรียน' },
-        { id: '2', year: '2530', event: 'เปิดหลักสูตรวิทย์-คณิต' },
-      ]);
-      setFacilities([
-        { id: '1', title: 'อาคารเรียน', description: 'อาคารเรียนทันสมัย', icon: 'Building2' },
-      ]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    return subscribeToRealtimeTables(
+      'realtime_about_page',
+      ['milestones', 'facilities'],
+      fetchData
+    );
+  }, [fetchData]);
 
   // Build features from settings
   const features = [
@@ -159,24 +158,30 @@ const About = () => {
             </div>
 
             <div className="max-w-3xl mx-auto">
-              {milestones.map((milestone, index) => (
-                <div key={index} className="flex gap-6 mb-8 last:mb-0">
-                  <div className="flex-shrink-0 w-24 text-right">
-                    <span className="text-2xl font-bold text-primary">{milestone.year}</span>
-                  </div>
-                  <div className="relative">
-                    <div className="w-4 h-4 rounded-full bg-accent border-4 border-background" />
-                    {index < milestones.length - 1 && (
-                      <div className="absolute top-4 left-1.5 w-1 h-full bg-border" />
-                    )}
-                  </div>
-                  <div className="flex-1 pb-8">
-                    <div className="bg-card rounded-xl p-6 shadow-md border border-border">
-                      <p className="text-foreground">{milestone.event}</p>
+              {milestones.length === 0 ? (
+                <div className="bg-card rounded-xl p-8 text-center border border-border text-muted-foreground">
+                  ยังไม่มีข้อมูลประวัติความเป็นมาในระบบ
+                </div>
+              ) : (
+                milestones.map((milestone, index) => (
+                  <div key={milestone.id || index} className="flex gap-6 mb-8 last:mb-0">
+                    <div className="flex-shrink-0 w-24 text-right">
+                      <span className="text-2xl font-bold text-primary">{milestone.year}</span>
+                    </div>
+                    <div className="relative">
+                      <div className="w-4 h-4 rounded-full bg-accent border-4 border-background" />
+                      {index < milestones.length - 1 && (
+                        <div className="absolute top-4 left-1.5 w-1 h-full bg-border" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-8">
+                      <div className="bg-card rounded-xl p-6 shadow-md border border-border">
+                        <p className="text-foreground">{milestone.event}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -191,20 +196,26 @@ const About = () => {
               </h2>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6">
-              {facilities.map((facility) => {
-                const IconComponent = iconMap[facility.icon] || Building2;
-                return (
-                  <div key={facility.id} className="bg-card rounded-2xl p-8 shadow-md border border-border text-center">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                      <IconComponent className="w-8 h-8 text-primary" />
+            {facilities.length === 0 ? (
+              <div className="max-w-xl mx-auto bg-card rounded-2xl p-8 text-center border border-border text-muted-foreground">
+                ยังไม่มีข้อมูลสถานที่และอุปกรณ์ในระบบ
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-6">
+                {facilities.map((facility) => {
+                  const IconComponent = iconMap[facility.icon] || Building2;
+                  return (
+                    <div key={facility.id} className="bg-card rounded-2xl p-8 shadow-md border border-border text-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                        <IconComponent className="w-8 h-8 text-primary" />
+                      </div>
+                      <h3 className="text-xl font-bold text-foreground mb-3">{facility.title}</h3>
+                      <p className="text-muted-foreground">{facility.description}</p>
                     </div>
-                    <h3 className="text-xl font-bold text-foreground mb-3">{facility.title}</h3>
-                    <p className="text-muted-foreground">{facility.description}</p>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
       </main>

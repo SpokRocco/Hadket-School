@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
     LayoutDashboard,
+    LayoutTemplate,
     Newspaper,
     Calendar,
     Image,
@@ -62,6 +63,7 @@ const menuItems = [
     { id: 'faq', label: 'คำถามที่พบบ่อย (FAQ)', icon: HelpCircle, path: '/admin/dashboard?tab=faq' },
     { id: 'login_portals', label: 'จัดการลิงก์ทางเข้า', icon: Link2, path: '/admin/dashboard?tab=login_portals' },
     { id: 'users', label: 'จัดการผู้ใช้/สิทธิ์ (RBAC)', icon: Shield, path: '/admin/dashboard?tab=users' },
+    { id: 'homepage_layout', label: 'จัดลำดับหน้าแรก & ป๊อปอัป', icon: LayoutTemplate, path: '/admin/dashboard?tab=homepage_layout' },
     { id: 'settings', label: 'ตั้งค่าโรงเรียน', icon: Settings, path: '/admin/dashboard?tab=settings' },
 ];
 

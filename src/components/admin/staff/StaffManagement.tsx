@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Users, Briefcase, Award, Layers, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Briefcase, Award, Layers, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '../shared/ImageUpload';
 import { deleteStorageImage } from '@/utils/storageUtils';
@@ -312,6 +312,8 @@ export const StaffManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('administrators');
+            notifyLocalRealtimeListeners('staff');
             await fetchAllPersonnel();
         } catch (error: any) {
             console.error('Error saving staff:', error);
@@ -340,6 +342,8 @@ export const StaffManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners(item.source_table);
+            notifyLocalRealtimeListeners('staff');
             toast({
                 title: 'ลบข้อมูลสำเร็จ',
                 description: 'ลบข้อมูลบุคลากรเรียบร้อยแล้ว',
@@ -356,6 +360,57 @@ export const StaffManagement = () => {
         }
     };
 
+    const handleMoveOrder = async (
+        groupItems: PersonnelItem[],
+        index: number,
+        direction: 'up' | 'down'
+    ) => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= groupItems.length) return;
+
+        const clone = [...groupItems];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const updatedGroup = clone.map((item, idx) => ({
+            ...item,
+            order_position: idx + 1,
+        }));
+
+        const orderByKey = new Map(
+            updatedGroup.map((item) => [`${item.source_table}-${item.id}`, item.order_position])
+        );
+        setPersonnelList((prev) =>
+            prev.map((item) => {
+                const nextOrder = orderByKey.get(`${item.source_table}-${item.id}`);
+                return nextOrder !== undefined ? { ...item, order_position: nextOrder } : item;
+            })
+        );
+
+        try {
+            await Promise.all(
+                updatedGroup.map((item) =>
+                    supabase
+                        .from(item.source_table)
+                        .update({ order_position: item.order_position })
+                        .eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('administrators');
+            notifyLocalRealtimeListeners('staff');
+            toast({
+                title: 'จัดเรียงสำเร็จ',
+                description: 'บันทึกลำดับบุคลากรใหม่แล้ว',
+            });
+        } catch {
+            toast({
+                variant: 'destructive',
+                title: 'เกิดข้อผิดพลาด',
+                description: 'ไม่สามารถบันทึกลำดับบุคลากรได้',
+            });
+            fetchAllPersonnel();
+        }
+    };
+
     const directors = personnelList
         .filter((s) => s.staff_type === 'director')
         .sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
@@ -368,7 +423,12 @@ export const StaffManagement = () => {
         .filter((s) => s.staff_type === 'support')
         .sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
 
-    const renderPersonnelCard = (person: PersonnelItem, isFeaturedDirector = false) => (
+    const renderPersonnelCard = (
+        person: PersonnelItem,
+        isFeaturedDirector = false,
+        groupItems?: PersonnelItem[],
+        indexInGroup?: number
+    ) => (
         <Card
             key={`${person.source_table}-${person.id}`}
             className={`overflow-hidden border transition-shadow hover:shadow-md ${
@@ -423,7 +483,33 @@ export const StaffManagement = () => {
                         "{person.quote}"
                     </p>
                 )}
-                <div className="flex gap-2 justify-center mt-4">
+                <div className="flex flex-wrap gap-1.5 justify-center mt-4">
+                    {groupItems && typeof indexInGroup === 'number' && groupItems.length > 1 && (
+                        <>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                disabled={indexInGroup === 0}
+                                onClick={() => handleMoveOrder(groupItems, indexInGroup, 'up')}
+                                title="เลื่อนขึ้น / ซ้าย"
+                            >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                disabled={indexInGroup === groupItems.length - 1}
+                                onClick={() => handleMoveOrder(groupItems, indexInGroup, 'down')}
+                                title="เลื่อนลง / ขวา"
+                            >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                            </Button>
+                        </>
+                    )}
                     <Button
                         type="button"
                         size="sm"
@@ -737,7 +823,9 @@ export const StaffManagement = () => {
                                         : 'grid md:grid-cols-2 lg:grid-cols-3 gap-6'
                                 }
                             >
-                                {directors.map((d) => renderPersonnelCard(d, directors.length === 1))}
+                                {directors.map((d, idx) =>
+                                    renderPersonnelCard(d, directors.length === 1, directors, idx)
+                                )}
                             </div>
                         )}
                     </div>
@@ -770,7 +858,9 @@ export const StaffManagement = () => {
                             </Card>
                         ) : (
                             <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {teachingStaff.map((s) => renderPersonnelCard(s))}
+                                {teachingStaff.map((s, idx) =>
+                                    renderPersonnelCard(s, false, teachingStaff, idx)
+                                )}
                             </div>
                         )}
                     </div>
@@ -803,7 +893,9 @@ export const StaffManagement = () => {
                             </Card>
                         ) : (
                             <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {supportStaff.map((s) => renderPersonnelCard(s))}
+                                {supportStaff.map((s, idx) =>
+                                    renderPersonnelCard(s, false, supportStaff, idx)
+                                )}
                             </div>
                         )}
                     </div>
@@ -829,7 +921,9 @@ export const StaffManagement = () => {
                                     : 'grid md:grid-cols-2 lg:grid-cols-3 gap-6'
                             }
                         >
-                            {directors.map((d) => renderPersonnelCard(d, directors.length === 1))}
+                            {directors.map((d, idx) =>
+                                renderPersonnelCard(d, directors.length === 1, directors, idx)
+                            )}
                         </div>
                     )}
                 </TabsContent>
@@ -850,7 +944,9 @@ export const StaffManagement = () => {
                         </Card>
                     ) : (
                         <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {teachingStaff.map((staff) => renderPersonnelCard(staff))}
+                            {teachingStaff.map((staff, idx) =>
+                                renderPersonnelCard(staff, false, teachingStaff, idx)
+                            )}
                         </div>
                     )}
                 </TabsContent>
@@ -871,7 +967,9 @@ export const StaffManagement = () => {
                         </Card>
                     ) : (
                         <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {supportStaff.map((staff) => renderPersonnelCard(staff))}
+                            {supportStaff.map((staff, idx) =>
+                                renderPersonnelCard(staff, false, supportStaff, idx)
+                            )}
                         </div>
                     )}
                 </TabsContent>

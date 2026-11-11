@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, History } from 'lucide-react';
+import { Plus, Edit, Trash2, History, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Milestone {
@@ -107,6 +107,7 @@ export const MilestonesManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('milestones');
             fetchMilestones();
         } catch (error: any) {
             console.error('Error saving:', error);
@@ -119,10 +120,33 @@ export const MilestonesManagement = () => {
         try {
             const { error } = await supabase.from('milestones').delete().eq('id', id);
             if (error) throw error;
+            notifyLocalRealtimeListeners('milestones');
             toast({ title: 'สำเร็จ', description: 'ลบเรียบร้อยแล้ว' });
             fetchMilestones();
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถลบได้' });
+        }
+    };
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= milestones.length) return;
+        const clone = [...milestones];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const reordered = clone.map((item, idx) => ({ ...item, order_position: idx + 1 }));
+        setMilestones(reordered);
+        try {
+            await Promise.all(
+                reordered.map((item) =>
+                    supabase.from('milestones').update({ order_position: item.order_position }).eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('milestones');
+            toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับไทม์ไลน์แล้ว' });
+        } catch {
+            toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถจัดเรียงได้' });
+            fetchMilestones();
         }
     };
 
@@ -180,15 +204,17 @@ export const MilestonesManagement = () => {
                 </Card>
             ) : (
                 <div className="space-y-3">
-                    {milestones.map((milestone) => (
+                    {milestones.map((milestone, idx) => (
                         <Card key={milestone.id} className={`${!milestone.is_active ? 'opacity-50' : ''}`}>
-                            <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="text-2xl font-bold text-primary w-16">{milestone.year}</div>
+                            <CardContent className="p-4 flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div className="text-2xl font-bold text-primary w-16 shrink-0">{milestone.year}</div>
                                     <div className="text-foreground">{milestone.event}</div>
                                     {!milestone.is_active && <span className="text-xs bg-muted px-2 py-1 rounded">ซ่อน</span>}
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={idx === 0} onClick={() => handleMoveOrder(idx, 'up')}><ArrowUp className="w-3.5 h-3.5" /></Button>
+                                    <Button type="button" size="icon" variant="outline" className="h-8 w-8" disabled={idx === milestones.length - 1} onClick={() => handleMoveOrder(idx, 'down')}><ArrowDown className="w-3.5 h-3.5" /></Button>
                                     <Button size="sm" variant="outline" onClick={() => handleOpenDialog(milestone)}><Edit className="w-4 h-4 mr-1" />แก้ไข</Button>
                                     <Button size="sm" variant="destructive" onClick={() => handleDelete(milestone.id)}><Trash2 className="w-4 h-4 mr-1" />ลบ</Button>
                                 </div>

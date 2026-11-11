@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -182,7 +182,6 @@ const MediaLibrary = () => {
 
   const fetchMediaResources = useCallback(async () => {
     try {
-      setLoading(true);
       const localItems = getLocalTeacherMedia();
 
       try {
@@ -218,33 +217,11 @@ const MediaLibrary = () => {
 
   useEffect(() => {
     fetchMediaResources();
-
-    const channel = (supabase as any)
-      .channel('realtime_media_page')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_resources' }, fetchMediaResources)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_media_items' }, fetchMediaResources)
-      .subscribe();
-
-    const handleCustomRealtime = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (
-        !detail ||
-        detail.table === 'media_resources' ||
-        detail.table === 'teacher_media_items' ||
-        detail.table === '*'
-      ) {
-        fetchMediaResources();
-      }
-    };
-
-    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
-
-    return () => {
-      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
-      if (channel && typeof (supabase as any).removeChannel === 'function') {
-        (supabase as any).removeChannel(channel);
-      }
-    };
+    return subscribeToRealtimeTables(
+      'realtime_media_page',
+      ['media_resources', 'teacher_media_items'],
+      fetchMediaResources
+    );
   }, [fetchMediaResources]);
 
   const handleOpenGoogleSite = async (item: MediaResource) => {

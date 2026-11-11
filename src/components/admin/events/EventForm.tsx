@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -113,6 +113,7 @@ export const EventForm = ({ event, onClose }: EventFormProps) => {
                 });
             }
 
+            notifyLocalRealtimeListeners('events');
             onClose();
         } catch (error: any) {
             toast({

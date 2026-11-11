@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,6 +132,8 @@ export const SettingsManagement = () => {
       localStorage.removeItem('school_settings_cache');
       localStorage.removeItem('school_settings_cache_v3');
       notifyLocalRealtimeListeners('school_settings');
+      notifyLocalRealtimeListeners('homepage_sections');
+      notifyLocalRealtimeListeners('site_popups');
 
       toast({
         title: 'สำเร็จ',
@@ -175,10 +178,18 @@ export const SettingsManagement = () => {
             จัดการข้อมูลโรงเรียน โลโก้ ลำดับส่วนหน้าแรก ป๊อปอัปประกาศ และระบบเชื่อมต่อฐานข้อมูล
           </p>
         </div>
-        <Button type="button" onClick={handleSave} disabled={saving} className="gap-2">
-          <Save className="w-4 h-4" />
-          {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" asChild className="gap-2">
+            <Link to="/admin/dashboard?tab=homepage_layout">
+              <LayoutTemplate className="w-4 h-4 text-primary" />
+              จัดการหน้าแรก / ป๊อปอัป / Cloud
+            </Link>
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving} className="gap-2">
+            <Save className="w-4 h-4" />
+            {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -1076,7 +1087,7 @@ export const SettingsManagement = () => {
                 placeholder="https://www.google.com/maps/embed?pb=..."
               />
               <p className="text-xs text-muted-foreground">
-                คัดลอก URL จาก Google Maps → Share → Embed a map
+                คัดลอก URL หรือวางโค้ด <code className="font-mono">&lt;iframe src="..."&gt;</code> จาก Google Maps → Share → Embed a map (ระบบดึง URL ให้อัตโนมัติ)
               </p>
             </div>
           </CardContent>

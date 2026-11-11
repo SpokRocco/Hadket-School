@@ -75,6 +75,7 @@ const Navbar = () => {
               <img
                 src={settings.school_logo_url}
                 alt={settings.school_name}
+                referrerPolicy="no-referrer"
                 className="w-11 h-11 rounded-full object-contain bg-white border border-slate-200/80 p-0.5 shadow-sm shrink-0"
               />
             ) : (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Pencil, Trash2, Calendar } from 'lucide-react';
@@ -66,6 +66,7 @@ export const EventsManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('events');
             toast({
                 title: 'สำเร็จ',
                 description: 'ลบกิจกรรมเรียบร้อยแล้ว',

@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
-import { supabase } from '@/integrations/supabase/client';
+import { extractGoogleMapsEmbedSrc } from '@/utils/homepageLayoutUtils';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 
 interface FaqItem {
   id: string;
@@ -19,6 +20,7 @@ interface FaqItem {
 const Contact = () => {
   const { toast } = useToast();
   const { settings } = useSchoolSettings();
+  const mapEmbedSrc = extractGoogleMapsEmbedSrc(settings.google_maps_embed);
   const [faqItems, setFaqItems] = useState<FaqItem[]>([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -46,6 +48,9 @@ const Contact = () => {
 
   useEffect(() => {
     fetchFaq();
+    return subscribeToRealtimeTables('realtime_contact_faq', ['faq'], () => {
+      fetchFaq();
+    });
   }, []);
 
   const fetchFaq = async () => {
@@ -60,12 +65,7 @@ const Contact = () => {
       setFaqItems(data || []);
     } catch (error) {
       console.error('Error fetching FAQ:', error);
-      // Use default FAQ if table doesn't exist yet
-      setFaqItems([
-        { id: '1', question: 'ค่าธรรมเนียมการศึกษาเท่าไหร่?', answer: 'ค่าธรรมเนียมการศึกษาต่อภาคเรียน ม.ต้น 15,000 บาท และ ม.ปลาย 18,000 บาท' },
-        { id: '2', question: 'มีรถรับส่งนักเรียนหรือไม่?', answer: 'มีบริการรถรับส่งนักเรียน ครอบคลุมพื้นที่กรุงเทพฯ และปริมณฑล' },
-        { id: '3', question: 'เปิดรับสมัครนักเรียนใหม่เมื่อไหร่?', answer: 'เปิดรับสมัครนักเรียนใหม่ทุกปี ช่วงเดือนกุมภาพันธ์ - มีนาคม' },
-      ]);
+      setFaqItems([]);
     }
   };
 
@@ -248,9 +248,9 @@ const Contact = () => {
               <div className="space-y-8">
                 {/* Map */}
                 <div className="bg-card rounded-2xl overflow-hidden shadow-lg border border-border h-80">
-                  {settings.google_maps_embed ? (
+                  {mapEmbedSrc ? (
                     <iframe
-                      src={settings.google_maps_embed}
+                      src={mapEmbedSrc}
                       width="100%"
                       height="100%"
                       style={{ border: 0 }}

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GraduationCap, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 
 interface Administrator {
   id: string;
@@ -19,11 +19,7 @@ const AdministratorsSection = () => {
   const [administrators, setAdministrators] = useState<Administrator[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAdministrators();
-  }, []);
-
-  const fetchAdministrators = async () => {
+  const fetchAdministrators = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('administrators')
@@ -38,7 +34,16 @@ const AdministratorsSection = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAdministrators();
+    return subscribeToRealtimeTables(
+      'realtime_home_administrators',
+      ['administrators'],
+      fetchAdministrators
+    );
+  }, [fetchAdministrators]);
 
   if (isLoading) return null;
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Building2, BookOpen, Award, Dumbbell, Monitor, FlaskConical, LucideIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, BookOpen, Award, Dumbbell, Monitor, FlaskConical, LucideIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Facility {
@@ -117,6 +117,7 @@ export const FacilitiesManagement = () => {
 
             setIsDialogOpen(false);
             resetForm();
+            notifyLocalRealtimeListeners('facilities');
             fetchFacilities();
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถบันทึกได้' });
@@ -128,10 +129,33 @@ export const FacilitiesManagement = () => {
         try {
             const { error } = await supabase.from('facilities').delete().eq('id', id);
             if (error) throw error;
+            notifyLocalRealtimeListeners('facilities');
             toast({ title: 'สำเร็จ', description: 'ลบเรียบร้อยแล้ว' });
             fetchFacilities();
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถลบได้' });
+        }
+    };
+
+    const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= facilities.length) return;
+        const clone = [...facilities];
+        const [moved] = clone.splice(index, 1);
+        clone.splice(targetIndex, 0, moved);
+        const reordered = clone.map((item, idx) => ({ ...item, order_position: idx + 1 }));
+        setFacilities(reordered);
+        try {
+            await Promise.all(
+                reordered.map((item) =>
+                    supabase.from('facilities').update({ order_position: item.order_position }).eq('id', item.id)
+                )
+            );
+            notifyLocalRealtimeListeners('facilities');
+            toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับอาคารสถานที่แล้ว' });
+        } catch {
+            toast({ variant: 'destructive', title: 'เกิดข้อผิดพลาด', description: 'ไม่สามารถจัดเรียงได้' });
+            fetchFacilities();
         }
     };
 
@@ -209,7 +233,7 @@ export const FacilitiesManagement = () => {
                 </Card>
             ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {facilities.map((facility) => {
+                    {facilities.map((facility, idx) => {
                         const IconComponent = getIconComponent(facility.icon);
                         return (
                             <Card key={facility.id} className={`${!facility.is_active ? 'opacity-50' : ''}`}>
@@ -219,7 +243,9 @@ export const FacilitiesManagement = () => {
                                     </div>
                                     <h3 className="font-bold text-foreground mb-1">{facility.title}</h3>
                                     <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{facility.description || '-'}</p>
-                                    <div className="flex gap-1 justify-center">
+                                    <div className="flex flex-wrap gap-1 justify-center">
+                                        <Button type="button" size="icon" variant="outline" className="h-7 w-7" disabled={idx === 0} onClick={() => handleMoveOrder(idx, 'up')}><ArrowUp className="w-3 h-3" /></Button>
+                                        <Button type="button" size="icon" variant="outline" className="h-7 w-7" disabled={idx === facilities.length - 1} onClick={() => handleMoveOrder(idx, 'down')}><ArrowDown className="w-3 h-3" /></Button>
                                         <Button size="sm" variant="outline" onClick={() => handleOpenDialog(facility)} className="text-xs px-2">
                                             <Edit className="w-3 h-3 mr-1" />แก้ไข
                                         </Button>

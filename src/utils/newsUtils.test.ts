@@ -13,6 +13,9 @@ import {
   parseNewsHubSubSections,
   moveItemInOrder,
   reorderItemsById,
+  mergeFilteredReorder,
+  mergeHomepageSectionsFromTable,
+  extractGoogleMapsEmbedSrc,
   parseWelcomePopupConfig,
   isPopupActiveNow,
 } from './homepageLayoutUtils.ts';
@@ -142,4 +145,53 @@ test('parseWelcomePopupConfig defaults to disabled and honors date windows when 
 
   const disabledConfig = parseWelcomePopupConfig({ popup_enabled: 'false' });
   assert.equal(isPopupActiveNow(disabledConfig, new Date('2026-06-15T12:00:00Z')), false);
+});
+
+test('extractGoogleMapsEmbedSrc accepts direct URLs and iframe snippets safely', () => {
+  assert.equal(extractGoogleMapsEmbedSrc(''), '');
+  assert.equal(extractGoogleMapsEmbedSrc('not-a-url'), '');
+  assert.equal(
+    extractGoogleMapsEmbedSrc('https://www.google.com/maps/embed?pb=123'),
+    'https://www.google.com/maps/embed?pb=123'
+  );
+  assert.equal(
+    extractGoogleMapsEmbedSrc(
+      '<iframe src="https://www.google.com/maps/embed?pb=456" width="600" height="450"></iframe>'
+    ),
+    'https://www.google.com/maps/embed?pb=456'
+  );
+});
+
+test('mergeHomepageSectionsFromTable overlays DB table rows while preserving order & fallbacks', () => {
+  const base = parseHomepageSections(null);
+  const merged = mergeHomepageSectionsFromTable(base, [
+    { section_key: 'news', enabled: true, sort_order: 1 },
+    { section_key: 'hero', enabled: true, sort_order: 2 },
+    { section_key: 'newsletter', enabled: false, sort_order: 8 },
+  ]);
+
+  assert.equal(merged[0].id, 'news');
+  assert.equal(merged[0].order, 1);
+  assert.equal(merged[1].id, 'hero');
+  assert.equal(merged[1].order, 2);
+  const newsletter = merged.find((s) => s.id === 'newsletter');
+  assert.equal(newsletter?.enabled, false);
+});
+
+test('mergeFilteredReorder reorders filtered subset while keeping hidden items in original slots', () => {
+  const all = [
+    { id: 'a', cat: 'x' },
+    { id: 'b', cat: 'y' },
+    { id: 'c', cat: 'x' },
+    { id: 'd', cat: 'y' },
+  ];
+  const reorderedFiltered = [
+    { id: 'c', cat: 'x' },
+    { id: 'a', cat: 'x' },
+  ];
+  const merged = mergeFilteredReorder(all, reorderedFiltered);
+  assert.deepEqual(
+    merged.map((item) => item.id),
+    ['c', 'b', 'a', 'd']
+  );
 });

@@ -57,6 +57,7 @@ export const ALL_ADMIN_MENUS: AdminMenuDefinition[] = [
   { id: 'faq', label: 'คำถามที่พบบ่อย (FAQ)', description: 'จัดการคำถาม-คำตอบสำหรับผู้ปกครอง' },
   { id: 'login_portals', label: 'จัดการลิงก์ทางเข้า (Portals)', description: 'สร้างและยกเลิกลิงก์เข้าสู่ระบบเฉพาะกลุ่ม', adminOnly: true },
   { id: 'users', label: 'จัดการผู้ใช้และสิทธิ์ (RBAC)', description: 'เพิ่ม/ลบ ผู้บริหาร แอดมิน ครู เจ้าหน้าที่ และสภา', adminOnly: true },
+  { id: 'homepage_layout', label: 'จัดลำดับหน้าแรก & ป๊อปอัป', description: 'เรียงลำดับข้อมูลหน้าแรก ป๊อปอัปต้อนรับ และเชื่อมต่อ Realtime/Vercel/GitHub', adminOnly: true },
   { id: 'settings', label: 'ตั้งค่าระบบโรงเรียน', description: 'แก้ไขชื่อโรงเรียน โลโก้ และข้อมูลติดต่อ', adminOnly: true },
 ];
 
