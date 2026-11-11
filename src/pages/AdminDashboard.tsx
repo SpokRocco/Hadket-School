@@ -23,6 +23,7 @@ import { LoginPortalsManagement } from '@/components/admin/portals/LoginPortalsM
 import { ExecutivePortal } from '@/components/admin/portals/ExecutivePortal';
 import { TeacherPortal } from '@/components/admin/portals/TeacherPortal';
 import { SaphaPlusDashboard } from '@/components/admin/saphaplus/SaphaPlusDashboard';
+import { HeroSliderManagement } from '@/components/admin/hero/HeroSliderManagement';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,7 @@ import {
   Link2,
   BarChart3,
   FolderKanban,
+  Sliders,
 } from 'lucide-react';
 import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import {
@@ -190,6 +192,9 @@ const AdminDashboard = () => {
       case 'homepage_layout':
         return <HomepageLayoutAndPopupManagement />;
 
+      case 'hero_slider':
+        return <HeroSliderManagement />;
+
       case 'users':
         return <UsersManagement />;
 
@@ -227,6 +232,7 @@ const AdminDashboard = () => {
           { label: 'ปฏิทินกิจกรรม', tab: 'events', icon: Calendar, desc: 'เพิ่มกิจกรรมโรงเรียน' },
           { label: 'ข้อมูลนักเรียน', tab: 'students', icon: GraduationCap, desc: 'สถิติและสภานักเรียน' },
           { label: 'จัดลำดับหน้าแรก · ป๊อปอัป', tab: 'homepage_layout', icon: LayoutTemplate, desc: 'เรียงส่วนหน้าเว็บ ป๊อปอัป & Realtime' },
+          { label: 'ภาพสไลด์หัวเว็บ (Hero)', tab: 'hero_slider', icon: Sliders, desc: 'แก้ไขรูปภาพและข้อความสไลด์บนหัวเว็บ' },
           { label: 'ตั้งค่าระบบโรงเรียน', tab: 'settings', icon: Settings, desc: 'แก้ไขข้อมูลทั่วไป' },
         ].filter((item) => !currentUser || hasMenuPermission(currentUser, item.tab));
 

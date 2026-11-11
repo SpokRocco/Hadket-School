@@ -64,6 +64,7 @@ import {
   Trash2,
   Menu,
   FileText,
+  Sliders,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
@@ -785,6 +786,7 @@ export const HomepageLayoutAndPopupManagement = () => {
       // 3. Bust local caches & emit realtime sync across all open clients
       localStorage.removeItem('school_settings_cache');
       localStorage.removeItem('school_settings_cache_v3');
+      resetWelcomePopupDismissal();
       notifyLocalRealtimeListeners('school_settings');
       notifyLocalRealtimeListeners('homepage_sections');
       notifyLocalRealtimeListeners('site_popups');
@@ -971,6 +973,29 @@ export const HomepageLayoutAndPopupManagement = () => {
 
         {/* TAB 1: HOMEPAGE SECTION & CONTENT ORDERING */}
         <TabsContent value="homepage" className="space-y-6">
+          {/* Quick shortcut to Hero Slider */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-500/10 via-primary/10 to-indigo-500/10 border border-primary/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground text-sm sm:text-base">
+                  ปรับปรุงภาพสไลด์บนหัวเว็บ (Hero Slider Carousel)
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  แก้ไขรูปภาพ ข้อความ ลิงก์ปุ่ม และเปิด/ปิดการเลื่อนอัตโนมัติของแบนเนอร์ด้านบนสุดของเว็บ
+                </p>
+              </div>
+            </div>
+            <Link to="/admin/dashboard?tab=hero_slider">
+              <Button type="button" size="sm" className="gap-1.5 shadow-sm">
+                <Sliders className="w-3.5 h-3.5" />
+                ไปที่เมนูแก้ไขภาพสไลด์หัวเว็บ
+              </Button>
+            </Link>
+          </div>
+
           {/* Active Sequence Preview Pill Bar */}
           <Card className="bg-secondary/40">
             <CardContent className="p-4">

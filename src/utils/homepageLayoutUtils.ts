@@ -180,9 +180,9 @@ export const DEFAULT_NEWS_HUB_SUBSECTIONS: NewsHubSubSectionConfig[] = [
   },
 ];
 
-// Default disabled until Admin enables & saves Welcome Popup in Settings
+// Default enabled for instant website announcement display
 export const DEFAULT_WELCOME_POPUP_CONFIG: WelcomePopupConfig = {
-  enabled: false,
+  enabled: true,
   layout: 'image_and_text',
   badge: 'ประกาศสำคัญ · SPECIAL ANNOUNCEMENT',
   title: 'ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด',
@@ -194,7 +194,7 @@ export const DEFAULT_WELCOME_POPUP_CONFIG: WelcomePopupConfig = {
   ctaUrl: '/enrollment',
   secondaryText: 'อ่านข่าวประชาสัมพันธ์ทั้งหมด',
   secondaryUrl: '/news',
-  frequency: 'once_per_day',
+  frequency: 'every_visit',
   startDate: '',
   endDate: '',
   themeAccent: 'sky',
@@ -554,4 +554,120 @@ export const parseNewsletterDisplayConfig = (
       DEFAULT_NEWSLETTER_DISPLAY_CONFIG.category,
     sortMode,
   };
+};
+
+export interface HeroSlideItem {
+  id: string;
+  image: string;
+  kicker: string;
+  subline: string;
+  title: string;
+  subtitle: string;
+  primaryLabel: string;
+  primaryHref: string;
+  secondaryLabel: string;
+  secondaryHref: string;
+  track1Name?: string;
+  track1Range?: string;
+  track2Name?: string;
+  track2Range?: string;
+  enabled: boolean;
+  order: number;
+}
+
+export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
+  {
+    id: 'slide-admissions',
+    image: '',
+    kicker: 'เปิดรับสมัครนักเรียนใหม่ · ปีการศึกษา 2569',
+    subline: 'ร่วมมือ วิชาการ งานอาชีพ · โรงเรียนบ้านหาดเค็ด',
+    title: 'ร่วมมือ วิชาการ งานอาชีพ ด้วยปัญญา',
+    subtitle:
+      'มุ่งพัฒนาผู้เรียนให้มีคุณภาพตามมาตรฐานการศึกษา ส่งเสริมคุณธรรม น้อมนำหลักปรัชญาของเศรษฐกิจพอเพียง พร้อมก้าวทันเทคโนโลยี',
+    primaryLabel: 'สมัครเรียนออนไลน์',
+    primaryHref: '/enrollment',
+    secondaryLabel: 'เกี่ยวกับโรงเรียน',
+    secondaryHref: '/about',
+    track1Name: 'นักเรียนปัจจุบัน',
+    track1Range: '74 คน · 16 บุคลากรคุณภาพ',
+    track2Name: 'ระยะเวลาหลักสูตร',
+    track2Range: '9 ปี · เวลาเรียน 08.30-16.30 น.',
+    enabled: true,
+    order: 1,
+  },
+  {
+    id: 'slide-academic',
+    image: '',
+    kicker: 'VISION & ACADEMIC EXCELLENCE · โรงเรียนบ้านหาดเค็ด',
+    subline: 'วิสัยทัศน์และเป้าหมายการศึกษา · ปีการศึกษา 2569',
+    title: 'มุ่งพัฒนาผู้เรียนสู่มาตรฐาน พร้อมทักษะเทคโนโลยีและงานอาชีพ',
+    subtitle:
+      'พัฒนาผู้เรียนให้มีความรู้และคุณภาพตามเกณฑ์มาตรฐานการศึกษาขั้นพื้นฐาน ส่งเสริมทักษะดิจิทัลและกระบวนการคิดวิเคราะห์',
+    primaryLabel: 'ดูหลักสูตรที่เปิดสอน',
+    primaryHref: '/curriculum',
+    secondaryLabel: 'เข้าสู่คลังสื่อการสอนออนไลน์',
+    secondaryHref: '/media-library',
+    track1Name: 'ปีแห่งความเป็นเลิศ',
+    track1Range: 'ก่อตั้งและพัฒนาการศึกษาต่อเนื่อง 116 ปี',
+    track2Name: 'อัตราการศึกษาต่อ',
+    track2Range: '90 % ศึกษาต่อและพัฒนาศักยภาพตามเกณฑ์',
+    enabled: true,
+    order: 2,
+  },
+  {
+    id: 'slide-activities',
+    image: '',
+    kicker: 'STUDENT LIFE & ACTIVITIES · โรงเรียนบ้านหาดเค็ด',
+    subline: 'วิชาการดี มีวินัย ใฝ่คุณธรรม นำประชาธิปไตย',
+    title: 'น้อมนำหลักเศรษฐกิจพอเพียง สร้างเยาวชนคุณภาพคู่ชุมชน',
+    subtitle:
+      'ส่งเสริมคุณธรรม จริยธรรม สภาพลัส กิจกรรมพัฒนาผู้เรียน ดนตรี กีฬา และศิลปวัฒนธรรมอย่างรอบด้าน',
+    primaryLabel: 'ข่าวสารและกิจกรรมล่าสุด',
+    primaryHref: '/news',
+    secondaryLabel: 'ข้อมูลนักเรียนและสภานักเรียน',
+    secondaryHref: '/students',
+    track1Name: 'ศิษย์เก่าโรงเรียน',
+    track1Range: '1000+ เครือข่ายศิษย์เก่าและชุมชนเข้มแข็ง',
+    track2Name: 'การมีส่วนร่วมของผู้เรียน',
+    track2Range: 'กิจกรรมสภานักเรียน ชมรม และพัฒนาผู้เรียนรอบด้าน',
+    enabled: true,
+    order: 3,
+  },
+];
+
+export const parseHeroSlides = (rawJson?: string | null): HeroSlideItem[] => {
+  if (!rawJson || !rawJson.trim()) {
+    return DEFAULT_HERO_SLIDES.map((s) => ({ ...s }));
+  }
+
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return DEFAULT_HERO_SLIDES.map((s) => ({ ...s }));
+    }
+
+    return parsed
+      .map((item, idx) => ({
+        id: typeof item?.id === 'string' && item.id.trim() ? item.id : `slide-${idx + 1}`,
+        image: typeof item?.image === 'string' ? item.image : '',
+        kicker: typeof item?.kicker === 'string' ? item.kicker : '',
+        subline: typeof item?.subline === 'string' ? item.subline : '',
+        title: typeof item?.title === 'string' ? item.title : '',
+        subtitle: typeof item?.subtitle === 'string' ? item.subtitle : '',
+        primaryLabel: typeof item?.primaryLabel === 'string' ? item.primaryLabel : '',
+        primaryHref: typeof item?.primaryHref === 'string' ? item.primaryHref : '',
+        secondaryLabel: typeof item?.secondaryLabel === 'string' ? item.secondaryLabel : '',
+        secondaryHref: typeof item?.secondaryHref === 'string' ? item.secondaryHref : '',
+        track1Name: typeof item?.track1Name === 'string' ? item.track1Name : '',
+        track1Range: typeof item?.track1Range === 'string' ? item.track1Range : '',
+        track2Name: typeof item?.track2Name === 'string' ? item.track2Name : '',
+        track2Range: typeof item?.track2Range === 'string' ? item.track2Range : '',
+        enabled: typeof item?.enabled === 'boolean' ? item.enabled : true,
+        order: typeof item?.order === 'number' ? item.order : idx + 1,
+      }))
+      .sort((a, b) => a.order - b.order)
+      .map((item, idx) => ({ ...item, order: idx + 1 }));
+  } catch {
+    return DEFAULT_HERO_SLIDES.map((s) => ({ ...s }));
+  }
 };

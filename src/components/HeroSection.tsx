@@ -1,107 +1,117 @@
-import { useState } from 'react';
-import { ChevronRight, ChevronLeft, MapPin, Phone, BookOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronRight, ChevronLeft, MapPin, Phone, BookOpen, Sparkles } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useNavigate, Link } from 'react-router-dom';
 import heroImage from '@/assets/hero-school.jpg';
 import studentScienceLab from '@/assets/images/student_science_lab_1794379512287.jpg';
 import studentGraduationActivity from '@/assets/images/student_graduation_activity_1794379513899.jpg';
+import { DEFAULT_HERO_SLIDES, type HeroSlideItem } from '@/utils/homepageLayoutUtils';
 
 const HeroSection = () => {
   const { settings } = useSchoolSettings();
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
-  const slides = [
+  const rawSlides: HeroSlideItem[] =
+    settings.heroSlides && settings.heroSlides.length > 0
+      ? settings.heroSlides
+      : DEFAULT_HERO_SLIDES;
+
+  const enabledSlides = rawSlides.filter((s) => s.enabled);
+  const slides = enabledSlides.length > 0 ? enabledSlides : DEFAULT_HERO_SLIDES;
+
+  // Auto-play interval timer with hover pause
+  useEffect(() => {
+    const isAutoPlay = settings.hero_autoplay_enabled !== 'false';
+    if (!isAutoPlay || slides.length <= 1 || isPaused) return;
+
+    const intervalMs = Math.max(
+      2500,
+      Number.parseInt(settings.hero_autoplay_interval || '6000', 10) || 6000
+    );
+
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev >= slides.length - 1 ? 0 : prev + 1));
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [slides.length, isPaused, settings.hero_autoplay_enabled, settings.hero_autoplay_interval]);
+
+  // Clamp activeSlide if slides count changes dynamically
+  const safeActiveSlide = activeSlide < slides.length ? activeSlide : 0;
+  const currentSlide = slides[safeActiveSlide] || slides[0];
+
+  const resolveSlideImage = (slide: HeroSlideItem, index: number) => {
+    if (slide.image && slide.image.trim()) {
+      return slide.image.trim();
+    }
+    if (slide.id === 'slide-academic' || index === 1) return studentScienceLab;
+    if (slide.id === 'slide-activities' || index === 2) return studentGraduationActivity;
+    return heroImage;
+  };
+
+  const currentImage = resolveSlideImage(currentSlide, safeActiveSlide);
+
+  const currentTracks = [
     {
-      id: 'admissions-main',
-      kicker: `${settings.hero_badge || 'เปิดรับสมัครนักเรียนใหม่'} · ปีการศึกษา ${settings.academic_year || '2569'}`,
-      subline: `${settings.school_tagline} · ${settings.school_name}`,
-      title: `${settings.hero_title_1} ${settings.hero_title_2}`.trim() || settings.school_name,
-      subtitle: settings.school_description || settings.school_vision,
-      image: heroImage,
-      primaryLabel: 'สมัครเรียนออนไลน์',
-      primaryHref: '/enrollment',
-      secondaryLabel: 'เกี่ยวกับโรงเรียน',
-      secondaryHref: '/about',
-      tracks: [
-        {
-          name: settings.stat_students_label || 'นักเรียนปัจจุบัน',
-          range: `${settings.stat_students || settings.about_stat_2} คน · ${settings.about_stat_3 || ''} ${settings.about_stat_3_label || 'บุคลากรคุณภาพ'}`.trim(),
-        },
-        {
-          name: settings.curriculum_duration_label || 'ระยะเวลาหลักสูตร',
-          range: `${settings.curriculum_duration || '9 ปี'} · เวลาเรียน ${settings.curriculum_study_time || '08.30-16.30'} น.`,
-        },
-      ],
+      name:
+        currentSlide.track1Name ||
+        (safeActiveSlide === 0
+          ? settings.stat_students_label || 'นักเรียนปัจจุบัน'
+          : safeActiveSlide === 1
+          ? settings.stat_years_label || 'ปีแห่งความเป็นเลิศ'
+          : settings.about_stat_4_label || 'ศิษย์เก่าโรงเรียน'),
+      range:
+        currentSlide.track1Range ||
+        (safeActiveSlide === 0
+          ? `${settings.stat_students || settings.about_stat_2} คน · ${settings.about_stat_3 || ''} ${settings.about_stat_3_label || 'บุคลากรคุณภาพ'}`.trim()
+          : safeActiveSlide === 1
+          ? `ก่อตั้งและพัฒนาการศึกษาต่อเนื่อง ${settings.stat_years || settings.about_stat_1} ปี`
+          : `${settings.about_stat_4 || '1000+'} เครือข่ายศิษย์เก่าและชุมชนเข้มแข็ง`),
     },
     {
-      id: 'academic-learning',
-      kicker: `VISION & ACADEMIC EXCELLENCE · ${settings.school_name}`,
-      subline: `วิสัยทัศน์และเป้าหมายการศึกษา · ปีการศึกษา ${settings.academic_year || '2569'}`,
-      title: 'มุ่งพัฒนาผู้เรียนสู่มาตรฐาน พร้อมทักษะเทคโนโลยีและงานอาชีพ',
-      subtitle: settings.school_vision,
-      image: studentScienceLab,
-      primaryLabel: 'ดูหลักสูตรที่เปิดสอน',
-      primaryHref: '/curriculum',
-      secondaryLabel: 'เข้าสู่คลังสื่อการสอนออนไลน์',
-      secondaryHref: '/media-library',
-      tracks: [
-        {
-          name: settings.stat_years_label || 'ปีแห่งความเป็นเลิศ',
-          range: `ก่อตั้งและพัฒนาการศึกษาต่อเนื่อง ${settings.stat_years || settings.about_stat_1} ปี`,
-        },
-        {
-          name: settings.stat_university_label || 'อัตราการศึกษาต่อ',
-          range: `${settings.stat_university || '90 %'} ศึกษาต่อและพัฒนาศักยภาพตามเกณฑ์`,
-        },
-      ],
-    },
-    {
-      id: 'student-community',
-      kicker: `STUDENT LIFE & ACTIVITIES · ${settings.school_name}`,
-      subline: settings.school_values || 'วิชาการดี มีวินัย ใฝ่คุณธรรม นำประชาธิปไตย',
-      title: 'น้อมนำหลักเศรษฐกิจพอเพียง สร้างเยาวชนคุณภาพคู่ชุมชน',
-      subtitle: settings.school_mission,
-      image: studentGraduationActivity,
-      primaryLabel: 'ข่าวสารและกิจกรรมล่าสุด',
-      primaryHref: '/news',
-      secondaryLabel: 'ข้อมูลนักเรียนและสภานักเรียน',
-      secondaryHref: '/students',
-      tracks: [
-        {
-          name: settings.about_stat_4_label || 'ศิษย์เก่าโรงเรียน',
-          range: `${settings.about_stat_4 || '1000+'} เครือข่ายศิษย์เก่าและชุมชนเข้มแข็ง`,
-        },
-        {
-          name: 'การมีส่วนร่วมของผู้เรียน',
-          range: 'กิจกรรมสภานักเรียน ชมรม และพัฒนาผู้เรียนรอบด้าน',
-        },
-      ],
+      name:
+        currentSlide.track2Name ||
+        (safeActiveSlide === 0
+          ? settings.curriculum_duration_label || 'ระยะเวลาหลักสูตร'
+          : safeActiveSlide === 1
+          ? settings.stat_university_label || 'อัตราการศึกษาต่อ'
+          : 'การมีส่วนร่วมของผู้เรียน'),
+      range:
+        currentSlide.track2Range ||
+        (safeActiveSlide === 0
+          ? `${settings.curriculum_duration || '9 ปี'} · เวลาเรียน ${settings.curriculum_study_time || '08.30-16.30'} น.`
+          : safeActiveSlide === 1
+          ? `${settings.stat_university || '90 %'} ศึกษาต่อและพัฒนาศักยภาพตามเกณฑ์`
+          : 'กิจกรรมสภานักเรียน ชมรม และพัฒนาผู้เรียนรอบด้าน'),
     },
   ];
-
-  const currentSlide = slides[activeSlide];
 
   const handlePrev = () => {
     setActiveSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   };
 
   const handleNext = () => {
-    setActiveSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
+    setActiveSlide((prev) => (prev >= slides.length - 1 ? 0 : prev + 1));
   };
 
   return (
     <section id="home" className="pt-6 pb-10 bg-white dark:bg-slate-950">
       <div className="container-school">
-        {/* Framed Editorial Hero Showcase */}
-        <div className="relative rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-lg bg-slate-900">
+        {/* Framed Editorial Hero Showcase with Auto-play & Hover Pause */}
+        <div
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          className="relative rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-lg bg-slate-900 group"
+        >
           {/* Background Image with Measured Contrast Scrim */}
           <div className="relative min-h-[540px] lg:min-h-[600px] flex flex-col justify-between">
             <img
-              src={currentSlide.image}
+              src={currentImage}
               alt={currentSlide.title}
               referrerPolicy="no-referrer"
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+              className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/30" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/25" />
@@ -109,7 +119,7 @@ const HeroSection = () => {
             {/* Top Utility & Slide Status Row */}
             <div className="relative z-10 px-6 sm:px-10 lg:px-14 pt-8 flex flex-wrap items-center justify-between gap-4">
               <p className="text-xs sm:text-sm font-medium tracking-wide text-amber-300">
-                {currentSlide.kicker}
+                {currentSlide.kicker || `${settings.school_tagline} · ${settings.school_name}`}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -121,7 +131,7 @@ const HeroSection = () => {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="text-xs font-mono tabular-nums text-white/80 px-2">
-                  0{activeSlide + 1} / 0{slides.length}
+                  0{safeActiveSlide + 1} / 0{slides.length}
                 </span>
                 <button
                   type="button"
@@ -137,9 +147,11 @@ const HeroSection = () => {
             {/* Main Hero Content Grid */}
             <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 grid lg:grid-cols-12 gap-8 items-end">
               <div className="lg:col-span-7 max-w-2xl">
-                <p className="text-sm sm:text-base italic text-sky-300 mb-2">
-                  {currentSlide.subline}
-                </p>
+                {currentSlide.subline && (
+                  <p className="text-sm sm:text-base italic text-sky-300 mb-2">
+                    {currentSlide.subline}
+                  </p>
+                )}
                 <h1
                   className="text-3xl sm:text-5xl lg:text-[3.15rem] font-bold text-white leading-[1.35] mb-5"
                   style={{ textWrap: 'balance' }}
@@ -152,29 +164,51 @@ const HeroSection = () => {
 
                 {/* Primary CTA + Secondary Action */}
                 <div className="flex flex-wrap items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => navigate(currentSlide.primaryHref)}
-                    className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm sm:text-base shadow-md transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <span>{currentSlide.primaryLabel}</span>
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+                  {currentSlide.primaryLabel && currentSlide.primaryHref && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          currentSlide.primaryHref.startsWith('http://') ||
+                          currentSlide.primaryHref.startsWith('https://')
+                        ) {
+                          window.location.href = currentSlide.primaryHref;
+                        } else {
+                          navigate(currentSlide.primaryHref);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm sm:text-base shadow-md transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <span>{currentSlide.primaryLabel}</span>
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() => navigate(currentSlide.secondaryHref)}
-                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/12 hover:bg-white/20 text-white border border-white/25 font-semibold text-sm sm:text-base backdrop-blur-sm transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <BookOpen className="w-4 h-4 text-amber-300" />
-                    <span>{currentSlide.secondaryLabel}</span>
-                  </button>
+                  {currentSlide.secondaryLabel && currentSlide.secondaryHref && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          currentSlide.secondaryHref.startsWith('http://') ||
+                          currentSlide.secondaryHref.startsWith('https://')
+                        ) {
+                          window.location.href = currentSlide.secondaryHref;
+                        } else {
+                          navigate(currentSlide.secondaryHref);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/12 hover:bg-white/20 text-white border border-white/25 font-semibold text-sm sm:text-base backdrop-blur-sm transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <BookOpen className="w-4 h-4 text-amber-300" />
+                      <span>{currentSlide.secondaryLabel}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Right Column: Live Data Highlight Cards */}
               <div className="lg:col-span-5 flex flex-col gap-3.5">
-                {currentSlide.tracks.map((track, idx) => (
+                {currentTracks.map((track, idx) => (
                   <div
                     key={idx}
                     className="rounded-2xl bg-slate-950/75 backdrop-blur-md border border-white/15 p-5 text-white"
@@ -220,7 +254,9 @@ const HeroSection = () => {
                     aria-label={`ไปยังสไลด์ที่ ${idx + 1}`}
                     onClick={() => setActiveSlide(idx)}
                     className={`h-2 rounded-full transition-all ${
-                      activeSlide === idx ? 'w-8 bg-sky-400' : 'w-2.5 bg-white/35 hover:bg-white/60'
+                      safeActiveSlide === idx
+                        ? 'w-8 bg-sky-400'
+                        : 'w-2.5 bg-white/35 hover:bg-white/60'
                     }`}
                   />
                 ))}

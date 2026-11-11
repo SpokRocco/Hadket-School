@@ -20,6 +20,8 @@ import {
   extractGoogleMapsEmbedSrc,
   parseWelcomePopupConfig,
   isPopupActiveNow,
+  parseHeroSlides,
+  DEFAULT_HERO_SLIDES,
 } from './homepageLayoutUtils.ts';
 
 const SAMPLE_NEWS: BaseNewsRecord[] = [
@@ -130,10 +132,10 @@ test('reorderItemsById reorders NewsHub sub-sections accurately', () => {
   assert.equal(reordered[1].order, 2);
 });
 
-test('parseWelcomePopupConfig defaults to disabled and honors date windows when enabled', () => {
+test('parseWelcomePopupConfig defaults to enabled true and honors date windows when enabled', () => {
   const defaultConfig = parseWelcomePopupConfig({});
-  assert.equal(defaultConfig.enabled, false);
-  assert.equal(isPopupActiveNow(defaultConfig, new Date('2026-06-15T12:00:00Z')), false);
+  assert.equal(defaultConfig.enabled, true);
+  assert.equal(isPopupActiveNow(defaultConfig, new Date('2026-06-15T12:00:00Z')), true);
 
   const config = parseWelcomePopupConfig({
     popup_enabled: 'true',
@@ -240,4 +242,52 @@ test('parseNewsletterDisplayConfig parses homepage newsletter customization safe
     newsletter_home_limit: '99',
   });
   assert.equal(invalidLimit.limit, 3);
+});
+
+test('parseWelcomePopupConfig defaults to enabled true and every_visit frequency', () => {
+  const popup = parseWelcomePopupConfig({}, 'fallback.jpg');
+  assert.equal(popup.enabled, true);
+  assert.equal(popup.frequency, 'every_visit');
+  assert.equal(popup.imageUrl, 'fallback.jpg');
+  assert.equal(isPopupActiveNow(popup), true);
+
+  const disabledPopup = parseWelcomePopupConfig({ popup_enabled: 'false' }, 'fallback.jpg');
+  assert.equal(disabledPopup.enabled, false);
+  assert.equal(isPopupActiveNow(disabledPopup), false);
+
+  const customPopup = parseWelcomePopupConfig({
+    popup_enabled: 'true',
+    popup_title: 'ประกาศผลการสอบประจำภาค',
+    popup_badge: 'ผลการสอบ',
+    popup_frequency: 'once_per_day',
+  });
+  assert.equal(customPopup.title, 'ประกาศผลการสอบประจำภาค');
+  assert.equal(customPopup.badge, 'ผลการสอบ');
+  assert.equal(customPopup.frequency, 'once_per_day');
+});
+
+test('parseHeroSlides returns default 3 slides or correctly parses custom slides', () => {
+  const defaults = parseHeroSlides(null);
+  assert.equal(defaults.length, 3);
+  assert.equal(defaults[0].title, DEFAULT_HERO_SLIDES[0].title);
+
+  const custom = [
+    {
+      id: 'slide-custom-1',
+      title: 'ยินดีต้อนรับสู่ปีการศึกษา 2569',
+      subtitle: 'เปิดภาคเรียนใหม่',
+      description: 'พร้อมก้าวสู่การเรียนรู้ยุคใหม่',
+      image: 'https://example.com/slide1.jpg',
+      badge: 'ปีการศึกษาใหม่',
+      enabled: true,
+      order: 1,
+    },
+  ];
+  const parsed = parseHeroSlides(JSON.stringify(custom));
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].id, 'slide-custom-1');
+  assert.equal(parsed[0].title, 'ยินดีต้อนรับสู่ปีการศึกษา 2569');
+
+  const invalidJsonFallback = parseHeroSlides('{ invalid json }');
+  assert.equal(invalidJsonFallback.length, 3);
 });

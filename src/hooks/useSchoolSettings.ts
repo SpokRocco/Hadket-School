@@ -7,17 +7,20 @@ import {
   DEFAULT_NEWSLETTER_DISPLAY_CONFIG,
   DEFAULT_NEWS_HUB_SUBSECTIONS,
   DEFAULT_WELCOME_POPUP_CONFIG,
+  DEFAULT_HERO_SLIDES,
   mergeHomepageSectionsFromTable,
   parseHomepageSections,
   parseNavbarMenuItems,
   parseNewsletterDisplayConfig,
   parseNewsHubSubSections,
   parseWelcomePopupConfig,
+  parseHeroSlides,
   type HomepageSectionConfig,
   type NavbarMenuItemConfig,
   type NewsletterDisplayConfig,
   type NewsHubSubSectionConfig,
   type WelcomePopupConfig,
+  type HeroSlideItem,
 } from '@/utils/homepageLayoutUtils';
 
 export interface SocialLink {
@@ -108,11 +111,15 @@ export interface SchoolSettings {
   newsletter_home_limit: string;
   newsletter_home_category: string;
   newsletter_home_sort: string;
+  hero_slides_json: string;
+  hero_autoplay_enabled: string;
+  hero_autoplay_interval: string;
   homepageSections: HomepageSectionConfig[];
   newsHubSubSections: NewsHubSubSectionConfig[];
   navbarMenuItems: NavbarMenuItemConfig[];
   newsletterDisplay: NewsletterDisplayConfig;
   welcomePopup: WelcomePopupConfig;
+  heroSlides: HeroSlideItem[];
 
   // Cloud & Realtime Sync
   supabase_project_ref: string;
@@ -190,6 +197,9 @@ const defaultSettings: SchoolSettings = {
   newsletter_home_limit: String(DEFAULT_NEWSLETTER_DISPLAY_CONFIG.limit),
   newsletter_home_category: DEFAULT_NEWSLETTER_DISPLAY_CONFIG.category,
   newsletter_home_sort: DEFAULT_NEWSLETTER_DISPLAY_CONFIG.sortMode,
+  hero_slides_json: JSON.stringify(DEFAULT_HERO_SLIDES),
+  hero_autoplay_enabled: 'true',
+  hero_autoplay_interval: '6000',
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
   newsHubSubSections: DEFAULT_NEWS_HUB_SUBSECTIONS,
   navbarMenuItems: DEFAULT_NAVBAR_MENU_ITEMS,
@@ -198,6 +208,7 @@ const defaultSettings: SchoolSettings = {
     ...DEFAULT_WELCOME_POPUP_CONFIG,
     imageUrl: heroImage,
   },
+  heroSlides: DEFAULT_HERO_SLIDES,
   supabase_project_ref: 'fhfckuypfstlokashcmu',
   vercel_site_url: '',
   vercel_deploy_hook_url: '',
@@ -220,7 +231,8 @@ const getCachedSettings = (): SchoolSettings | null => {
         newsHubSubSections: parseNewsHubSubSections(parsed.news_hub_order),
         navbarMenuItems: parseNavbarMenuItems(parsed.navbar_menu_items),
         newsletterDisplay: parseNewsletterDisplayConfig(parsed),
-        welcomePopup: parsed.welcomePopup || defaultSettings.welcomePopup,
+        welcomePopup: parseWelcomePopupConfig(parsed, heroImage),
+        heroSlides: parseHeroSlides(parsed.hero_slides_json),
       };
     }
   } catch (error) {
@@ -270,6 +282,7 @@ export const useSchoolSettings = () => {
         const navbarMenuItems = parseNavbarMenuItems(settingsMap.navbar_menu_items);
         const newsletterDisplay = parseNewsletterDisplayConfig(settingsMap);
         let welcomePopup = parseWelcomePopupConfig(settingsMap, heroImage);
+        const heroSlides = parseHeroSlides(settingsMap.hero_slides_json);
         const extendedTablesReady = settingsMap.extended_tables_ready === 'true';
 
         let resolvedVercelUrl = settingsMap.vercel_site_url || defaultSettings.vercel_site_url;
@@ -418,11 +431,17 @@ export const useSchoolSettings = () => {
           newsletter_home_limit: String(newsletterDisplay.limit),
           newsletter_home_category: newsletterDisplay.category,
           newsletter_home_sort: newsletterDisplay.sortMode,
+          hero_slides_json: settingsMap.hero_slides_json || defaultSettings.hero_slides_json,
+          hero_autoplay_enabled:
+            settingsMap.hero_autoplay_enabled || defaultSettings.hero_autoplay_enabled,
+          hero_autoplay_interval:
+            settingsMap.hero_autoplay_interval || defaultSettings.hero_autoplay_interval,
           homepageSections,
           newsHubSubSections,
           navbarMenuItems,
           newsletterDisplay,
           welcomePopup,
+          heroSlides,
           supabase_project_ref: resolvedProjectRef,
           vercel_site_url: resolvedVercelUrl,
           vercel_deploy_hook_url: resolvedDeployHook,

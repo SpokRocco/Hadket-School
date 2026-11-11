@@ -27,6 +27,7 @@ import {
     Sparkles,
     Link2,
     FolderKanban,
+    Sliders,
 } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import {
@@ -64,6 +65,7 @@ const menuItems = [
     { id: 'login_portals', label: 'จัดการลิงก์ทางเข้า', icon: Link2, path: '/admin/dashboard?tab=login_portals' },
     { id: 'users', label: 'จัดการผู้ใช้/สิทธิ์ (RBAC)', icon: Shield, path: '/admin/dashboard?tab=users' },
     { id: 'homepage_layout', label: 'จัดลำดับหน้าแรก & ป๊อปอัป', icon: LayoutTemplate, path: '/admin/dashboard?tab=homepage_layout' },
+    { id: 'hero_slider', label: 'ภาพสไลด์หัวเว็บ', icon: Sliders, path: '/admin/dashboard?tab=hero_slider' },
     { id: 'settings', label: 'ตั้งค่าโรงเรียน', icon: Settings, path: '/admin/dashboard?tab=settings' },
 ];
 

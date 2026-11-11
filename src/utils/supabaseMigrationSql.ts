@@ -112,7 +112,11 @@ VALUES
   ('newsletter_section_subtitle', 'วารสารและจดหมายข่าวสรุปกิจกรรมสำคัญของโรงเรียน (ดึงข้อมูลจริงจากฐานข้อมูล)', 'homepage', 'คำอธิบายรองส่วนจดหมายข่าวบนหน้าหลัก'),
   ('newsletter_home_limit', '3', 'homepage', 'จำนวนจดหมายข่าวที่แสดงบนหน้าหลัก'),
   ('newsletter_home_category', 'ทั้งหมด', 'homepage', 'หมวดหมู่จดหมายข่าวที่กรองแสดงบนหน้าหลัก'),
-  ('newsletter_home_sort', 'latest', 'homepage', 'วิธีเรียงลำดับจดหมายข่าวหน้าหลัก (latest, custom_order)')
+  ('newsletter_home_sort', 'latest', 'homepage', 'วิธีเรียงลำดับจดหมายข่าวหน้าหลัก (latest, custom_order)'),
+  ('hero_slides_json', '[]', 'hero', 'ข้อมูลภาพสไลด์และเนื้อหาบนแบนเนอร์หลักหัวเว็บ JSON'),
+  ('hero_autoplay_enabled', 'true', 'hero', 'เปิด/ปิดการเลื่อนภาพสไลด์หัวเว็บอัตโนมัติ'),
+  ('hero_autoplay_interval', '6000', 'hero', 'ระยะเวลาหน่วงในการเปลี่ยนภาพสไลด์หัวเว็บ (มิลลิวินาที)'),
+  ('popup_enabled', 'true', 'popup', 'เปิด/ปิด การแสดงผลหน้าต่างป๊อปอัปหน้าแรก')
 ON CONFLICT (key) DO NOTHING;
 
 DO $$

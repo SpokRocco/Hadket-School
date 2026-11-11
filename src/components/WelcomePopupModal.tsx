@@ -45,18 +45,23 @@ const WelcomePopupModal = ({
     }
 
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const dismissedDay = localStorage.getItem(DAY_DISMISSED_KEY);
-      if (dismissedDay === todayStr && config.frequency === 'once_per_day') {
-        setIsOpen(false);
-        return;
-      }
+      const searchParams = new URLSearchParams(window.location.search);
+      const forceQuery = searchParams.get('popup') === 'true';
 
-      if (config.frequency === 'once_per_session') {
-        const dismissedSession = sessionStorage.getItem(SESSION_DISMISSED_KEY);
-        if (dismissedSession === 'true') {
+      if (!forceQuery) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const dismissedDay = localStorage.getItem(DAY_DISMISSED_KEY);
+        if (dismissedDay === todayStr) {
           setIsOpen(false);
           return;
+        }
+
+        if (config.frequency === 'once_per_session') {
+          const dismissedSession = sessionStorage.getItem(SESSION_DISMISSED_KEY);
+          if (dismissedSession === 'true') {
+            setIsOpen(false);
+            return;
+          }
         }
       }
     } catch {
@@ -71,7 +76,7 @@ const WelcomePopupModal = ({
   const handleClose = () => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
-      if (hideForToday || config.frequency === 'once_per_day') {
+      if (hideForToday) {
         localStorage.setItem(DAY_DISMISSED_KEY, todayStr);
       }
       if (config.frequency === 'once_per_session') {
