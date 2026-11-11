@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { NewsForm } from './NewsForm';
 import { NewsList } from './NewsList';
@@ -111,6 +111,7 @@ export const NewsManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('news');
             toast({
                 title: 'ลบสำเร็จ',
                 description: 'ลบข่าวสารเรียบร้อยแล้ว',
@@ -138,6 +139,7 @@ export const NewsManagement = () => {
 
             if (error) throw error;
 
+            notifyLocalRealtimeListeners('news');
             toast({
                 title: 'อัปเดตสำเร็จ',
                 description: !item.published ? 'เผยแพร่ข่าวสารแล้ว' : 'ยกเลิกการเผยแพร่แล้ว',
@@ -169,6 +171,7 @@ export const NewsManagement = () => {
             }
 
             setNews(reorderedItems);
+            notifyLocalRealtimeListeners('news');
             toast({
                 title: 'จัดเรียงสำเร็จ',
                 description: 'บันทึกลำดับข่าวสารใหม่แล้ว',
@@ -185,6 +188,7 @@ export const NewsManagement = () => {
     const handleFormSuccess = () => {
         setShowForm(false);
         setEditingNews(null);
+        notifyLocalRealtimeListeners('news');
         fetchNews();
     };
 

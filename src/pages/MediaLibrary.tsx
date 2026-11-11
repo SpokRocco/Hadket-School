@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -180,11 +180,7 @@ const MediaLibrary = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('ทั้งหมด');
 
-  useEffect(() => {
-    fetchMediaResources();
-  }, []);
-
-  const fetchMediaResources = async () => {
+  const fetchMediaResources = useCallback(async () => {
     try {
       setLoading(true);
       const localItems = getLocalTeacherMedia();
@@ -194,7 +190,7 @@ const MediaLibrary = () => {
           .from('teacher_media_items')
           .select('*')
           .order('created_at', { ascending: false });
-        if (!tmErr && tmData && tmData.length > 0) {
+        if (!tmErr && Array.isArray(tmData)) {
           setTeacherMedia(tmData);
         } else {
           setTeacherMedia(localItems);
@@ -211,18 +207,45 @@ const MediaLibrary = () => {
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        setResources(data);
-      } else {
-        setResources(DEFAULT_MEDIA_RESOURCES);
-      }
+      setResources(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching media_resources:', error);
-      setResources(DEFAULT_MEDIA_RESOURCES);
+      setResources([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchMediaResources();
+
+    const channel = (supabase as any)
+      .channel('realtime_media_page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'media_resources' }, fetchMediaResources)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_media_items' }, fetchMediaResources)
+      .subscribe();
+
+    const handleCustomRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (
+        !detail ||
+        detail.table === 'media_resources' ||
+        detail.table === 'teacher_media_items' ||
+        detail.table === '*'
+      ) {
+        fetchMediaResources();
+      }
+    };
+
+    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
+
+    return () => {
+      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
+      if (channel && typeof (supabase as any).removeChannel === 'function') {
+        (supabase as any).removeChannel(channel);
+      }
+    };
+  }, [fetchMediaResources]);
 
   const handleOpenGoogleSite = async (item: MediaResource) => {
     // Open Google Site in new tab
@@ -330,6 +353,7 @@ const MediaLibrary = () => {
                 const isSelected = selectedSubject === subject;
                 return (
                   <button
+                    type="button"
                     key={subject}
                     onClick={() => setSelectedSubject(subject)}
                     className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
@@ -442,7 +466,7 @@ const MediaLibrary = () => {
               <div className="text-center py-16">
                 <p className="text-muted-foreground text-lg">กำลังโหลดคลังสื่อการสอน...</p>
               </div>
-            ) : filteredResources.length === 0 ? (
+            ) : filteredTeacherMedia.length === 0 && filteredResources.length === 0 ? (
               <div className="bg-card rounded-3xl p-12 text-center border border-border max-w-xl mx-auto shadow-sm">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <BookOpen className="w-8 h-8 text-primary" />
@@ -454,6 +478,7 @@ const MediaLibrary = () => {
                   ลองเปลี่ยนคำค้นหาหรือเลือกดูจากหมวดหมู่กลุ่มสาระการเรียนรู้อื่นๆ
                 </p>
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => {
                     setSearchQuery('');
@@ -463,7 +488,7 @@ const MediaLibrary = () => {
                   แสดงคลังสื่อทั้งหมด
                 </Button>
               </div>
-            ) : (
+            ) : filteredResources.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
                 {filteredResources.map((item) => {
                   const theme = CARD_THEMES[item.badge_color] || CARD_THEMES.blue;
@@ -496,6 +521,7 @@ const MediaLibrary = () => {
                             <img
                               src={item.teacher_photo_url}
                               alt={item.teacher_name}
+                              referrerPolicy="no-referrer"
                               className="w-20 h-20 rounded-2xl object-cover border-4 border-card shadow-lg bg-card"
                             />
                           ) : (
@@ -532,6 +558,7 @@ const MediaLibrary = () => {
                           </div>
 
                           <Button
+                            type="button"
                             onClick={() => handleOpenGoogleSite(item)}
                             className={`rounded-xl gap-2 font-semibold shadow-md ${theme.button}`}
                           >
@@ -545,7 +572,7 @@ const MediaLibrary = () => {
                   );
                 })}
               </div>
-            )}
+            ) : null}
 
             {/* Teacher Call-to-Action Banner */}
             <div className="mt-16 bg-gradient-to-r from-secondary via-secondary/80 to-secondary rounded-3xl p-8 md:p-10 border border-border flex flex-col md:flex-row items-center justify-between gap-6">

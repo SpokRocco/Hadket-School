@@ -1,79 +1,131 @@
-import { Target, Eye, Heart, Star } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
+import { Link } from 'react-router-dom';
+import heroImage from '@/assets/hero-school.jpg';
+import studentGraduationActivity from '@/assets/images/student_graduation_activity_1794379513899.jpg';
 
 const AboutSection = () => {
   const { settings } = useSchoolSettings();
 
-  const features = [
+  const welcomeCounters = [
     {
-      icon: Target,
-      title: 'วิสัยทัศน์',
+      value: settings.about_stat_1 || settings.stat_years,
+      label: settings.about_stat_1_label || 'ปีแห่งประสบการณ์',
+    },
+    {
+      value: settings.about_stat_2 || settings.stat_students,
+      label: settings.about_stat_2_label || 'นักเรียนปัจจุบัน',
+    },
+    {
+      value: settings.about_stat_3,
+      label: settings.about_stat_3_label || 'บุคลากรคุณภาพ',
+    },
+  ];
+
+  const pillars = [
+    {
+      index: '01',
+      title: 'วิสัยทัศน์ (Vision)',
       description: settings.school_vision,
     },
     {
-      icon: Eye,
-      title: 'พันธกิจ',
+      index: '02',
+      title: 'พันธกิจ (Mission)',
       description: settings.school_mission,
     },
     {
-      icon: Heart,
-      title: 'ค่านิยม',
+      index: '03',
+      title: 'ค่านิยมองค์กร (Core Values)',
       description: settings.school_values,
     },
     {
-      icon: Star,
-      title: 'ความเป็นเลิศ',
-      description: 'มุ่งมั่นสู่ความเป็นเลิศในทุกด้าน ทั้งวิชาการ กีฬา ศิลปะ และการพัฒนาบุคลิกภาพของผู้เรียน',
+      index: '04',
+      title: 'ศิษย์เก่าและภาคีเครือข่าย',
+      description: `${settings.about_stat_4} ${settings.about_stat_4_label} · คำขวัญประจำโรงเรียน: ${settings.school_tagline}`,
     },
   ];
 
-  const aboutStats = [
-    { value: settings.about_stat_1, label: settings.about_stat_1_label },
-    { value: settings.about_stat_2, label: settings.about_stat_2_label },
-    { value: settings.about_stat_3, label: settings.about_stat_3_label },
-    { value: settings.about_stat_4, label: settings.about_stat_4_label },
-  ];
-
   return (
-    <section id="about" className="section-padding bg-background">
+    <section id="about" className="section-padding bg-white dark:bg-slate-950">
       <div className="container-school">
-        {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="inline-block text-accent font-semibold mb-4">เกี่ยวกับเรา</span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-6">
-            {settings.about_title_1}<span className="text-primary">{settings.about_title_2}</span>
-          </h2>
-          <p className="text-muted-foreground text-lg">
-            {settings.school_description}
-          </p>
+        {/* 3-Column Welcome & Counter Showcase */}
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center mb-20">
+          {/* Left Real Campus Aerial Photo */}
+          <div className="lg:col-span-4">
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100">
+              <img
+                src={heroImage}
+                alt={`บรรยากาศโรงเรียน ${settings.school_name}`}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+              />
+            </div>
+          </div>
+
+          {/* Center Welcome Statement & 3 Sky-Blue Tabular Counters */}
+          <div className="lg:col-span-4 text-center px-2 sm:px-4">
+            <p className="text-base sm:text-lg italic font-medium text-rose-600 dark:text-rose-400 mb-2">
+              ยินดีต้อนรับสู่
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white leading-[1.38] mb-5">
+              {settings.school_name}
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-8 text-base">
+              {settings.school_description || settings.school_vision}
+            </p>
+
+            {/* 3-Column Sky-Blue Tabular Counter Row from Supabase */}
+            <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-slate-800 py-6 mb-8 border-y border-slate-200/80 dark:border-slate-800">
+              {welcomeCounters.map((counter, idx) => (
+                <div key={idx} className="text-center px-2">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-sky-500 font-mono tabular-nums tracking-tight mb-1 whitespace-nowrap">
+                    {counter.value}
+                  </div>
+                  <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">
+                    {counter.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link
+              to="/about"
+              className="inline-flex items-center justify-center px-8 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm shadow-sm transition-colors whitespace-nowrap"
+            >
+              เกี่ยวกับเรา
+            </Link>
+          </div>
+
+          {/* Right Student Excellence & Activities Photo */}
+          <div className="lg:col-span-4">
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100">
+              <img
+                src={studentGraduationActivity}
+                alt={`กิจกรรมนักเรียน ${settings.school_name}`}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((feature, index) => (
+        {/* Clean 4-Column Editorial Institutional Pillars */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-8 border-t border-slate-200/80 dark:border-slate-800">
+          {pillars.map((pillar) => (
             <div
-              key={index}
-              className="group bg-card rounded-2xl p-8 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border border-border"
+              key={pillar.index}
+              className="p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/50 transition-colors"
             >
-              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary group-hover:scale-110 transition-all duration-300">
-                <feature.icon className="w-7 h-7 text-primary group-hover:text-primary-foreground transition-colors" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+              <span className="block text-xs font-mono font-bold text-sky-600 dark:text-sky-400 mb-2">
+                {pillar.index}. แนวทางการพัฒนา
+              </span>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2.5">
+                {pillar.title}
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                {pillar.description}
+              </p>
             </div>
           ))}
-        </div>
-
-        {/* Stats Section */}
-        <div className="mt-20 bg-primary rounded-3xl p-8 md:p-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {aboutStats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-accent mb-2">{stat.value}</div>
-                <div className="text-primary-foreground/80">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -81,4 +133,3 @@ const AboutSection = () => {
 };
 
 export default AboutSection;
-

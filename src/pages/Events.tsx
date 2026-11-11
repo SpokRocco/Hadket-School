@@ -70,9 +70,10 @@ const Events = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background flex flex-col">
             <Navbar />
 
+            <main className="flex-1 pt-20">
             {/* Hero Section */}
             <section className="bg-primary py-20">
                 <div className="container mx-auto px-4 text-center">
@@ -164,6 +165,7 @@ const Events = () => {
                     </div>
                 </div>
             </section>
+            </main>
 
             <Footer />
         </div>

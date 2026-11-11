@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '../shared/ImageUpload';
 import { RichTextEditor } from '../shared/RichTextEditor';
@@ -93,6 +93,7 @@ export const NewsForm = ({ news, onSuccess, onCancel }: NewsFormProps) => {
                 });
             }
 
+            notifyLocalRealtimeListeners('news');
             onSuccess();
         } catch (error: any) {
             toast({

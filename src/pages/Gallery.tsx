@@ -134,7 +134,7 @@ const Gallery = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-grow container mx-auto px-4 py-8">
+      <main className="flex-grow container mx-auto px-4 pt-28 pb-12">
         <h1 className="text-4xl font-bold text-center mb-8 text-primary">คลังภาพกิจกรรม</h1>
 
         <div className="flex flex-wrap justify-center gap-2 mb-8">

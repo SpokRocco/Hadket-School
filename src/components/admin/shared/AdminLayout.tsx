@@ -99,7 +99,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                             />
                         ) : (
                             <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 flex-shrink-0">
-                                <span className="text-white font-bold text-sm">{settings.school_short_name || 'วค'}</span>
+                                <span className="text-white font-bold text-sm">{settings.school_short_name || 'บหค'}</span>
                             </div>
                         )}
                         <div className="min-w-0">

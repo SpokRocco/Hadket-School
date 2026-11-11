@@ -40,7 +40,7 @@ const Footer = () => {
                 />
               ) : (
                 <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
-                  <span className="text-accent-foreground font-bold text-xl">{settings.school_short_name || 'วค'}</span>
+                  <span className="text-accent-foreground font-bold text-xl">{settings.school_short_name || 'บหค'}</span>
                 </div>
               )}
               <div>
@@ -106,12 +106,24 @@ const Footer = () => {
             <ul className="space-y-3">
               {resources.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-primary-foreground/80 hover:text-accent transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  {link.href.startsWith('/') ? (
+                    <Link
+                      to={link.href}
+                      onClick={() => window.scrollTo(0, 0)}
+                      className="text-primary-foreground/80 hover:text-accent transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      target={link.href.startsWith('http') ? '_blank' : undefined}
+                      rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                      className="text-primary-foreground/80 hover:text-accent transition-colors"
+                    >
+                      {link.name}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

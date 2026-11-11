@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
+import { deleteStorageImage } from '@/utils/storageUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +40,7 @@ export const NewslettersManagement = () => {
   const [editingItem, setEditingItem] = useState<SchoolNewsletter | null>(null);
   const [formData, setFormData] = useState({
     issue_no: '01',
-    academic_year: '2568',
+    academic_year: '2569',
     issue_date: new Date().toISOString().split('T')[0],
     title: '',
     summary: '',
@@ -83,7 +84,7 @@ export const NewslettersManagement = () => {
     const nextIssueNum = String(newsletters.length + 1).padStart(2, '0');
     setFormData({
       issue_no: nextIssueNum,
-      academic_year: '2568',
+      academic_year: '2569',
       issue_date: new Date().toISOString().split('T')[0],
       title: '',
       summary: '',
@@ -101,7 +102,7 @@ export const NewslettersManagement = () => {
       setEditingItem(item);
       setFormData({
         issue_no: item.issue_no,
-        academic_year: item.academic_year || '2568',
+        academic_year: item.academic_year || '2569',
         issue_date: item.issue_date,
         title: item.title,
         summary: item.summary || '',
@@ -174,6 +175,7 @@ export const NewslettersManagement = () => {
 
       setIsDialogOpen(false);
       resetForm();
+      notifyLocalRealtimeListeners('newsletters');
       fetchNewsletters();
     } catch (error: any) {
       console.error('Error saving newsletter:', error);
@@ -194,7 +196,7 @@ export const NewslettersManagement = () => {
         await deleteStorageImage(itemToDelete.image_url);
       }
 
-      const { data, error } = await (supabase as any)
+      const { error } = await (supabase as any)
         .from('newsletters')
         .delete()
         .eq('id', id)
@@ -202,6 +204,7 @@ export const NewslettersManagement = () => {
 
       if (error) throw error;
 
+      notifyLocalRealtimeListeners('newsletters');
       toast({
         title: 'ลบสำเร็จ',
         description: 'ลบจดหมายข่าวเรียบร้อยแล้ว',

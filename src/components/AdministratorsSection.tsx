@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Award, GraduationCap, Quote, Sparkles } from 'lucide-react';
+import { GraduationCap, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,138 +31,86 @@ const AdministratorsSection = () => {
         .order('order_position', { ascending: true });
 
       if (error) throw error;
-      if (data && data.length > 0) {
-        setAdministrators(data);
-      } else {
-        setAdministrators([
-          {
-            id: 'default-director',
-            name: 'ดร.สมศักดิ์ วิทยาการ',
-            position: 'ผู้อำนวยการโรงเรียน',
-            education: 'ปริญญาเอก การบริหารการศึกษา',
-            quote: 'มุ่งมั่นพัฒนาผู้เรียนให้มีความรู้คู่คุณธรรม ก้าวทันเทคโนโลยี สู่มาตรฐานสากล',
-            photo_url: '',
-            order_position: 1,
-          },
-        ]);
-      }
+      setAdministrators(data || []);
     } catch (error) {
       console.error('Error fetching administrators:', error);
-      setAdministrators([
-        {
-          id: 'default-director',
-          name: 'ดร.สมศักดิ์ วิทยาการ',
-          position: 'ผู้อำนวยการโรงเรียน',
-          education: 'ปริญญาเอก การบริหารการศึกษา',
-          quote: 'มุ่งมั่นพัฒนาผู้เรียนให้มีความรู้คู่คุณธรรม ก้าวทันเทคโนโลยี สู่มาตรฐานสากล',
-          photo_url: '',
-          order_position: 1,
-        },
-      ]);
+      setAdministrators([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <section id="administrators" className="section-padding bg-secondary/30">
-        <div className="container-school">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">กำลังโหลดข้อมูลผู้บริหาร...</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  if (isLoading) return null;
 
-  // แสดงผู้บริหารหลัก (คนแรก) แบบโดดเด่นตรงกลาง
   const primaryDirector = administrators[0];
+  if (!primaryDirector) return null;
 
   return (
-    <section id="administrators" className="section-padding bg-gradient-to-b from-secondary/50 via-background to-background relative overflow-hidden">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="container-school relative z-10">
-        {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/15 text-accent font-semibold text-sm mb-4">
-            <Award className="w-4 h-4" />
-            ผู้บริหารสถานศึกษา
-          </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-            ทำเนียบ<span className="text-primary">ผู้บริหาร</span>
-          </h2>
-          <p className="text-muted-foreground text-lg">
-            ผู้นำองค์กรแห่งการเรียนรู้ มุ่งพัฒนาคุณภาพการศึกษาและเยาวชนอย่างยั่งยืน
-          </p>
-        </div>
-
-        {/* Single Director Featured Showcase */}
-        {primaryDirector && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-card rounded-3xl overflow-hidden shadow-xl border border-border/80 relative">
-              <div className="grid md:grid-cols-12 items-stretch">
-                {/* Director Portrait Column */}
-                <div className="md:col-span-5 bg-gradient-to-br from-primary via-primary/95 to-navy-light p-8 md:p-10 flex flex-col items-center justify-center relative text-center">
-                  <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-                  <div className="relative z-10">
-                    <div className="w-48 h-48 sm:w-56 sm:h-56 mx-auto rounded-full p-1.5 bg-gradient-to-tr from-accent via-gold-light to-white shadow-2xl">
-                      {primaryDirector.photo_url ? (
-                        <img
-                          src={primaryDirector.photo_url}
-                          alt={primaryDirector.name}
-                          className="w-full h-full rounded-full object-cover border-4 border-primary"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-full bg-primary/90 flex items-center justify-center border-4 border-card/20">
-                          <span className="text-6xl font-bold text-accent">
-                            {primaryDirector.name.charAt(0)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-5 inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-accent text-accent-foreground font-semibold text-xs shadow-md">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      {settings.school_name}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Director Information & Vision Quote Column */}
-                <div className="md:col-span-7 p-8 md:p-12 flex flex-col justify-center">
-                  <div className="mb-6">
-                    <span className="text-sm font-semibold uppercase tracking-wider text-accent">
-                      {primaryDirector.position}
+    <section id="administrators" className="py-16 bg-slate-50/70 dark:bg-slate-900/40 border-y border-slate-200/70 dark:border-slate-800">
+      <div className="container-school">
+        <div className="max-w-5xl mx-auto bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-sm border border-slate-200/80 dark:border-slate-800">
+          <div className="grid md:grid-cols-12 items-stretch">
+            {/* Director Portrait Column */}
+            <div className="md:col-span-4 bg-slate-900 p-8 flex flex-col items-center justify-center text-center">
+              <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-full p-1 bg-gradient-to-tr from-amber-400 to-sky-400 shadow-lg">
+                {primaryDirector.photo_url ? (
+                  <img
+                    src={primaryDirector.photo_url}
+                    alt={primaryDirector.name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full object-cover border-2 border-slate-900"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-slate-800 flex items-center justify-center">
+                    <span className="text-4xl font-bold text-amber-400">
+                      {primaryDirector.name.charAt(0)}
                     </span>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 mb-3">
-                      {primaryDirector.name}
-                    </h3>
-                    {primaryDirector.education && (
-                      <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-secondary px-3.5 py-1.5 rounded-lg">
-                        <GraduationCap className="w-4 h-4 text-primary flex-shrink-0" />
-                        <span>{primaryDirector.education}</span>
-                      </div>
-                    )}
                   </div>
+                )}
+              </div>
+              <p className="mt-4 text-xs font-medium text-sky-300">
+                {settings.school_name}
+              </p>
+            </div>
 
-                  {primaryDirector.quote && (
-                    <div className="relative bg-secondary/50 rounded-2xl p-6 border-l-4 border-accent">
-                      <Quote className="w-8 h-8 text-accent/30 absolute top-4 right-4" />
-                      <p className="text-foreground/90 italic text-base sm:text-lg leading-relaxed relative z-10">
-                        "{primaryDirector.quote}"
-                      </p>
-                      <p className="text-xs font-semibold text-primary mt-3">
-                        — สารจากผู้อำนวยการโรงเรียน
-                      </p>
-                    </div>
-                  )}
-                </div>
+            {/* Director Information & Editorial Pull Quote */}
+            <div className="md:col-span-8 p-8 sm:p-10 flex flex-col justify-center">
+              <p className="text-xs font-semibold uppercase tracking-wider text-sky-600 mb-1">
+                EXECUTIVE MESSAGE · {primaryDirector.position}
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2">
+                {primaryDirector.name}
+              </h2>
+              {primaryDirector.education && (
+                <p className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-5">
+                  <GraduationCap className="w-4 h-4 text-sky-600 shrink-0" />
+                  <span>{primaryDirector.education}</span>
+                </p>
+              )}
+
+              {primaryDirector.quote && (
+                <blockquote className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <p className="text-slate-700 dark:text-slate-200 italic text-base sm:text-lg leading-relaxed">
+                    “{primaryDirector.quote}”
+                  </p>
+                  <footer className="text-xs font-semibold text-slate-500 mt-2">
+                    — {primaryDirector.position} {settings.school_name}
+                  </footer>
+                </blockquote>
+              )}
+
+              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                <Link
+                  to="/staff"
+                  className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-sky-600 hover:text-sky-700"
+                >
+                  <span>ดูทำเนียบผู้บริหารและบุคลากรทั้งหมด</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </section>
   );

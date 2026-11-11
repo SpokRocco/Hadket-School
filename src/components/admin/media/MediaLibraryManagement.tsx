@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -188,6 +188,7 @@ export const MediaLibraryManagement = () => {
 
       setIsDialogOpen(false);
       resetForm();
+      notifyLocalRealtimeListeners('media_resources');
       fetchResources();
     } catch (error: any) {
       console.error('Error saving media_resource:', error);
@@ -210,6 +211,7 @@ export const MediaLibraryManagement = () => {
 
       if (error) throw error;
 
+      notifyLocalRealtimeListeners('media_resources');
       toast({
         title: 'ลบสำเร็จ',
         description: 'ลบคลังสื่อการสอนเรียบร้อยแล้ว',

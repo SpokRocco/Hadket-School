@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -68,7 +68,7 @@ export const SEED_TEACHER_MEDIA: TeacherMediaItem[] = [
     teacher_username: 'teacher',
     teacher_name: 'ครูสมชาย ใจดี (กลุ่มสาระฯ ภาษาไทย)',
     subject_department: 'ภาษาไทย',
-    grade_level: 'ม.4 - ม.6',
+    grade_level: 'ม.1 - ม.3',
     title: 'สไลด์ Canva: วรรณคดีวิจักษ์และศิลปะการประพันธ์',
     description: 'สื่อนำเสนออินโฟกราฟิกจาก Canva สำหรับทบทวนก่อนสอบกลางภาค',
     media_type: 'canva',
@@ -80,7 +80,7 @@ export const SEED_TEACHER_MEDIA: TeacherMediaItem[] = [
     teacher_username: 'teacher',
     teacher_name: 'ครูสมชาย ใจดี (กลุ่มสาระฯ ภาษาไทย)',
     subject_department: 'ภาษาไทย',
-    grade_level: 'ม.1 - ม.6',
+    grade_level: 'ป.1 - ม.3',
     title: 'เอกสารใบงาน PDF: การอ่านคิดวิเคราะห์และเขียนสื่อสาร',
     description: 'เอกสาร PDF สำหรับดาวน์โหลดไปฝึกทำพร้อมเฉลยแนวทางการตอบ',
     media_type: 'pdf',
@@ -168,7 +168,7 @@ export const TeacherPortal = () => {
     title: '',
     description: '',
     subject_department: defaultSubject,
-    grade_level: 'ม.1 - ม.6',
+    grade_level: 'ป.1 - ม.3',
     media_type: 'video' as TeacherMediaType,
     media_url: '',
   });
@@ -186,7 +186,7 @@ export const TeacherPortal = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         setAllMedia(data);
         saveLocalTeacherMedia(data);
       } else {
@@ -223,7 +223,7 @@ export const TeacherPortal = () => {
       title: '',
       description: '',
       subject_department: defaultSubject,
-      grade_level: 'ม.1 - ม.6',
+      grade_level: 'ป.1 - ม.3',
       media_type: 'video',
       media_url: '',
     });
@@ -288,6 +288,8 @@ export const TeacherPortal = () => {
         // Saved in localStorage
       }
 
+      notifyLocalRealtimeListeners('teacher_media_items');
+
       toast({
         title: 'แก้ไขสื่อการสอนสำเร็จ',
         description: `อัปเดต "${updatedItem.title}" เรียบร้อยแล้ว`,
@@ -336,6 +338,8 @@ export const TeacherPortal = () => {
       saveLocalTeacherMedia(nextList);
     }
 
+    notifyLocalRealtimeListeners('teacher_media_items');
+
     toast({
       title: 'เพิ่มสื่อการสอนสำเร็จ',
       description: `เพิ่ม "${newItem.title}" เข้าสู่คลังสื่อประจำตัวของคุณแล้ว`,
@@ -356,6 +360,8 @@ export const TeacherPortal = () => {
     } catch {
       // Saved in localStorage
     }
+
+    notifyLocalRealtimeListeners('teacher_media_items');
 
     toast({
       title: 'ลบสื่อการสอนเรียบร้อยแล้ว',

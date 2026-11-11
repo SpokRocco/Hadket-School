@@ -105,7 +105,7 @@ const AcademicCalendar = () => {
             ปฏิทินการศึกษา {settings.academic_year}
           </h1>
           <p className="text-card/80 text-lg max-w-2xl mx-auto">
-            กำหนดการสำคัญตลอดปีการศึกษาของโรงเรียนห้องสื่อครูคอมวิทยาคม
+            กำหนดการสำคัญตลอดปีการศึกษาของ{settings.school_name}
           </p>
         </div>
       </section>

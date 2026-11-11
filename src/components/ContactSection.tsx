@@ -31,7 +31,7 @@ const ContactSection = () => {
     {
       icon: Clock,
       title: 'เวลาทำการ',
-      content: 'จันทร์ - ศุกร์ 07:30 - 16:30 น.',
+      content: settings.contact_hours || 'จันทร์ - ศุกร์ 07:30 - 16:30 น.',
     },
   ];
 

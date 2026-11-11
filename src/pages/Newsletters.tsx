@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -120,11 +120,7 @@ const Newsletters = () => {
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [selectedNewsletter, setSelectedNewsletter] = useState<SchoolNewsletter | null>(null);
 
-  useEffect(() => {
-    fetchNewsletters();
-  }, []);
-
-  const fetchNewsletters = async () => {
+  const fetchNewsletters = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await (supabase as any)
@@ -144,7 +140,32 @@ const Newsletters = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNewsletters();
+
+    const channel = (supabase as any)
+      .channel('realtime_newsletters_page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'newsletters' }, fetchNewsletters)
+      .subscribe();
+
+    const handleCustomRealtime = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || detail.table === 'newsletters' || detail.table === '*') {
+        fetchNewsletters();
+      }
+    };
+
+    window.addEventListener('kk-supabase-realtime', handleCustomRealtime);
+
+    return () => {
+      window.removeEventListener('kk-supabase-realtime', handleCustomRealtime);
+      if (channel && typeof (supabase as any).removeChannel === 'function') {
+        (supabase as any).removeChannel(channel);
+      }
+    };
+  }, [fetchNewsletters]);
 
   const handleViewNewsletter = async (item: SchoolNewsletter) => {
     setSelectedNewsletter(item);
@@ -225,6 +246,7 @@ const Newsletters = () => {
             <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-10">
               {NEWSLETTER_CATEGORIES.map((cat) => (
                 <button
+                  type="button"
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
@@ -248,6 +270,7 @@ const Newsletters = () => {
                 <h3 className="text-xl font-bold mb-2">ไม่พบจดหมายข่าวประชาสัมพันธ์</h3>
                 <p className="text-muted-foreground mb-4">ลองเปลี่ยนคำค้นหาหรือหมวดหมู่</p>
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => {
                     setSearchQuery('');
@@ -268,9 +291,17 @@ const Newsletters = () => {
                     {/* Official Thai School Newsletter Masthead Banner */}
                     <div className="bg-gradient-to-r from-primary via-primary to-navy-light px-5 py-3.5 text-primary-foreground border-b-4 border-accent flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center flex-shrink-0 shadow">
-                          วค
-                        </div>
+                        {settings.school_logo_url ? (
+                          <img
+                            src={settings.school_logo_url}
+                            alt={settings.school_name}
+                            className="w-9 h-9 rounded-full object-contain bg-white p-0.5 flex-shrink-0 shadow"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center flex-shrink-0 shadow">
+                            {settings.school_short_name || 'บหค'}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <p className="text-[11px] text-accent font-semibold tracking-wider uppercase leading-none">
                             จดหมายข่าวประชาสัมพันธ์
@@ -305,6 +336,7 @@ const Newsletters = () => {
                         <img
                           src={item.image_url}
                           alt={item.title}
+                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
@@ -369,9 +401,17 @@ const Newsletters = () => {
               <div className="bg-gradient-to-r from-primary via-primary to-navy-light p-6 text-primary-foreground border-b-4 border-accent">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-14 h-14 rounded-full bg-accent text-accent-foreground font-bold text-xl flex items-center justify-center shadow-lg">
-                      วค
-                    </div>
+                    {settings.school_logo_url ? (
+                      <img
+                        src={settings.school_logo_url}
+                        alt={settings.school_name}
+                        className="w-14 h-14 rounded-full object-contain bg-white p-0.5 shadow-lg"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-accent text-accent-foreground font-bold text-xl flex items-center justify-center shadow-lg">
+                        {settings.school_short_name || 'บหค'}
+                      </div>
+                    )}
                     <div>
                       <span className="inline-block text-xs font-bold tracking-widest uppercase text-accent">
                         SCHOOL NEWSLETTER • จดหมายข่าวประชาสัมพันธ์

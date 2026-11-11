@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Prompt:wght@400;500;600;700&family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,59 +6,59 @@
 
 @layer base {
   :root {
-    /* School colors - Navy Blue & Gold theme */
-    --background: 210 20% 98%;
-    --foreground: 220 30% 15%;
+    /* Institutional School Palette: Crisp Alabaster White, Royal Navy, Sky Blue & Amber Gold Accent */
+    --background: 210 25% 98.5%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 15%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 15%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Primary - Navy Blue */
-    --primary: 220 60% 25%;
-    --primary-foreground: 45 100% 96%;
+    /* Primary - Deep Institutional Navy / Royal Blue */
+    --primary: 215 68% 20%;
+    --primary-foreground: 210 40% 98%;
 
-    /* Secondary - Light Blue */
-    --secondary: 210 40% 94%;
-    --secondary-foreground: 220 60% 25%;
+    /* Secondary - Soft Cool Alabaster */
+    --secondary: 210 35% 95%;
+    --secondary-foreground: 215 68% 20%;
 
-    /* Accent - Gold */
-    --accent: 45 90% 55%;
-    --accent-foreground: 220 60% 15%;
+    /* Accent - Warm Institutional Gold / Amber */
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 11%;
 
-    --muted: 210 25% 92%;
-    --muted-foreground: 220 15% 45%;
+    --muted: 210 25% 93%;
+    --muted-foreground: 215 16% 44%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 78% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 220 60% 25%;
+    --border: 214 25% 89%;
+    --input: 214 25% 89%;
+    --ring: 201 90% 42%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     /* Custom school variables */
-    --gold: 45 90% 55%;
-    --gold-light: 45 85% 70%;
-    --gold-dark: 45 90% 40%;
-    --navy: 220 60% 25%;
-    --navy-light: 220 45% 40%;
-    --navy-dark: 220 70% 15%;
+    --gold: 38 92% 50%;
+    --gold-light: 43 96% 65%;
+    --gold-dark: 35 90% 38%;
+    --navy: 215 68% 20%;
+    --navy-light: 201 88% 42%;
+    --navy-dark: 220 72% 13%;
     
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(220 60% 20%) 0%, hsl(220 50% 35%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(45 90% 55%) 0%, hsl(45 85% 65%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215 68% 18%) 0%, hsl(201 85% 36%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(43 96% 62%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 25% 98%) 100%);
     
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(220 30% 15% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(220 30% 15% / 0.08), 0 2px 4px -2px hsl(220 30% 15% / 0.05);
-    --shadow-lg: 0 10px 15px -3px hsl(220 30% 15% / 0.1), 0 4px 6px -4px hsl(220 30% 15% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(220 30% 15% / 0.1), 0 8px 10px -6px hsl(220 30% 15% / 0.1);
-    --shadow-gold: 0 4px 14px 0 hsl(45 90% 55% / 0.3);
+    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.04);
+    --shadow-md: 0 6px 16px -4px hsl(222 47% 11% / 0.06);
+    --shadow-lg: 0 12px 28px -6px hsl(222 47% 11% / 0.08);
+    --shadow-xl: 0 20px 36px -8px hsl(222 47% 11% / 0.1);
+    --shadow-gold: 0 4px 14px 0 hsl(38 92% 50% / 0.28);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -71,33 +71,33 @@
   }
 
   .dark {
-    --background: 220 30% 8%;
-    --foreground: 210 20% 95%;
+    --background: 222 47% 7%;
+    --foreground: 210 20% 96%;
 
-    --card: 220 30% 12%;
-    --card-foreground: 210 20% 95%;
+    --card: 222 42% 11%;
+    --card-foreground: 210 20% 96%;
 
-    --popover: 220 30% 12%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 222 42% 11%;
+    --popover-foreground: 210 20% 96%;
 
-    --primary: 45 90% 55%;
-    --primary-foreground: 220 60% 15%;
+    --primary: 201 88% 48%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 220 30% 18%;
-    --secondary-foreground: 210 20% 95%;
+    --secondary: 220 30% 16%;
+    --secondary-foreground: 210 20% 96%;
 
-    --accent: 45 85% 60%;
-    --accent-foreground: 220 60% 15%;
+    --accent: 38 92% 54%;
+    --accent-foreground: 222 47% 11%;
 
-    --muted: 220 25% 18%;
-    --muted-foreground: 210 15% 60%;
+    --muted: 220 25% 16%;
+    --muted-foreground: 215 15% 65%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 35%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 25% 20%;
     --input: 220 25% 20%;
-    --ring: 45 90% 55%;
+    --ring: 201 88% 48%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -124,7 +124,10 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-sarabun font-semibold tracking-tight;
+    font-family: 'Prompt', 'Plus Jakarta Sans', 'Sarabun', sans-serif;
+    @apply font-semibold tracking-tight;
+    line-height: 1.38;
+    text-wrap: balance;
   }
 }
 
@@ -143,29 +146,29 @@
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-1;
   }
 
   .btn-gold {
-    @apply bg-accent text-accent-foreground font-semibold px-6 py-3 rounded-lg transition-all duration-300 hover:shadow-gold hover:-translate-y-0.5;
+    @apply bg-accent text-accent-foreground font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:shadow-gold hover:-translate-y-0.5;
   }
 
   .btn-navy {
-    @apply bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-lg transition-all duration-300 hover:opacity-90;
+    @apply bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-lg transition-all duration-200 hover:opacity-90;
   }
 }
 
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn 0.6s ease-out forwards;
+    animation: fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .animate-slide-up {
-    animation: slideUp 0.6s ease-out forwards;
+    animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .animate-scale-in {
-    animation: scaleIn 0.4s ease-out forwards;
+    animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   @keyframes fadeIn {
@@ -180,7 +183,7 @@
   @keyframes slideUp {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(16px);
     }
     to {
       opacity: 1;
@@ -191,7 +194,7 @@
   @keyframes scaleIn {
     from {
       opacity: 0;
-      transform: scale(0.95);
+      transform: scale(0.96);
     }
     to {
       opacity: 1;
