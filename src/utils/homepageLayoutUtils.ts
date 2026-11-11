@@ -72,30 +72,30 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
     order: 3,
   },
   {
-    id: 'curriculum',
-    label: '4. หลักสูตรที่เปิดสอนและกิจกรรมพัฒนาผู้เรียน (Curriculum)',
-    subtitle: 'ระดับชั้นที่เปิดสอน หลักสูตร แผนการเรียน และกิจกรรมเสริมหลักสูตร',
+    id: 'newsletter',
+    label: '4. จดหมายข่าวประชาสัมพันธ์ (School Newsletters)',
+    subtitle: 'จดหมายข่าวประชาสัมพันธ์และวารสารโรงเรียนจากฐานข้อมูล Supabase',
     enabled: true,
     order: 4,
   },
   {
-    id: 'administrators',
-    label: '5. ทำเนียบผู้บริหารและสารจากผู้อำนวยการ (Executive Message)',
-    subtitle: 'ข้อมูลผู้บริหารสถานศึกษา วิสัยทัศน์ และแนวทางการบริหารงาน',
+    id: 'curriculum',
+    label: '5. หลักสูตรที่เปิดสอนและกิจกรรมพัฒนาผู้เรียน (Curriculum)',
+    subtitle: 'ระดับชั้นที่เปิดสอน หลักสูตร แผนการเรียน และกิจกรรมเสริมหลักสูตร',
     enabled: true,
     order: 5,
   },
   {
-    id: 'media',
-    label: '6. คลังสื่อการสอนออนไลน์ & Google Sites (E-Learning Portal)',
-    subtitle: 'สื่อการสอนดิจิทัล วิดีโอ เอกสาร PDF และพอร์ทัล Google Sites ของครู',
+    id: 'administrators',
+    label: '6. ทำเนียบผู้บริหารและสารจากผู้อำนวยการ (Executive Message)',
+    subtitle: 'ข้อมูลผู้บริหารสถานศึกษา วิสัยทัศน์ และแนวทางการบริหารงาน',
     enabled: true,
     order: 6,
   },
   {
-    id: 'newsletter',
-    label: '7. วารสารและจดหมายข่าวโรงเรียน (School Newsletters)',
-    subtitle: 'แผ่นจดหมายข่าวประชาสัมพันธ์รายเดือนและเอกสารดาวน์โหลด',
+    id: 'media',
+    label: '7. คลังสื่อการสอนออนไลน์ & Google Sites (E-Learning Portal)',
+    subtitle: 'สื่อการสอนดิจิทัล วิดีโอ เอกสาร PDF และพอร์ทัล Google Sites ของครู',
     enabled: true,
     order: 7,
   },
@@ -107,6 +107,40 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
     order: 8,
   },
 ];
+
+export interface NavbarMenuItemConfig {
+  id: string;
+  label: string;
+  href: string;
+  enabled: boolean;
+  order: number;
+}
+
+export const DEFAULT_NAVBAR_MENU_ITEMS: NavbarMenuItemConfig[] = [
+  { id: 'home', label: 'หน้าหลัก', href: '/', enabled: true, order: 1 },
+  { id: 'about', label: 'เกี่ยวกับเรา', href: '/about', enabled: true, order: 2 },
+  { id: 'curriculum', label: 'หลักสูตร', href: '/curriculum', enabled: true, order: 3 },
+  { id: 'news', label: 'ข่าวสาร', href: '/news', enabled: true, order: 4 },
+  { id: 'newsletters', label: 'จดหมายข่าวประชาสัมพันธ์', href: '/newsletters', enabled: true, order: 5 },
+  { id: 'media', label: 'คลังสื่อ', href: '/media-library', enabled: true, order: 6 },
+  { id: 'contact', label: 'ติดต่อเรา', href: '/contact', enabled: true, order: 7 },
+];
+
+export interface NewsletterDisplayConfig {
+  title: string;
+  subtitle: string;
+  limit: number;
+  category: string;
+  sortMode: 'latest' | 'custom_order';
+}
+
+export const DEFAULT_NEWSLETTER_DISPLAY_CONFIG: NewsletterDisplayConfig = {
+  title: 'จดหมายข่าวประชาสัมพันธ์',
+  subtitle: 'วารสารและจดหมายข่าวสรุปกิจกรรมสำคัญของโรงเรียน (ดึงข้อมูลจริงจากฐานข้อมูล)',
+  limit: 3,
+  category: 'ทั้งหมด',
+  sortMode: 'latest',
+};
 
 export const DEFAULT_NEWS_HUB_SUBSECTIONS: NewsHubSubSectionConfig[] = [
   {
@@ -456,4 +490,68 @@ export const extractGoogleMapsEmbedSrc = (raw?: string | null): string => {
   }
 
   return '';
+};
+
+export const parseNavbarMenuItems = (rawJson?: string | null): NavbarMenuItemConfig[] => {
+  if (!rawJson || !rawJson.trim()) {
+    return DEFAULT_NAVBAR_MENU_ITEMS.map((item) => ({ ...item }));
+  }
+
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (!Array.isArray(parsed)) {
+      return DEFAULT_NAVBAR_MENU_ITEMS.map((item) => ({ ...item }));
+    }
+
+    const byId = new Map<string, Partial<NavbarMenuItemConfig>>();
+    for (const item of parsed) {
+      if (item && typeof item.id === 'string') {
+        byId.set(item.id, item);
+      }
+    }
+
+    const merged = DEFAULT_NAVBAR_MENU_ITEMS.map((def, idx) => {
+      const saved = byId.get(def.id);
+      return {
+        ...def,
+        label: typeof saved?.label === 'string' && saved.label.trim() ? saved.label : def.label,
+        href: typeof saved?.href === 'string' && saved.href.trim() ? saved.href : def.href,
+        enabled: typeof saved?.enabled === 'boolean' ? saved.enabled : def.enabled,
+        order: typeof saved?.order === 'number' ? saved.order : idx + 1,
+      };
+    });
+
+    return merged
+      .sort((a, b) => a.order - b.order)
+      .map((item, idx) => ({ ...item, order: idx + 1 }));
+  } catch {
+    return DEFAULT_NAVBAR_MENU_ITEMS.map((item) => ({ ...item }));
+  }
+};
+
+export const parseNewsletterDisplayConfig = (
+  settingsMap: Record<string, string | undefined>
+): NewsletterDisplayConfig => {
+  const parsedLimit = Number.parseInt(settingsMap.newsletter_home_limit || '', 10);
+  const validLimits = [3, 4, 6, 9, 12];
+  const limit = validLimits.includes(parsedLimit)
+    ? parsedLimit
+    : DEFAULT_NEWSLETTER_DISPLAY_CONFIG.limit;
+
+  const sortMode =
+    settingsMap.newsletter_home_sort === 'custom_order' ? 'custom_order' : 'latest';
+
+  return {
+    title:
+      settingsMap.newsletter_section_title?.trim() ||
+      DEFAULT_NEWSLETTER_DISPLAY_CONFIG.title,
+    subtitle:
+      settingsMap.newsletter_section_subtitle?.trim() ||
+      DEFAULT_NEWSLETTER_DISPLAY_CONFIG.subtitle,
+    limit,
+    category:
+      settingsMap.newsletter_home_category?.trim() ||
+      DEFAULT_NEWSLETTER_DISPLAY_CONFIG.category,
+    sortMode,
+  };
 };

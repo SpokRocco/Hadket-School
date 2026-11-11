@@ -22,6 +22,7 @@ import {
   isSupabaseConfigured,
   notifyLocalRealtimeListeners,
   onRealtimeSyncStatusChange,
+  subscribeToRealtimeTables,
   type RealtimeSyncStatus,
 } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,8 @@ import {
   BookOpen,
   Palette,
   Trash2,
+  Menu,
+  FileText,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
@@ -69,19 +72,25 @@ import { deleteStorageImage } from '@/utils/storageUtils';
 import heroImage from '@/assets/hero-school.jpg';
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
+  DEFAULT_NAVBAR_MENU_ITEMS,
+  DEFAULT_NEWSLETTER_DISPLAY_CONFIG,
   DEFAULT_NEWS_HUB_SUBSECTIONS,
   DEFAULT_WELCOME_POPUP_CONFIG,
   isPopupActiveNow,
   mergeHomepageSectionsFromTable,
   moveItemInOrder,
   parseHomepageSections,
+  parseNavbarMenuItems,
+  parseNewsletterDisplayConfig,
   parseNewsHubSubSections,
   parseWelcomePopupConfig,
   reorderItemsById,
   resetWelcomePopupDismissal,
   type HomepageSectionConfig,
+  type NavbarMenuItemConfig,
   type NewsHubSubSectionConfig,
 } from '@/utils/homepageLayoutUtils';
+import { NEWSLETTER_CATEGORIES } from '@/pages/Newsletters';
 import { SUPABASE_EXTENDED_MIGRATION_SQL } from '@/utils/supabaseMigrationSql';
 
 interface TableHealthResult {
@@ -98,6 +107,7 @@ const HEALTH_CHECK_TABLES: { table: string; label: string; group: 'existing' | '
   { table: 'administrators', label: 'ผู้บริหารสถานศึกษา (administrators)', group: 'existing' },
   { table: 'staff', label: 'บุคลากร (staff)', group: 'existing' },
   { table: 'news', label: 'ข่าวประชาสัมพันธ์ (news)', group: 'existing' },
+  { table: 'newsletters', label: 'จดหมายข่าวประชาสัมพันธ์ (newsletters)', group: 'existing' },
   { table: 'grade_data', label: 'จำนวนนักเรียนแยกชั้น (grade_data)', group: 'existing' },
   { table: 'curriculum_programs', label: 'หลักสูตร (curriculum_programs)', group: 'existing' },
   { table: 'curriculum_activities', label: 'กิจกรรมพัฒนาผู้เรียน (curriculum_activities)', group: 'existing' },
@@ -200,6 +210,101 @@ const SortableOrderRow = ({
   );
 };
 
+interface SortableNavbarMenuRowProps {
+  item: NavbarMenuItemConfig;
+  index: number;
+  total: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onLabelChange: (label: string) => void;
+  onToggle: (checked: boolean) => void;
+}
+
+const SortableNavbarMenuRow = ({
+  item,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onLabelChange,
+  onToggle,
+}: SortableNavbarMenuRowProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${
+        item.enabled ? 'bg-card border-border shadow-xs' : 'bg-muted/40 border-border/60 opacity-75'
+      }`}
+    >
+      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          title="ลากเพื่อจัดลำดับเมนู"
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary cursor-grab active:cursor-grabbing shrink-0"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+
+        <div className="flex flex-col gap-0.5 shrink-0">
+          <button
+            type="button"
+            disabled={index === 0}
+            onClick={onMoveUp}
+            title="เลื่อนขึ้น"
+            className="p-0.5 rounded border border-border hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <ArrowUp className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            disabled={index === total - 1}
+            onClick={onMoveDown}
+            title="เลื่อนลง"
+            className="p-0.5 rounded border border-border hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <ArrowDown className="w-3 h-3" />
+          </button>
+        </div>
+
+        <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary font-mono font-bold text-xs flex items-center justify-center shrink-0">
+          #{index + 1}
+        </span>
+
+        <div className="flex-1 min-w-0 flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <Input
+            value={item.label}
+            onChange={(e) => onLabelChange(e.target.value)}
+            aria-label={`ชื่อเมนู ${item.href}`}
+            className="h-8 text-sm font-medium max-w-xs"
+          />
+          <Badge variant="outline" className="font-mono text-[11px] shrink-0">
+            {item.href}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-[11px] text-muted-foreground">
+          {item.enabled ? 'แสดงแถบหลัก' : 'ย้ายเข้าเมนูย่อย'}
+        </span>
+        <Switch checked={item.enabled} onCheckedChange={onToggle} />
+      </div>
+    </div>
+  );
+};
+
 export const HomepageLayoutAndPopupManagement = () => {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -210,6 +315,11 @@ export const HomepageLayoutAndPopupManagement = () => {
   const [tableHealth, setTableHealth] = useState<TableHealthResult[]>([]);
   const [triggeringDeploy, setTriggeringDeploy] = useState(false);
   const [sitePopupId, setSitePopupId] = useState<string | null>(null);
+  const [newsletterStats, setNewsletterStats] = useState<{
+    total: number | null;
+    published: number | null;
+    error: boolean;
+  }>({ total: null, published: null, error: false });
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -268,6 +378,31 @@ export const HomepageLayoutAndPopupManagement = () => {
       return extReady;
     } finally {
       setCheckingHealth(false);
+    }
+  }, []);
+
+  const fetchNewsletterStats = useCallback(async () => {
+    try {
+      const [allRes, pubRes] = await Promise.all([
+        (supabase as any).from('newsletters').select('id', { count: 'exact', head: true }),
+        (supabase as any)
+          .from('newsletters')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_published', true),
+      ]);
+
+      if (allRes.error) {
+        setNewsletterStats({ total: null, published: null, error: true });
+        return;
+      }
+
+      setNewsletterStats({
+        total: allRes.count ?? 0,
+        published: pubRes.error ? null : (pubRes.count ?? 0),
+        error: false,
+      });
+    } catch {
+      setNewsletterStats({ total: null, published: null, error: true });
     }
   }, []);
 
@@ -359,9 +494,18 @@ export const HomepageLayoutAndPopupManagement = () => {
 
   useEffect(() => {
     loadData();
+    fetchNewsletterStats();
     const unsubStatus = onRealtimeSyncStatusChange(setRealtimeStatus);
-    return () => unsubStatus();
-  }, [loadData]);
+    const unsubNewsletter = subscribeToRealtimeTables(
+      'realtime_admin_layout_newsletters',
+      ['newsletters'],
+      fetchNewsletterStats
+    );
+    return () => {
+      unsubStatus();
+      unsubNewsletter();
+    };
+  }, [loadData, fetchNewsletterStats]);
 
   const handleChange = (key: string, value: string) => {
     setSettings((prev) => ({
@@ -376,6 +520,11 @@ export const HomepageLayoutAndPopupManagement = () => {
   const newsHubSections: NewsHubSubSectionConfig[] = parseNewsHubSubSections(
     settings.news_hub_order
   );
+  const navbarMenuItems: NavbarMenuItemConfig[] = parseNavbarMenuItems(
+    settings.navbar_menu_items
+  );
+  const newsletterDisplay = parseNewsletterDisplayConfig(settings);
+  const newsletterHomepageSection = homepageSections.find((s) => s.id === 'newsletter');
   const popupConfig = parseWelcomePopupConfig(settings, heroImage);
 
   const updateHomepageSections = (next: HomepageSectionConfig[]) => {
@@ -384,6 +533,10 @@ export const HomepageLayoutAndPopupManagement = () => {
 
   const updateNewsHubSections = (next: NewsHubSubSectionConfig[]) => {
     handleChange('news_hub_order', JSON.stringify(next));
+  };
+
+  const updateNavbarMenuItems = (next: NavbarMenuItemConfig[]) => {
+    handleChange('navbar_menu_items', JSON.stringify(next));
   };
 
   const handleHomepageDragEnd = (event: DragEndEvent) => {
@@ -404,6 +557,26 @@ export const HomepageLayoutAndPopupManagement = () => {
     }
   };
 
+  const handleNavbarDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      updateNavbarMenuItems(
+        reorderItemsById(navbarMenuItems, String(active.id), String(over.id))
+      );
+    }
+  };
+
+  const promoteNewsletterSectionTop = () => {
+    const nlItem = homepageSections.find((s) => s.id === 'newsletter');
+    if (!nlItem) return;
+    const others = homepageSections.filter((s) => s.id !== 'newsletter');
+    const newsIdxAfterRemoval = others.findIndex((s) => s.id === 'news');
+    const insertAt =
+      newsIdxAfterRemoval >= 0 ? newsIdxAfterRemoval + 1 : Math.min(2, others.length);
+    others.splice(insertAt, 0, { ...nlItem, enabled: true });
+    updateHomepageSections(others.map((item, idx) => ({ ...item, order: idx + 1 })));
+  };
+
   const handleSaveAll = async () => {
     try {
       setSaving(true);
@@ -417,6 +590,36 @@ export const HomepageLayoutAndPopupManagement = () => {
         {
           key: 'news_hub_order',
           value: JSON.stringify(newsHubSections),
+          category: 'homepage',
+        },
+        {
+          key: 'navbar_menu_items',
+          value: JSON.stringify(navbarMenuItems),
+          category: 'homepage',
+        },
+        {
+          key: 'newsletter_section_title',
+          value: settings.newsletter_section_title ?? newsletterDisplay.title,
+          category: 'homepage',
+        },
+        {
+          key: 'newsletter_section_subtitle',
+          value: settings.newsletter_section_subtitle ?? newsletterDisplay.subtitle,
+          category: 'homepage',
+        },
+        {
+          key: 'newsletter_home_limit',
+          value: String(newsletterDisplay.limit),
+          category: 'homepage',
+        },
+        {
+          key: 'newsletter_home_category',
+          value: newsletterDisplay.category,
+          category: 'homepage',
+        },
+        {
+          key: 'newsletter_home_sort',
+          value: newsletterDisplay.sortMode,
           category: 'homepage',
         },
         {
@@ -586,6 +789,7 @@ export const HomepageLayoutAndPopupManagement = () => {
       notifyLocalRealtimeListeners('homepage_sections');
       notifyLocalRealtimeListeners('site_popups');
       notifyLocalRealtimeListeners('deployment_configs');
+      notifyLocalRealtimeListeners('newsletters');
 
       toast({
         title: 'บันทึกสำเร็จ (Realtime Sync)',
@@ -851,6 +1055,248 @@ export const HomepageLayoutAndPopupManagement = () => {
             </CardContent>
           </Card>
 
+          {/* Main Navbar Menu Customization */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Menu className="w-5 h-5 text-primary" />
+                    ปรับแต่งเมนูแถบนำทางด้านบนของหน้าหลัก (Main Navbar Menu)
+                  </CardTitle>
+                  <CardDescription>
+                    เลือกแสดงเมนู &ldquo;จดหมายข่าวประชาสัมพันธ์&rdquo; บนแถบเมนูหลัก แก้ไขชื่อเมนู และจัดลำดับซ้าย-ขวาได้ทันที (รายการที่ปิดจะย้ายไปอยู่ในเมนูย่อย &ldquo;ข้อมูลโรงเรียน&rdquo;)
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => updateNavbarMenuItems(DEFAULT_NAVBAR_MENU_ITEMS)}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  รีเซ็ตเมนูหลัก
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-3 rounded-lg bg-secondary/40 border border-border">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2">
+                  ตัวอย่างแถบเมนูหลักด้านบน (Desktop Top Bar Preview):
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {navbarMenuItems
+                    .filter((item) => item.enabled)
+                    .map((item) => (
+                      <Badge
+                        key={item.id}
+                        variant={item.id === 'newsletters' ? 'default' : 'outline'}
+                        className="bg-background text-foreground data-[highlight=true]:bg-primary data-[highlight=true]:text-primary-foreground"
+                        data-highlight={item.id === 'newsletters'}
+                      >
+                        {item.label}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleNavbarDragEnd}
+              >
+                <SortableContext
+                  items={navbarMenuItems.map((item) => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {navbarMenuItems.map((item, idx) => (
+                      <SortableNavbarMenuRow
+                        key={item.id}
+                        item={item}
+                        index={idx}
+                        total={navbarMenuItems.length}
+                        onMoveUp={() =>
+                          updateNavbarMenuItems(moveItemInOrder(navbarMenuItems, idx, 'up'))
+                        }
+                        onMoveDown={() =>
+                          updateNavbarMenuItems(moveItemInOrder(navbarMenuItems, idx, 'down'))
+                        }
+                        onLabelChange={(nextLabel) =>
+                          updateNavbarMenuItems(
+                            navbarMenuItems.map((m) =>
+                              m.id === item.id ? { ...m, label: nextLabel } : m
+                            )
+                          )
+                        }
+                        onToggle={(checked) =>
+                          updateNavbarMenuItems(
+                            navbarMenuItems.map((m) =>
+                              m.id === item.id ? { ...m, enabled: checked } : m
+                            )
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </CardContent>
+          </Card>
+
+          {/* Homepage Newsletter Display Settings (Real Supabase Sync) */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <FileText className="w-5 h-5 text-primary" />
+                    ปรับแต่งส่วนจดหมายข่าวประชาสัมพันธ์บนหน้าหลัก (Real Supabase Sync)
+                  </CardTitle>
+                  <CardDescription>
+                    ดึงข้อมูลจริงจากตาราง <code className="font-mono">newsletters</code> ใน Supabase มาแสดงบนหน้าแรก พร้อมกำหนดหัวข้อ จำนวนฉบับ หมวดหมู่ และการเรียงลำดับ
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {newsletterStats.error ? (
+                    <Badge variant="outline" className="text-amber-600 border-amber-400">
+                      ยังไม่พบตาราง newsletters
+                    </Badge>
+                  ) : newsletterStats.total !== null ? (
+                    <Badge className="bg-emerald-600">
+                      Supabase: {newsletterStats.published ?? 0} เผยแพร่ / {newsletterStats.total} ฉบับ
+                    </Badge>
+                  ) : null}
+                  <Link to="/admin/dashboard?tab=newsletters">
+                    <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-primary" />
+                      จัดการข้อมูลจดหมายข่าว
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-secondary/40 border border-border">
+                <div className="space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-foreground">
+                      แสดงส่วนจดหมายข่าวประชาสัมพันธ์บนหน้าหลัก (Index)
+                    </p>
+                    <Badge variant="outline" className="font-mono text-xs">
+                      ตำแหน่งปัจจุบัน: #{newsletterHomepageSection?.order ?? 4}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    เปิดแสดงการ์ดจดหมายข่าวจาก Supabase บนหน้าแรกโดยอัตโนมัติ (ซิงค์กับรายการจัดลำดับด้านบน)
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {(!newsletterHomepageSection?.enabled ||
+                    (newsletterHomepageSection?.order ?? 4) > 4) && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={promoteNewsletterSectionTop}
+                      className="text-xs"
+                    >
+                      ย้ายขึ้นแสดงหลังข่าวสาร (#4)
+                    </Button>
+                  )}
+                  <Switch
+                    checked={newsletterHomepageSection?.enabled ?? true}
+                    onCheckedChange={(checked) => {
+                      updateHomepageSections(
+                        homepageSections.map((item) =>
+                          item.id === 'newsletter' ? { ...item, enabled: checked } : item
+                        )
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nl_section_title">หัวข้อส่วนจดหมายข่าวบนหน้าหลัก</Label>
+                  <Input
+                    id="nl_section_title"
+                    value={settings.newsletter_section_title ?? newsletterDisplay.title}
+                    onChange={(e) => handleChange('newsletter_section_title', e.target.value)}
+                    placeholder={DEFAULT_NEWSLETTER_DISPLAY_CONFIG.title}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nl_section_subtitle">คำอธิบายรอง</Label>
+                  <Input
+                    id="nl_section_subtitle"
+                    value={settings.newsletter_section_subtitle ?? newsletterDisplay.subtitle}
+                    onChange={(e) => handleChange('newsletter_section_subtitle', e.target.value)}
+                    placeholder={DEFAULT_NEWSLETTER_DISPLAY_CONFIG.subtitle}
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>จำนวนจดหมายข่าวที่แสดงหน้าหลัก</Label>
+                  <Select
+                    value={String(newsletterDisplay.limit)}
+                    onValueChange={(val) => handleChange('newsletter_home_limit', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 ฉบับ (แนะนำ · 1 แถว)</SelectItem>
+                      <SelectItem value="4">4 ฉบับ (4 คอลัมน์)</SelectItem>
+                      <SelectItem value="6">6 ฉบับ (2 แถว)</SelectItem>
+                      <SelectItem value="9">9 ฉบับ (3 แถว)</SelectItem>
+                      <SelectItem value="12">12 ฉบับ (4 แถว)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>กรองหมวดหมู่ที่แสดงหน้าหลัก</Label>
+                  <Select
+                    value={newsletterDisplay.category}
+                    onValueChange={(val) => handleChange('newsletter_home_category', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NEWSLETTER_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>วิธีเรียงลำดับจดหมายข่าวหน้าหลัก</Label>
+                  <Select
+                    value={newsletterDisplay.sortMode}
+                    onValueChange={(val) => handleChange('newsletter_home_sort', val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latest">ล่าสุดตามวันที่ออกฉบับ (Latest)</SelectItem>
+                      <SelectItem value="custom_order">ตามลำดับที่แอดมินจัดไว้ (order_position)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -921,14 +1367,20 @@ export const HomepageLayoutAndPopupManagement = () => {
             <CardHeader>
               <CardTitle className="text-base">จัดเรียงลำดับข้อมูลรายชิ้นภายในแต่ละหมวด</CardTitle>
               <CardDescription>
-                เลือกเข้าไปจัดลำดับเนื้อหารายการย่อย (ข่าวสาร, ผู้บริหาร, หลักสูตร, กิจกรรม) ซึ่งเชื่อมต่อหน้าแรกแบบเรียลไทม์
+                เลือกเข้าไปจัดลำดับเนื้อหารายการย่อย (ข่าวสาร, จดหมายข่าว, ผู้บริหาร, หลักสูตร, กิจกรรม) ซึ่งเชื่อมต่อหน้าแรกแบบเรียลไทม์
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <CardContent className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <Link to="/admin/dashboard?tab=news">
                 <Button type="button" variant="outline" className="w-full justify-start gap-2">
                   <Newspaper className="w-4 h-4 text-primary" />
                   เรียงลำดับข่าวสารหน้าแรก
+                </Button>
+              </Link>
+              <Link to="/admin/dashboard?tab=newsletters">
+                <Button type="button" variant="outline" className="w-full justify-start gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  จัดการ / เรียงลำดับจดหมายข่าว
                 </Button>
               </Link>
               <Link to="/admin/dashboard?tab=administrators">

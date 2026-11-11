@@ -9,38 +9,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const primaryNavLinks = [
-  { name: 'หน้าหลัก', href: '/' },
-  { name: 'เกี่ยวกับเรา', href: '/about' },
-  { name: 'หลักสูตร', href: '/curriculum' },
-  { name: 'ข่าวสาร', href: '/news' },
-  { name: 'คลังสื่อ', href: '/media-library' },
-  { name: 'ติดต่อเรา', href: '/contact' },
-];
-
 const moreSchoolLinks = [
   { name: 'ผู้บริหารสถานศึกษา', href: '/administrators' },
   { name: 'ทำเนียบบุคลากร', href: '/staff' },
   { name: 'ข้อมูลนักเรียน', href: '/students' },
   { name: 'สภานักเรียน (Sapha Plus)', href: '/student-council' },
-  { name: 'จดหมายข่าวโรงเรียน', href: '/newsletters' },
+  { name: 'จดหมายข่าวประชาสัมพันธ์', href: '/newsletters' },
   { name: 'แกลเลอรี่กิจกรรม', href: '/gallery' },
   { name: 'ปฏิทินกิจกรรม', href: '/calendar' },
-];
-
-const mobileAllLinks = [
-  { name: 'หน้าหลัก', href: '/' },
-  { name: 'เกี่ยวกับเรา', href: '/about' },
-  { name: 'หลักสูตร', href: '/curriculum' },
-  { name: 'ข่าวประชาสัมพันธ์', href: '/news' },
-  { name: 'จดหมายข่าว', href: '/newsletters' },
-  { name: 'คลังสื่อการสอน', href: '/media-library' },
-  { name: 'สภานักเรียน', href: '/student-council' },
-  { name: 'บุคลากร', href: '/staff' },
-  { name: 'ข้อมูลนักเรียน', href: '/students' },
-  { name: 'แกลเลอรี่', href: '/gallery' },
-  { name: 'ปฏิทินกิจกรรม', href: '/calendar' },
-  { name: 'ติดต่อเรา', href: '/contact' },
 ];
 
 const Navbar = () => {
@@ -57,7 +33,25 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const isMoreActive = moreSchoolLinks.some((item) => location.pathname.startsWith(item.href));
+  const enabledTopLinks = settings.navbarMenuItems.filter((item) => item.enabled);
+  const contactTopLink = enabledTopLinks.find((item) => item.href === '/contact');
+  const primaryBarLinks = enabledTopLinks.filter((item) => item.href !== '/contact');
+
+  // Keep any hidden top links reachable inside dropdown cleanly
+  const hiddenTopLinks = settings.navbarMenuItems
+    .filter((item) => !item.enabled && !moreSchoolLinks.some((m) => m.href === item.href))
+    .map((item) => ({ name: item.label, href: item.href }));
+
+  const dropdownLinks = [...moreSchoolLinks, ...hiddenTopLinks];
+
+  const mobileMenuLinks = [
+    ...enabledTopLinks.map((item) => ({ name: item.label, href: item.href })),
+    ...dropdownLinks.filter(
+      (sub) => !enabledTopLinks.some((top) => top.href === sub.href)
+    ),
+  ];
+
+  const isMoreActive = dropdownLinks.some((item) => location.pathname.startsWith(item.href));
 
   return (
     <header
@@ -68,48 +62,48 @@ const Navbar = () => {
       }`}
     >
       <div className="container-school">
-        <div className="flex items-center justify-between gap-4 h-20">
+        <div className="flex items-center justify-between gap-3 h-20">
           {/* Zone 1: School Logo + Name + Tagline */}
-          <Link to="/" className="flex items-center gap-3 shrink-0 group">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
             {settings.school_logo_url ? (
               <img
                 src={settings.school_logo_url}
                 alt={settings.school_name}
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 rounded-full object-contain bg-white border border-slate-200/80 p-0.5 shadow-sm shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-contain bg-white border border-slate-200/80 p-0.5 shadow-sm shrink-0"
               />
             ) : (
-              <div className="w-11 h-11 rounded-full bg-primary flex items-center justify-center shadow-sm shrink-0">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary flex items-center justify-center shadow-sm shrink-0">
                 <span className="text-accent font-bold text-base">
                   {settings.school_short_name || 'บหค'}
                 </span>
               </div>
             )}
             <div className="min-w-0">
-              <span className="block text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 group-hover:text-sky-600 transition-colors whitespace-nowrap">
+              <span className="block text-sm sm:text-base xl:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 group-hover:text-sky-600 transition-colors whitespace-nowrap">
                 {settings.school_name}
               </span>
               {settings.school_tagline && (
-                <span className="hidden xl:block text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[220px]">
+                <span className="hidden 2xl:block text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
                   {settings.school_tagline}
                 </span>
               )}
             </div>
           </Link>
 
-          {/* Zone 2: Desktop Single-Line Navigation + School Info Dropdown */}
+          {/* Zone 2: Desktop Single-Line Dynamic Navigation + School Info Dropdown */}
           <nav
             aria-label="เมนูหลัก"
-            className="hidden lg:flex items-center gap-5 xl:gap-6 text-sm font-medium text-slate-700 dark:text-slate-300"
+            className="hidden lg:flex items-center gap-3 xl:gap-5 text-[13px] xl:text-sm font-medium text-slate-700 dark:text-slate-300"
           >
-            {primaryNavLinks.slice(0, 5).map((link) => {
+            {primaryBarLinks.map((link) => {
               const isActive =
                 link.href === '/'
                   ? location.pathname === '/'
                   : location.pathname.startsWith(link.href);
               return (
                 <Link
-                  key={link.name}
+                  key={link.id}
                   to={link.href}
                   className={`py-1.5 transition-colors whitespace-nowrap shrink-0 border-b-2 ${
                     isActive
@@ -117,7 +111,7 @@ const Navbar = () => {
                       : 'border-transparent hover:text-sky-600 hover:border-sky-600/40'
                   }`}
                 >
-                  {link.name}
+                  {link.label}
                 </Link>
               );
             })}
@@ -134,7 +128,7 @@ const Navbar = () => {
                 <ChevronDown className="w-3.5 h-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                {moreSchoolLinks.map((subLink) => (
+                {dropdownLinks.map((subLink) => (
                   <DropdownMenuItem key={subLink.href} asChild>
                     <Link
                       to={subLink.href}
@@ -151,23 +145,25 @@ const Navbar = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link
-              to="/contact"
-              className={`py-1.5 transition-colors whitespace-nowrap shrink-0 border-b-2 ${
-                location.pathname.startsWith('/contact')
-                  ? 'text-sky-600 dark:text-sky-400 border-sky-600 font-semibold'
-                  : 'border-transparent hover:text-sky-600 hover:border-sky-600/40'
-              }`}
-            >
-              ติดต่อเรา
-            </Link>
+            {contactTopLink && (
+              <Link
+                to={contactTopLink.href}
+                className={`py-1.5 transition-colors whitespace-nowrap shrink-0 border-b-2 ${
+                  location.pathname.startsWith(contactTopLink.href)
+                    ? 'text-sky-600 dark:text-sky-400 border-sky-600 font-semibold'
+                    : 'border-transparent hover:text-sky-600 hover:border-sky-600/40'
+                }`}
+              >
+                {contactTopLink.label}
+              </Link>
+            )}
           </nav>
 
           {/* Zone 3: Primary Action & Mobile Drawer Trigger */}
           <div className="flex items-center gap-3 shrink-0">
             <Link
               to="/enrollment"
-              className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-sm transition-colors whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex items-center justify-center px-4 xl:px-5 py-2.5 text-xs xl:text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-sm transition-colors whitespace-nowrap shrink-0"
             >
               สมัครเรียนออนไลน์
             </Link>
@@ -188,14 +184,14 @@ const Navbar = () => {
         {isOpen && (
           <div className="lg:hidden pb-5 pt-2 border-t border-slate-200 dark:border-slate-800 animate-fade-in">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {mobileAllLinks.map((link) => {
+              {mobileMenuLinks.map((link) => {
                 const isActive =
                   link.href === '/'
                     ? location.pathname === '/'
                     : location.pathname.startsWith(link.href);
                 return (
                   <Link
-                    key={link.name}
+                    key={`${link.href}-${link.name}`}
                     to={link.href}
                     onClick={() => setIsOpen(false)}
                     className={`px-3.5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap truncate transition-colors ${

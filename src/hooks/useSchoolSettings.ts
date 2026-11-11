@@ -3,13 +3,19 @@ import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/cli
 import heroImage from '@/assets/hero-school.jpg';
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
+  DEFAULT_NAVBAR_MENU_ITEMS,
+  DEFAULT_NEWSLETTER_DISPLAY_CONFIG,
   DEFAULT_NEWS_HUB_SUBSECTIONS,
   DEFAULT_WELCOME_POPUP_CONFIG,
   mergeHomepageSectionsFromTable,
   parseHomepageSections,
+  parseNavbarMenuItems,
+  parseNewsletterDisplayConfig,
   parseNewsHubSubSections,
   parseWelcomePopupConfig,
   type HomepageSectionConfig,
+  type NavbarMenuItemConfig,
+  type NewsletterDisplayConfig,
   type NewsHubSubSectionConfig,
   type WelcomePopupConfig,
 } from '@/utils/homepageLayoutUtils';
@@ -93,11 +99,19 @@ export interface SchoolSettings {
   academic_calendar_url: string;
   academic_year: string;
 
-  // Homepage Ordering & Welcome Popup
+  // Homepage Ordering, Main Menu & Welcome Popup
   homepage_sections_order: string;
   news_hub_order: string;
+  navbar_menu_items: string;
+  newsletter_section_title: string;
+  newsletter_section_subtitle: string;
+  newsletter_home_limit: string;
+  newsletter_home_category: string;
+  newsletter_home_sort: string;
   homepageSections: HomepageSectionConfig[];
   newsHubSubSections: NewsHubSubSectionConfig[];
+  navbarMenuItems: NavbarMenuItemConfig[];
+  newsletterDisplay: NewsletterDisplayConfig;
   welcomePopup: WelcomePopupConfig;
 
   // Cloud & Realtime Sync
@@ -170,8 +184,16 @@ const defaultSettings: SchoolSettings = {
   social_links: [],
   homepage_sections_order: JSON.stringify(DEFAULT_HOMEPAGE_SECTIONS),
   news_hub_order: JSON.stringify(DEFAULT_NEWS_HUB_SUBSECTIONS),
+  navbar_menu_items: JSON.stringify(DEFAULT_NAVBAR_MENU_ITEMS),
+  newsletter_section_title: DEFAULT_NEWSLETTER_DISPLAY_CONFIG.title,
+  newsletter_section_subtitle: DEFAULT_NEWSLETTER_DISPLAY_CONFIG.subtitle,
+  newsletter_home_limit: String(DEFAULT_NEWSLETTER_DISPLAY_CONFIG.limit),
+  newsletter_home_category: DEFAULT_NEWSLETTER_DISPLAY_CONFIG.category,
+  newsletter_home_sort: DEFAULT_NEWSLETTER_DISPLAY_CONFIG.sortMode,
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
   newsHubSubSections: DEFAULT_NEWS_HUB_SUBSECTIONS,
+  navbarMenuItems: DEFAULT_NAVBAR_MENU_ITEMS,
+  newsletterDisplay: DEFAULT_NEWSLETTER_DISPLAY_CONFIG,
   welcomePopup: {
     ...DEFAULT_WELCOME_POPUP_CONFIG,
     imageUrl: heroImage,
@@ -196,6 +218,8 @@ const getCachedSettings = (): SchoolSettings | null => {
         ...parsed,
         homepageSections: parseHomepageSections(parsed.homepage_sections_order),
         newsHubSubSections: parseNewsHubSubSections(parsed.news_hub_order),
+        navbarMenuItems: parseNavbarMenuItems(parsed.navbar_menu_items),
+        newsletterDisplay: parseNewsletterDisplayConfig(parsed),
         welcomePopup: parsed.welcomePopup || defaultSettings.welcomePopup,
       };
     }
@@ -243,6 +267,8 @@ export const useSchoolSettings = () => {
 
         let homepageSections = parseHomepageSections(settingsMap.homepage_sections_order);
         const newsHubSubSections = parseNewsHubSubSections(settingsMap.news_hub_order);
+        const navbarMenuItems = parseNavbarMenuItems(settingsMap.navbar_menu_items);
+        const newsletterDisplay = parseNewsletterDisplayConfig(settingsMap);
         let welcomePopup = parseWelcomePopupConfig(settingsMap, heroImage);
         const extendedTablesReady = settingsMap.extended_tables_ready === 'true';
 
@@ -386,8 +412,16 @@ export const useSchoolSettings = () => {
           homepage_sections_order:
             settingsMap.homepage_sections_order || defaultSettings.homepage_sections_order,
           news_hub_order: settingsMap.news_hub_order || defaultSettings.news_hub_order,
+          navbar_menu_items: settingsMap.navbar_menu_items || defaultSettings.navbar_menu_items,
+          newsletter_section_title: newsletterDisplay.title,
+          newsletter_section_subtitle: newsletterDisplay.subtitle,
+          newsletter_home_limit: String(newsletterDisplay.limit),
+          newsletter_home_category: newsletterDisplay.category,
+          newsletter_home_sort: newsletterDisplay.sortMode,
           homepageSections,
           newsHubSubSections,
+          navbarMenuItems,
+          newsletterDisplay,
           welcomePopup,
           supabase_project_ref: resolvedProjectRef,
           vercel_site_url: resolvedVercelUrl,

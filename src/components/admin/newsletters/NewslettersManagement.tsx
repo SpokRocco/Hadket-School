@@ -1,5 +1,10 @@
-import { useState, useEffect } from 'react';
-import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  supabase,
+  notifyLocalRealtimeListeners,
+  subscribeToRealtimeTables,
+} from '@/integrations/supabase/client';
 import { deleteStorageImage } from '@/utils/storageUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +28,10 @@ import {
   FileText,
   Calendar,
   Eye,
-  ExternalLink,
+  ArrowUp,
+  ArrowDown,
+  LayoutTemplate,
+  Paperclip,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
@@ -53,18 +61,22 @@ export const NewslettersManagement = () => {
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchNewsletters();
-  }, []);
-
-  const fetchNewsletters = async () => {
+  const fetchNewsletters = useCallback(async () => {
     try {
-      setLoading(true);
-      const { data, error } = await (supabase as any)
+      let { data, error } = await (supabase as any)
         .from('newsletters')
         .select('*')
-        .order('issue_date', { ascending: false })
-        .order('order_position', { ascending: false });
+        .order('order_position', { ascending: true })
+        .order('issue_date', { ascending: false });
+
+      if (error) {
+        const retry = await (supabase as any)
+          .from('newsletters')
+          .select('*')
+          .order('issue_date', { ascending: false });
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) throw error;
       setNewsletters(data || []);
@@ -78,7 +90,16 @@ export const NewslettersManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchNewsletters();
+    return subscribeToRealtimeTables(
+      'realtime_admin_newsletters',
+      ['newsletters'],
+      fetchNewsletters
+    );
+  }, [fetchNewsletters]);
 
   const resetForm = () => {
     const nextIssueNum = String(newsletters.length + 1).padStart(2, '0');
@@ -220,28 +241,104 @@ export const NewslettersManagement = () => {
     }
   };
 
+  const handleTogglePublished = async (item: SchoolNewsletter, checked: boolean) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('newsletters')
+        .update({ is_published: checked })
+        .eq('id', item.id);
+
+      if (error) throw error;
+
+      setNewsletters((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, is_published: checked } : n))
+      );
+      notifyLocalRealtimeListeners('newsletters');
+      toast({
+        title: checked ? 'เผยแพร่จดหมายข่าวแล้ว' : 'ซ่อนเป็นแบบร่างแล้ว',
+        description: `ฉบับที่ ${item.issue_no}/${item.academic_year}`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'อัปเดตสถานะไม่สำเร็จ',
+        description: error?.message || 'ไม่สามารถเปลี่ยนสถานะการเผยแพร่ได้',
+      });
+    }
+  };
+
+  const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newsletters.length) return;
+
+    const reordered = [...newsletters];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    const normalized = reordered.map((item, idx) => ({
+      ...item,
+      order_position: idx + 1,
+    }));
+
+    setNewsletters(normalized);
+
+    try {
+      const results = await Promise.all(
+        normalized.map((item) =>
+          (supabase as any)
+            .from('newsletters')
+            .update({ order_position: item.order_position })
+            .eq('id', item.id)
+        )
+      );
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) throw firstError;
+
+      notifyLocalRealtimeListeners('newsletters');
+      toast({
+        title: 'จัดลำดับสำเร็จ',
+        description: 'บันทึกลำดับจดหมายข่าวลงฐานข้อมูล Supabase และซิงค์หน้าหลักแล้ว',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'บันทึกลำดับไม่สำเร็จ',
+        description: error?.message || 'กรุณาตรวจสอบคอลัมน์ order_position ในตาราง newsletters',
+      });
+      fetchNewsletters();
+    }
+  };
+
   const categoryChoices = NEWSLETTER_CATEGORIES.filter((c) => c !== 'ทั้งหมด');
 
   return (
     <div className="p-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <FileText className="w-8 h-8 text-primary" />
             จัดการจดหมายข่าวประชาสัมพันธ์ (School Newsletter)
           </h1>
           <p className="text-muted-foreground mt-1">
-            สร้างและอัปโหลดแผ่นจดหมายข่าวประชาสัมพันธ์ประจำวัน/ประจำเดือนของโรงเรียน
+            สร้าง อัปโหลด จัดลำดับ และเผยแพร่จดหมายข่าวไปยังหน้าแรกและหน้าหลักจากฐานข้อมูล Supabase
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()} className="gap-2">
-              <Plus className="w-4 h-4" />
-              ออกจดหมายข่าวฉบับใหม่
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/admin/dashboard?tab=homepage_layout">
+            <Button type="button" variant="outline" className="gap-2">
+              <LayoutTemplate className="w-4 h-4 text-primary" />
+              ปรับแต่งการแสดงผลหน้าหลัก & เมนู
             </Button>
-          </DialogTrigger>
+          </Link>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => handleOpenDialog()} className="gap-2">
+                <Plus className="w-4 h-4" />
+                ออกจดหมายข่าวฉบับใหม่
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -382,6 +479,7 @@ export const NewslettersManagement = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {loading ? (
@@ -402,28 +500,40 @@ export const NewslettersManagement = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {newsletters.map((item) => (
+          {newsletters.map((item, idx) => (
             <Card
               key={item.id}
-              className={`overflow-hidden flex flex-col ${!item.is_published ? 'opacity-60' : ''}`}
+              className={`overflow-hidden flex flex-col ${!item.is_published ? 'opacity-65' : ''}`}
             >
-              <div className="bg-primary px-4 py-2.5 text-primary-foreground border-b-4 border-accent flex items-center justify-between">
-                <span className="text-xs font-bold">
-                  ฉบับที่ {item.issue_no} / ปีการศึกษา {item.academic_year}
-                </span>
-                <span className="text-[11px] flex items-center gap-1 text-primary-foreground/85">
+              <div className="bg-primary px-4 py-2.5 text-primary-foreground border-b-4 border-accent flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="px-1.5 py-0.5 rounded bg-white/15 font-mono text-[11px] font-bold">
+                    #{idx + 1}
+                  </span>
+                  <span className="text-xs font-bold truncate">
+                    ฉบับที่ {item.issue_no} / ปีการศึกษา {item.academic_year}
+                  </span>
+                </div>
+                <span className="text-[11px] flex items-center gap-1 text-primary-foreground/85 shrink-0">
                   <Calendar className="w-3 h-3" />
                   {formatThaiDate(item.issue_date)}
                 </span>
               </div>
 
               {item.image_url && (
-                <div className="h-44 bg-secondary overflow-hidden">
+                <div className="h-44 bg-secondary overflow-hidden relative">
                   <img
                     src={item.image_url}
                     alt={item.title}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
                   />
+                  {item.file_url && (
+                    <Badge className="absolute top-2.5 right-2.5 bg-slate-900/80 text-white text-[10px] gap-1">
+                      <Paperclip className="w-3 h-3" />
+                      มีไฟล์แนบ
+                    </Badge>
+                  )}
                 </div>
               )}
 
@@ -432,11 +542,16 @@ export const NewslettersManagement = () => {
                   <Badge variant="secondary" className="text-xs">
                     {item.category}
                   </Badge>
-                  {!item.is_published && (
-                    <Badge variant="outline" className="text-xs">
-                      แบบร่าง
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground">
+                      {item.is_published ? 'เผยแพร่' : 'แบบร่าง'}
+                    </span>
+                    <Switch
+                      checked={item.is_published}
+                      onCheckedChange={(checked) => handleTogglePublished(item, checked)}
+                      aria-label={`สลับสถานะเผยแพร่ ${item.title}`}
+                    />
+                  </div>
                 </div>
 
                 <h3 className="font-bold text-base text-foreground mb-2 line-clamp-2">
@@ -448,13 +563,39 @@ export const NewslettersManagement = () => {
                   </p>
                 )}
 
-                <div className="flex items-center justify-between pt-3 border-t mt-auto">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Eye className="w-3.5 h-3.5" />
-                    {item.views || 0} ครั้ง
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t mt-auto">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5" />
+                      {item.views || 0}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        disabled={idx === 0}
+                        onClick={() => handleMoveOrder(idx, 'up')}
+                        title="เลื่อนขึ้น"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        disabled={idx === newsletters.length - 1}
+                        onClick={() => handleMoveOrder(idx, 'down')}
+                        title="เลื่อนลง"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     <Button size="sm" variant="outline" onClick={() => handleOpenDialog(item)}>
                       <Edit className="w-4 h-4 mr-1" />
                       แก้ไข

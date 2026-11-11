@@ -11,6 +11,8 @@ import {
 import {
   parseHomepageSections,
   parseNewsHubSubSections,
+  parseNavbarMenuItems,
+  parseNewsletterDisplayConfig,
   moveItemInOrder,
   reorderItemsById,
   mergeFilteredReorder,
@@ -103,6 +105,7 @@ test('parseHomepageSections and moveItemInOrder reorder homepage sections cleanl
   assert.equal(initial.length, 8);
   assert.equal(initial[0].id, 'hero');
   assert.equal(initial[1].id, 'about');
+  assert.equal(initial[3].id, 'newsletter');
 
   const moved = moveItemInOrder(initial, 2, 'up');
   assert.equal(moved[1].id, 'news');
@@ -194,4 +197,47 @@ test('mergeFilteredReorder reorders filtered subset while keeping hidden items i
     merged.map((item) => item.id),
     ['c', 'b', 'a', 'd']
   );
+});
+
+test('parseNavbarMenuItems includes newsletters on main navbar by default and supports custom ordering', () => {
+  const defaults = parseNavbarMenuItems(null);
+  const nlItem = defaults.find((item) => item.id === 'newsletters');
+  assert.ok(nlItem);
+  assert.equal(nlItem.enabled, true);
+  assert.equal(nlItem.href, '/newsletters');
+
+  const reordered = moveItemInOrder(defaults, 4, 'up').map((item) =>
+    item.id === 'newsletters' ? { ...item, label: 'จดหมายข่าวโรงเรียน' } : item
+  );
+  const parsed = parseNavbarMenuItems(JSON.stringify(reordered));
+  assert.equal(parsed[3].id, 'newsletters');
+  assert.equal(parsed[3].label, 'จดหมายข่าวโรงเรียน');
+
+  const fallback = parseNavbarMenuItems('invalid-json');
+  assert.equal(fallback.length, defaults.length);
+  assert.equal(fallback.find((item) => item.id === 'newsletters')?.enabled, true);
+});
+
+test('parseNewsletterDisplayConfig parses homepage newsletter customization safely', () => {
+  const defaults = parseNewsletterDisplayConfig({});
+  assert.equal(defaults.limit, 3);
+  assert.equal(defaults.category, 'ทั้งหมด');
+  assert.equal(defaults.sortMode, 'latest');
+
+  const custom = parseNewsletterDisplayConfig({
+    newsletter_section_title: 'จดหมายข่าวประชาสัมพันธ์ บหค',
+    newsletter_section_subtitle: 'ฉบับล่าสุดจากฐานข้อมูล',
+    newsletter_home_limit: '6',
+    newsletter_home_category: 'งานวิชาการ',
+    newsletter_home_sort: 'custom_order',
+  });
+  assert.equal(custom.title, 'จดหมายข่าวประชาสัมพันธ์ บหค');
+  assert.equal(custom.limit, 6);
+  assert.equal(custom.category, 'งานวิชาการ');
+  assert.equal(custom.sortMode, 'custom_order');
+
+  const invalidLimit = parseNewsletterDisplayConfig({
+    newsletter_home_limit: '99',
+  });
+  assert.equal(invalidLimit.limit, 3);
 });

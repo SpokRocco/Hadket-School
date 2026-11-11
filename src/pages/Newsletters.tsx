@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
@@ -119,15 +119,28 @@ const Newsletters = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
   const [selectedNewsletter, setSelectedNewsletter] = useState<SchoolNewsletter | null>(null);
+  const viewedNewsletterIdRef = useRef<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const fetchNewsletters = useCallback(async () => {
     try {
-      const { data, error } = await (supabase as any)
+      let { data, error } = await (supabase as any)
         .from('newsletters')
         .select('*')
         .eq('is_published', true)
         .order('issue_date', { ascending: false })
         .order('order_position', { ascending: false });
+
+      if (error) {
+        const retry = await (supabase as any)
+          .from('newsletters')
+          .select('*')
+          .eq('is_published', true)
+          .order('issue_date', { ascending: false });
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) throw error;
 
@@ -150,8 +163,9 @@ const Newsletters = () => {
     );
   }, [fetchNewsletters]);
 
-  const handleViewNewsletter = async (item: SchoolNewsletter) => {
+  const handleViewNewsletter = useCallback(async (item: SchoolNewsletter) => {
     setSelectedNewsletter(item);
+    viewedNewsletterIdRef.current = item.id;
 
     setNewsletters((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, views: (n.views || 0) + 1 } : n))
@@ -167,7 +181,27 @@ const Newsletters = () => {
         // Ignore view increment error
       }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const idParam = params.get('id');
+    if (!idParam) {
+      viewedNewsletterIdRef.current = null;
+      return;
+    }
+
+    if (newsletters.length > 0) {
+      const matched = newsletters.find((n) => n.id === idParam);
+      if (matched) {
+        if (viewedNewsletterIdRef.current === matched.id) {
+          setSelectedNewsletter(matched);
+        } else {
+          void handleViewNewsletter(matched);
+        }
+      }
+    }
+  }, [handleViewNewsletter, location.search, newsletters]);
 
   const filteredNewsletters = newsletters.filter((item) => {
     const matchesCat =
@@ -376,7 +410,15 @@ const Newsletters = () => {
       {/* Full A4 School Newsletter Reader Modal */}
       <Dialog
         open={Boolean(selectedNewsletter)}
-        onOpenChange={(open) => !open && setSelectedNewsletter(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedNewsletter(null);
+            viewedNewsletterIdRef.current = null;
+            if (location.search.includes('id=')) {
+              navigate('/newsletters', { replace: true });
+            }
+          }
+        }}
       >
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 border-0 rounded-2xl">
           {selectedNewsletter && (
