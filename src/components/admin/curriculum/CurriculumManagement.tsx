@@ -8,7 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, BookOpen, FlaskConical, Languages, Calculator, Monitor, Palette, Music, Dumbbell, GraduationCap, Award, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, FlaskConical, Languages, Calculator, Monitor, Palette, Music, Dumbbell, GraduationCap, Award, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
+import { ImageUpload } from '@/components/admin/shared/ImageUpload';
 import { useToast } from '@/hooks/use-toast';
 
 interface CurriculumProgram {
@@ -19,6 +20,7 @@ interface CurriculumProgram {
     color: string;
     subjects: string[] | null;
     careers: string[] | null;
+    image_url?: string | null;
     order_position: number;
     is_active: boolean;
 }
@@ -58,6 +60,7 @@ export const CurriculumManagement = () => {
         color: 'bg-blue-500',
         subjects: '',
         careers: '',
+        image_url: '',
         is_active: true,
     });
     const { toast } = useToast();
@@ -96,6 +99,7 @@ export const CurriculumManagement = () => {
             color: 'bg-blue-500',
             subjects: '',
             careers: '',
+            image_url: '',
             is_active: true,
         });
         setEditingProgram(null);
@@ -111,6 +115,7 @@ export const CurriculumManagement = () => {
                 color: program.color || 'bg-blue-500',
                 subjects: program.subjects?.join(', ') || '',
                 careers: program.careers?.join(', ') || '',
+                image_url: program.image_url || '',
                 is_active: program.is_active,
             });
         } else {
@@ -137,6 +142,7 @@ export const CurriculumManagement = () => {
                         color: formData.color,
                         subjects: subjectsArray,
                         careers: careersArray,
+                        image_url: formData.image_url || null,
                         is_active: formData.is_active,
                     })
                     .eq('id', editingProgram.id);
@@ -161,6 +167,7 @@ export const CurriculumManagement = () => {
                         color: formData.color,
                         subjects: subjectsArray,
                         careers: careersArray,
+                        image_url: formData.image_url || null,
                         is_active: formData.is_active,
                         order_position: maxOrder + 1,
                     });
@@ -318,6 +325,19 @@ export const CurriculumManagement = () => {
                                     rows={2}
                                 />
                             </div>
+                            <div className="space-y-2 p-3 rounded-xl bg-secondary/40 border border-border">
+                                <Label className="flex items-center gap-1.5 font-semibold">
+                                    <ImageIcon className="w-4 h-4 text-primary" />
+                                    <span>รูปภาพหลักประจำหลักสูตร (เพิ่มเติม 1 รูป)</span>
+                                </Label>
+                                <ImageUpload
+                                    currentImage={formData.image_url}
+                                    onUploadComplete={(url) => setFormData({ ...formData, image_url: url })}
+                                    bucket="images"
+                                    folder="curriculum"
+                                    compressionPreset="cover"
+                                />
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>ไอคอน</Label>
@@ -402,12 +422,22 @@ export const CurriculumManagement = () => {
                         const IconComponent = getIconComponent(program.icon);
                         return (
                             <Card key={program.id} className={`overflow-hidden ${!program.is_active ? 'opacity-50' : ''}`}>
-                                <div className={`h-24 ${program.color} flex items-center justify-center relative`}>
-                                    <span className="absolute top-2 right-2 text-[10px] bg-black/30 text-white px-2 py-0.5 rounded-full font-mono">
+                                <div className={`h-32 ${program.color} relative overflow-hidden flex items-center justify-center`}>
+                                    {program.image_url ? (
+                                        <>
+                                            <img
+                                                src={program.image_url}
+                                                alt={program.title}
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40" />
+                                        </>
+                                    ) : null}
+                                    <span className="absolute top-2 right-2 text-[10px] bg-black/40 text-white px-2 py-0.5 rounded-full font-mono z-10">
                                         #{idx + 1}
                                     </span>
-                                    <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-                                        <IconComponent className="w-7 h-7 text-white" />
+                                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center z-10 shadow">
+                                        <IconComponent className="w-6 h-6 text-white" />
                                     </div>
                                 </div>
                                 <CardContent className="p-4">

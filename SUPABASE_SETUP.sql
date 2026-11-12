@@ -1142,3 +1142,10 @@ INSERT INTO public.newsletters (issue_no, academic_year, issue_date, title, summ
     218,
     3
   );
+
+-- Add google_photos_url to gallery_albums
+ALTER TABLE gallery_albums ADD COLUMN IF NOT EXISTS google_photos_url TEXT;
+
+-- Add image_url to curriculum_programs and curriculum_activities
+ALTER TABLE curriculum_programs ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE curriculum_activities ADD COLUMN IF NOT EXISTS image_url TEXT;

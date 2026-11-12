@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, BookOpen, Palette, Music, Dumbbell, Heart, Trophy, Users, Gamepad2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, Palette, Music, Dumbbell, Heart, Trophy, Users, Gamepad2, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
+import { ImageUpload } from '@/components/admin/shared/ImageUpload';
 import { useToast } from '@/hooks/use-toast';
 
 interface Activity {
@@ -15,6 +16,7 @@ interface Activity {
     name: string;
     description: string | null;
     icon: string;
+    image_url?: string | null;
     order_position: number;
     is_active: boolean;
 }
@@ -39,6 +41,7 @@ export const ActivitiesManagement = () => {
         name: '',
         description: '',
         icon: 'Palette',
+        image_url: '',
         is_active: true,
     });
     const { toast } = useToast();
@@ -74,6 +77,7 @@ export const ActivitiesManagement = () => {
             name: '',
             description: '',
             icon: 'Palette',
+            image_url: '',
             is_active: true,
         });
         setEditingActivity(null);
@@ -86,6 +90,7 @@ export const ActivitiesManagement = () => {
                 name: activity.name,
                 description: activity.description || '',
                 icon: activity.icon || 'Palette',
+                image_url: activity.image_url || '',
                 is_active: activity.is_active,
             });
         } else {
@@ -105,6 +110,7 @@ export const ActivitiesManagement = () => {
                         name: formData.name,
                         description: formData.description,
                         icon: formData.icon,
+                        image_url: formData.image_url || null,
                         is_active: formData.is_active,
                     })
                     .eq('id', editingActivity.id);
@@ -126,6 +132,7 @@ export const ActivitiesManagement = () => {
                         name: formData.name,
                         description: formData.description,
                         icon: formData.icon,
+                        image_url: formData.image_url || null,
                         is_active: formData.is_active,
                         order_position: maxOrder + 1,
                     });
@@ -262,6 +269,19 @@ export const ActivitiesManagement = () => {
                                     placeholder="วาดภาพ ปั้น และงานหัตถกรรม"
                                 />
                             </div>
+                            <div className="space-y-2 p-3 rounded-xl bg-secondary/40 border border-border">
+                                <Label className="flex items-center gap-1.5 font-semibold">
+                                    <ImageIcon className="w-4 h-4 text-primary" />
+                                    <span>รูปภาพหลักประจำกิจกรรมเสริม (เพิ่มเติม 1 รูป)</span>
+                                </Label>
+                                <ImageUpload
+                                    currentImage={formData.image_url}
+                                    onUploadComplete={(url) => setFormData({ ...formData, image_url: url })}
+                                    bucket="images"
+                                    folder="curriculum_activities"
+                                    compressionPreset="event"
+                                />
+                            </div>
                             <div className="space-y-2">
                                 <Label>ไอคอน</Label>
                                 <Select
@@ -327,9 +347,22 @@ export const ActivitiesManagement = () => {
                                     <div className="flex justify-end mb-1">
                                         <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
                                     </div>
-                                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
-                                        <IconComponent className="w-6 h-6 text-primary" />
-                                    </div>
+                                    {activity.image_url ? (
+                                        <div className="w-full h-24 mb-3 rounded-lg overflow-hidden border border-border relative">
+                                            <img
+                                                src={activity.image_url}
+                                                alt={activity.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white">
+                                                <IconComponent className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <IconComponent className="w-6 h-6 text-primary" />
+                                        </div>
+                                    )}
                                     <h3 className="font-bold text-foreground mb-1">{activity.name}</h3>
                                     <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
                                         {activity.description || '-'}

@@ -1050,30 +1050,40 @@ export const HomepageLayoutAndPopupManagement = () => {
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2.5">
-                    {homepageSections.map((sec, idx) => (
-                      <SortableOrderRow
-                        key={sec.id}
-                        id={sec.id}
-                        index={idx}
-                        total={homepageSections.length}
-                        label={sec.label}
-                        subtitle={sec.subtitle}
-                        enabled={sec.enabled}
-                        onMoveUp={() =>
-                          updateHomepageSections(moveItemInOrder(homepageSections, idx, 'up'))
-                        }
-                        onMoveDown={() =>
-                          updateHomepageSections(moveItemInOrder(homepageSections, idx, 'down'))
-                        }
-                        onToggle={(checked) => {
-                          updateHomepageSections(
-                            homepageSections.map((item) =>
-                              item.id === sec.id ? { ...item, enabled: checked } : item
-                            )
-                          );
-                        }}
-                      />
-                    ))}
+                    {homepageSections.map((sec, idx) => {
+                      const isHeroSection = sec.id === 'hero';
+                      return (
+                        <SortableOrderRow
+                          key={sec.id}
+                          id={sec.id}
+                          index={idx}
+                          total={homepageSections.length}
+                          label={sec.label + (isHeroSection ? ' (หัวเว็บไซต์หลัก - ล็อคตำแหน่ง)' : '')}
+                          subtitle={sec.subtitle}
+                          enabled={isHeroSection ? true : sec.enabled}
+                          onMoveUp={() =>
+                            updateHomepageSections(moveItemInOrder(homepageSections, idx, 'up'))
+                          }
+                          onMoveDown={() =>
+                            updateHomepageSections(moveItemInOrder(homepageSections, idx, 'down'))
+                          }
+                          onToggle={(checked) => {
+                            if (isHeroSection) {
+                              toast({
+                                title: 'ไม่สามารถปิดหัวเว็บไซต์เดิมได้',
+                                description: 'หัวเว็บไซต์หลักจำเป็นต้องเปิดใช้งานตลอดเวลา แต่คุณสามารถปรับแต่งภาพสไลด์และข้อความได้อย่างอิสระที่เมนู "ภาพสไลด์หัวเว็บ"',
+                              });
+                              return;
+                            }
+                            updateHomepageSections(
+                              homepageSections.map((item) =>
+                                item.id === sec.id ? { ...item, enabled: checked } : item
+                              )
+                            );
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 </SortableContext>
               </DndContext>

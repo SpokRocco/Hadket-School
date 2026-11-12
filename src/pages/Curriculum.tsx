@@ -15,6 +15,7 @@ interface CurriculumProgram {
   color: string;
   subjects: string[] | null;
   careers: string[] | null;
+  image_url?: string | null;
   is_active: boolean;
 }
 
@@ -23,6 +24,7 @@ interface Activity {
   name: string;
   description: string | null;
   icon: string;
+  image_url?: string | null;
   is_active: boolean;
 }
 
@@ -135,12 +137,28 @@ const Curriculum = () => {
                       <div className={`absolute top-0 right-0 w-64 h-64 ${program.color} opacity-10 rounded-full -translate-y-1/2 translate-x-1/2`} />
 
                       <div className="relative grid lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-1">
-                          <div className={`w-16 h-16 rounded-2xl ${program.color} flex items-center justify-center mb-6`}>
-                            <IconComponent className="w-8 h-8 text-card" />
+                        <div className="lg:col-span-1 flex flex-col justify-between">
+                          <div>
+                            {program.image_url ? (
+                              <div className="w-full h-48 rounded-2xl overflow-hidden mb-6 border border-border shadow-sm relative group">
+                                <img
+                                  src={program.image_url}
+                                  alt={program.title}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                                <div className={`absolute top-3 left-3 w-10 h-10 rounded-xl ${program.color} flex items-center justify-center shadow`}>
+                                  <IconComponent className="w-5 h-5 text-card" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className={`w-16 h-16 rounded-2xl ${program.color} flex items-center justify-center mb-6`}>
+                                <IconComponent className="w-8 h-8 text-card" />
+                              </div>
+                            )}
+                            <h2 className="text-3xl font-bold text-foreground mb-4">{program.title}</h2>
+                            <p className="text-muted-foreground text-lg mb-6">{program.description}</p>
                           </div>
-                          <h2 className="text-3xl font-bold text-foreground mb-4">{program.title}</h2>
-                          <p className="text-muted-foreground text-lg mb-6">{program.description}</p>
                           <Link to="/enrollment">
                             <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
                               สมัครเรียน
@@ -232,12 +250,28 @@ const Curriculum = () => {
               {activities.map((activity) => {
                 const IconComponent = getIconComponent(activity.icon);
                 return (
-                  <div key={activity.id} className="bg-card rounded-2xl p-8 shadow-md border border-border text-center hover:shadow-lg transition-shadow">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                      <IconComponent className="w-8 h-8 text-primary" />
+                  <div key={activity.id} className="bg-card rounded-2xl overflow-hidden shadow-md border border-border text-center hover:shadow-lg transition-shadow flex flex-col">
+                    {activity.image_url ? (
+                      <div className="w-full h-36 overflow-hidden relative group">
+                        <img
+                          src={activity.image_url}
+                          alt={activity.name}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center text-white">
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mt-6 mb-2">
+                        <IconComponent className="w-8 h-8 text-primary" />
+                      </div>
+                    )}
+                    <div className="p-6 flex-1 flex flex-col justify-center">
+                      <h3 className="text-xl font-bold text-foreground mb-2">{activity.name}</h3>
+                      <p className="text-muted-foreground">{activity.description || ''}</p>
                     </div>
-                    <h3 className="text-xl font-bold text-foreground mb-2">{activity.name}</h3>
-                    <p className="text-muted-foreground">{activity.description || ''}</p>
                   </div>
                 );
               })}

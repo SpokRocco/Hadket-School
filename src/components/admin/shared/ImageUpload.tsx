@@ -19,7 +19,7 @@ export const ImageUpload = ({
     currentImage,
     bucket = 'images',
     folder = 'uploads',
-    maxSizeMB = 5,
+    maxSizeMB = 0, // 0 = unlimited size
     compressionPreset = 'profile',
 }: ImageUploadProps) => {
     const [preview, setPreview] = useState<string | null>(currentImage || null);
@@ -36,22 +36,14 @@ export const ImageUpload = ({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file size
-        const fileSizeMB = file.size / (1024 * 1024);
-        if (fileSizeMB > maxSizeMB) {
-            toast({
-                title: 'ไฟล์ใหญ่เกินไป',
-                description: `กรุณาเลือกไฟล์ขนาดไม่เกิน ${maxSizeMB}MB`,
-                variant: 'destructive',
-            });
-            return;
-        }
+        // Check if file is image (including iPhone formats)
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        const isImage = file.type.startsWith('image/') || ['heic', 'heif', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext || '');
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
+        if (!isImage) {
             toast({
                 title: 'ประเภทไฟล์ไม่ถูกต้อง',
-                description: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น',
+                description: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WebP, HEIC, ฯลฯ)',
                 variant: 'destructive',
             });
             return;
@@ -117,7 +109,7 @@ export const ImageUpload = ({
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif,.webp,.png,.jpg,.jpeg,.svg,.gif"
                 onChange={handleFileSelect}
                 className="hidden"
             />
@@ -154,7 +146,7 @@ export const ImageUpload = ({
                         <>
                             <Upload className="h-12 w-12 text-muted-foreground mb-4" />
                             <p className="text-sm font-medium text-foreground">คลิกเพื่ออัปโหลดรูปภาพ</p>
-                            <p className="text-xs text-muted-foreground mt-2">JPG, PNG หรือ GIF (สูงสุด {maxSizeMB}MB)</p>
+                            <p className="text-xs text-muted-foreground mt-2">รองรับทุกรูปแบบภาพ (JPG, PNG, WebP, HEIC/iPhone) ไม่จำกัดขนาด</p>
                         </>
                     )}
                 </div>

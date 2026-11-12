@@ -25,6 +25,7 @@ interface CurriculumProgram {
   description: string | null;
   icon: string;
   color: string;
+  image_url?: string | null;
   is_active: boolean;
 }
 
@@ -33,6 +34,7 @@ interface Activity {
   name: string;
   description: string | null;
   icon: string;
+  image_url?: string | null;
   is_active: boolean;
 }
 
@@ -289,27 +291,49 @@ const CurriculumSection = () => {
                 return (
                   <div
                     key={program.id}
-                    className="group bg-slate-50/90 dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/60 transition-all duration-200 flex flex-col"
+                    className="group bg-slate-50/90 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/60 transition-all duration-200 flex flex-col shadow-xs hover:shadow-md"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-xs font-mono font-bold text-sky-600">
-                        {String(idx + 1).padStart(2, '0')}. PROGRAM
-                      </span>
-                      <IconComponent className="w-5 h-5 text-sky-600" />
+                    {program.image_url ? (
+                      <div className="relative w-full h-44 overflow-hidden bg-slate-900 shrink-0">
+                        <img
+                          src={program.image_url}
+                          alt={program.title}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                        <span className="absolute top-3 left-3 text-[11px] font-mono font-bold bg-black/60 backdrop-blur-xs text-white px-2 py-0.5 rounded-full">
+                          {String(idx + 1).padStart(2, '0')}. PROGRAM
+                        </span>
+                        <div className="absolute bottom-3 right-3 w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow">
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="p-6 flex-1 flex flex-col">
+                      {!program.image_url && (
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-xs font-mono font-bold text-sky-600">
+                            {String(idx + 1).padStart(2, '0')}. PROGRAM
+                          </span>
+                          <IconComponent className="w-5 h-5 text-sky-600" />
+                        </div>
+                      )}
+                      <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                        {program.title}
+                      </h4>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5 flex-1">
+                        {program.description}
+                      </p>
+                      <Link
+                        to={`/curriculum#${program.id}`}
+                        className="text-xs font-bold text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 mt-auto"
+                      >
+                        <span>ดูรายละเอียดแผนการเรียน</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Link>
                     </div>
-                    <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-                      {program.title}
-                    </h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5 flex-1">
-                      {program.description}
-                    </p>
-                    <Link
-                      to={`/curriculum#${program.id}`}
-                      className="text-xs font-bold text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 mt-auto"
-                    >
-                      <span>ดูรายละเอียดแผนการเรียน</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Link>
                   </div>
                 );
               })}
@@ -339,9 +363,18 @@ const CurriculumSection = () => {
                   <Link
                     key={activity.id}
                     to="/students"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-sky-600 transition-colors"
+                    className="inline-flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-sky-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800"
                   >
-                    <IconComponent className="w-4 h-4 text-sky-600" />
+                    {activity.image_url ? (
+                      <img
+                        src={activity.image_url}
+                        alt={activity.name}
+                        referrerPolicy="no-referrer"
+                        className="w-6 h-6 rounded-md object-cover border border-slate-300 dark:border-slate-700"
+                      />
+                    ) : (
+                      <IconComponent className="w-4 h-4 text-sky-600" />
+                    )}
                     <span>{activity.name}</span>
                   </Link>
                 );

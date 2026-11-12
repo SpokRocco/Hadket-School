@@ -29,6 +29,7 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
         event_date: album?.event_date || '',
         location: album?.location || '',
         is_published: album?.is_published ?? true,
+        google_photos_url: album?.google_photos_url || '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -172,6 +173,23 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
                                 folder="gallery/covers"
                                 compressionPreset="cover"
                             />
+                        </div>
+
+                        {/* Google Photos Sync Link */}
+                        <div className="space-y-2 p-4 bg-secondary/50 rounded-lg border border-border">
+                            <Label htmlFor="google_photos_url" className="flex items-center gap-2">
+                                <span className="text-primary font-semibold">🔗 ซิงค์เชื่อมโยงอัลบั้ม Google Photos (ตัวเลือกเสริม)</span>
+                            </Label>
+                            <Input
+                                id="google_photos_url"
+                                type="url"
+                                value={formData.google_photos_url}
+                                onChange={(e) => setFormData({ ...formData, google_photos_url: e.target.value })}
+                                placeholder="https://photos.app.goo.gl/... หรือ https://photos.google.com/share/..."
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                สามารถวางลิงก์อัลบั้ม Google Photos ที่แชร์สาธารณะ เพื่อให้ผู้เข้าชมสามารถกดเปิดชมอัลบั้มภาพเต็มผ่าน Google Photos ได้ทันที
+                            </p>
                         </div>
 
                         {/* Publish Switch */}

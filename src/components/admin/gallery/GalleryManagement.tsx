@@ -21,6 +21,7 @@ export interface Album {
     is_published: boolean;
     created_at: string;
     photo_count?: number;
+    google_photos_url?: string | null;
 }
 
 export const GalleryManagement = () => {

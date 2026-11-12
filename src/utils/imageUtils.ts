@@ -14,13 +14,39 @@ export interface CompressOptions {
  * @param options - Compression options
  * @returns Compressed image as a Blob in WebP format
  */
+/**
+ * Check if file is HEIC/HEIF or iOS image
+ */
+export const isHeicFile = (file: File): boolean => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    return (
+        file.type === 'image/heic' ||
+        file.type === 'image/heif' ||
+        ext === 'heic' ||
+        ext === 'heif'
+    );
+};
+
+/**
+ * Compress or convert an image file before upload
+ * Supports all standard formats plus HEIC/HEIF fallback and no size limit
+ * @param file - The original image file
+ * @param options - Compression options
+ * @returns Compressed image as a Blob in WebP (or original) format
+ */
 export const compressImage = (
     file: File,
     options: CompressOptions = {}
 ): Promise<Blob> => {
-    const { maxWidth = 800, maxHeight = 800, quality = 0.8 } = options;
+    const { maxWidth = 2000, maxHeight = 2000, quality = 0.85 } = options;
 
     return new Promise((resolve, reject) => {
+        // If SVG or GIF with animation, return raw blob directly to preserve quality
+        if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+            resolve(file);
+            return;
+        }
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
@@ -45,7 +71,8 @@ export const compressImage = (
                     if (blob) {
                         resolve(blob);
                     } else {
-                        reject(new Error('Failed to compress image'));
+                        // Fallback to original file
+                        resolve(file);
                     }
                 },
                 'image/webp',
@@ -58,7 +85,9 @@ export const compressImage = (
 
         img.onerror = () => {
             URL.revokeObjectURL(img.src);
-            reject(new Error('Failed to load image'));
+            // If browser failed to render directly (e.g. raw HEIC without native decoder), return file blob as fallback
+            console.warn('Image failed canvas decode, using raw file:', file.name);
+            resolve(file);
         };
 
         img.src = URL.createObjectURL(file);

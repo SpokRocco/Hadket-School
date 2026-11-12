@@ -57,47 +57,58 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
         }
     };
 
+    const folderInputRef = useRef<HTMLInputElement>(null);
+    const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+
+    const isImageFile = (file: File) => {
+        if (file.type.startsWith('image/')) return true;
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'heic', 'heif', 'bmp', 'avif', 'tiff'].includes(ext || '');
+    };
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
+        const rawFiles = Array.from(e.target.files || []);
+        if (rawFiles.length === 0) return;
+
+        // Filter valid images including iPhone/iPad formats
+        const files = rawFiles.filter(isImageFile);
+        if (files.length === 0) {
+            toast({
+                title: 'ไม่พบไฟล์รูปภาพ',
+                description: 'กรุณาเลือกไฟล์รูปภาพที่ถูกต้อง (รองรับ JPG, PNG, WebP, HEIC, ฯลฯ)',
+                variant: 'destructive',
+            });
+            return;
+        }
 
         setIsUploading(true);
+        setUploadProgress({ current: 0, total: files.length });
         const uploadedPhotos: any[] = [];
 
         try {
-            for (const file of files) {
-                // Validate file
-                if (!file.type.startsWith('image/')) {
-                    toast({
-                        title: 'ไฟล์ไม่ถูกต้อง',
-                        description: `${file.name} ไม่ใช่ไฟล์รูปภาพ`,
-                        variant: 'destructive',
-                    });
-                    continue;
-                }
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                setUploadProgress({ current: i + 1, total: files.length });
 
-                if (file.size > 5 * 1024 * 1024) {
-                    toast({
-                        title: 'ไฟล์ใหญ่เกินไป',
-                        description: `${file.name} มีขนาดเกิน 5MB`,
-                        variant: 'destructive',
-                    });
-                    continue;
-                }
-
-                // Compress image before upload
+                // No file size limit - optimize image before upload
                 const compressedBlob = await compressImage(file, compressionPresets.gallery);
-                const fileName = `gallery/${album.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.webp`;
+                const isSvg = file.type === 'image/svg+xml';
+                const contentType = isSvg ? 'image/svg+xml' : 'image/webp';
+                const fileExt = isSvg ? 'svg' : 'webp';
+                const fileName = `gallery/${album.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('images')
                     .upload(fileName, compressedBlob, {
                         cacheControl: '3600',
                         upsert: false,
-                        contentType: 'image/webp',
+                        contentType,
                     });
 
-                if (uploadError) throw uploadError;
+                if (uploadError) {
+                    console.error('Error uploading image:', file.name, uploadError);
+                    continue;
+                }
 
                 // Get public URL
                 const { data: { publicUrl } } = supabase.storage
@@ -143,9 +154,9 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
             });
         } finally {
             setIsUploading(false);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
+            setUploadProgress({ current: 0, total: 0 });
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            if (folderInputRef.current) folderInputRef.current.value = '';
         }
     };
 
@@ -207,37 +218,75 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                             <CardTitle className="text-2xl">จัดการรูปภาพ</CardTitle>
                             <CardDescription>อัลบั้ม: {album.title}</CardDescription>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Single / Multiple Files Input */}
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.heic,.heif,.webp,.png,.jpg,.jpeg,.svg,.gif"
                                 multiple
                                 onChange={handleFileSelect}
                                 className="hidden"
                             />
+                            {/* Whole Folder Input */}
+                            <input
+                                ref={folderInputRef}
+                                type="file"
+                                multiple
+                                {...({ webkitdirectory: '', directory: '' } as any)}
+                                onChange={handleFileSelect}
+                                className="hidden"
+                            />
+                            
                             <Button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploading}
+                                className="gap-1.5"
                             >
                                 {isUploading ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        กำลังอัปโหลด...
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        กำลังอัปโหลด ({uploadProgress.current}/{uploadProgress.total})...
                                     </>
                                 ) : (
                                     <>
-                                        <Upload className="w-4 h-4 mr-2" />
-                                        อัปโหลดรูป
+                                        <Upload className="w-4 h-4" />
+                                        อัปโหลดรูป (1 หรือหลายรูป)
                                     </>
                                 )}
                             </Button>
+
+                            <Button
+                                variant="secondary"
+                                onClick={() => folderInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="gap-1.5 border border-border"
+                            >
+                                <span>📁 อัปโหลดทั้งโฟลเดอร์</span>
+                            </Button>
+
                             <Button variant="outline" onClick={onBack}>
                                 <ArrowLeft className="w-4 h-4 mr-2" />
                                 ย้อนกลับ
                             </Button>
                         </div>
                     </div>
+                    {album.google_photos_url && (
+                        <div className="mt-3 p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900 flex items-center justify-between text-xs text-blue-700 dark:text-blue-300">
+                            <span className="flex items-center gap-1.5">
+                                <span>📷</span>
+                                <span>อัลบั้มนี้ซิงค์เชื่อมต่อกับ Google Photos: <strong>{album.google_photos_url}</strong></span>
+                            </span>
+                            <a
+                                href={album.google_photos_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline font-semibold hover:text-blue-900"
+                            >
+                                เปิดดูใน Google Photos ↗
+                            </a>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (

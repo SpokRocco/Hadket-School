@@ -627,7 +627,13 @@ export const HeroSliderManagement = () => {
                 onUploadComplete={(url) => setFormData({ ...formData, image: url })}
                 folder="hero_slider"
                 compressionPreset="cover"
+                maxSizeMB={0}
               />
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>รองรับรูปภาพทุกประเภทและทุกขนาด (JPG, PNG, WebP, HEIC/iPhone/iPad) โดยไม่จำกัดขนาด</span>
+                <span className="text-primary font-medium">Full Control</span>
+              </div>
 
               <Input
                 value={formData.image}

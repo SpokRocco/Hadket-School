@@ -104,6 +104,12 @@ export const AlbumList = ({
                                     <Image className="w-3 h-3" />
                                     {album.photo_count || 0} รูป
                                 </div>
+
+                                {album.google_photos_url && (
+                                    <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium truncate">
+                                        <span>📷 Google Photos เชื่อมต่อแล้ว</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Actions */}
