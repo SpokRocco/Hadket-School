@@ -827,6 +827,105 @@ export const SettingsManagement = () => {
           </CardContent>
         </Card>
 
+        {/* 2 Highlight Images below Hero Slider */}
+        <Card className="border-sky-500/20 bg-sky-500/5 shadow-xs">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-sky-500" />
+                รูปภาพ 2 รูปด้านล่างภาพสไลด์หัวเว็บ (Sub-Hero Showcase)
+              </CardTitle>
+              <Button variant="outline" size="sm" asChild className="text-xs gap-1">
+                <Link to="/admin/dashboard?tab=subhero_images">
+                  จัดการเต็มรูปแบบ <Eye className="w-3.5 h-3.5" />
+                </Link>
+              </Button>
+            </div>
+            <CardDescription>
+              รูปภาพ 2 ภาพที่ประกบซ้าย-ขวาของข้อความต้อนรับโรงเรียน (ภาพบรรยากาศและกิจกรรมนักเรียน)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left Image */}
+              <div className="space-y-3 p-4 rounded-xl bg-card border border-border">
+                <Label className="font-semibold text-xs text-blue-600 dark:text-blue-400">
+                  รูปภาพซ้าย (ภาพบรรยากาศ/อาคารสถานที่)
+                </Label>
+                <ImageUpload
+                  currentImage={settings.about_left_image_url || ''}
+                  onUploadComplete={(url) => handleChange('about_left_image_url', url)}
+                  bucket="images"
+                  folder="about_showcase"
+                  compressionPreset="cover"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="about_left_url" className="text-xs text-muted-foreground">
+                    หรือใส่ลิงก์รูปภาพ (URL) โดยตรง
+                  </Label>
+                  <Input
+                    id="about_left_url"
+                    value={settings.about_left_image_url || ''}
+                    onChange={(e) => handleChange('about_left_image_url', e.target.value)}
+                    placeholder="https://..."
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="about_left_caption" className="text-xs">
+                    คำบรรยายภาพ (Caption / Alt)
+                  </Label>
+                  <Input
+                    id="about_left_caption"
+                    value={settings.about_left_image_caption || ''}
+                    onChange={(e) => handleChange('about_left_image_caption', e.target.value)}
+                    placeholder="บรรยากาศโรงเรียนบ้านหาดเค็ด"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Right Image */}
+              <div className="space-y-3 p-4 rounded-xl bg-card border border-border">
+                <Label className="font-semibold text-xs text-emerald-600 dark:text-emerald-400">
+                  รูปภาพขวา (ภาพกิจกรรมนักเรียน/ผลงาน)
+                </Label>
+                <ImageUpload
+                  currentImage={settings.about_right_image_url || ''}
+                  onUploadComplete={(url) => handleChange('about_right_image_url', url)}
+                  bucket="images"
+                  folder="about_showcase"
+                  compressionPreset="cover"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="about_right_url" className="text-xs text-muted-foreground">
+                    หรือใส่ลิงก์รูปภาพ (URL) โดยตรง
+                  </Label>
+                  <Input
+                    id="about_right_url"
+                    value={settings.about_right_image_url || ''}
+                    onChange={(e) => handleChange('about_right_image_url', e.target.value)}
+                    placeholder="https://..."
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="about_right_caption" className="text-xs">
+                    คำบรรยายภาพ (Caption / Alt)
+                  </Label>
+                  <Input
+                    id="about_right_caption"
+                    value={settings.about_right_image_caption || ''}
+                    onChange={(e) => handleChange('about_right_image_caption', e.target.value)}
+                    placeholder="กิจกรรมนักเรียน โรงเรียนบ้านหาดเค็ด"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Section Headers */}
         <Card>
           <CardHeader>
@@ -1090,6 +1189,135 @@ export const SettingsManagement = () => {
               <p className="text-xs text-muted-foreground">
                 คัดลอก URL หรือวางโค้ด <code className="font-mono">&lt;iframe src="..."&gt;</code> จาก Google Maps → Share → Embed a map (ระบบดึง URL ให้อัตโนมัติ)
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* LINE Contact & Quick Chat Configuration */}
+        <Card className="border-[#06C755]/30 bg-gradient-to-br from-[#06C755]/5 to-transparent shadow-xs">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <div className="w-8 h-8 rounded-lg bg-[#06C755] text-white flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-5 h-5 fill-current" />
+                </div>
+                ช่องทางติดต่อ LINE และแชทด่วน (LINE Official & ผู้อำนวยการ)
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="qc_enabled" className="text-xs font-semibold">เปิดใช้งานแชทด่วน:</Label>
+                <Switch
+                  id="qc_enabled"
+                  checked={settings.quick_chat_enabled !== 'false'}
+                  onCheckedChange={(checked) => handleChange('quick_chat_enabled', checked ? 'true' : 'false')}
+                />
+              </div>
+            </div>
+            <CardDescription>
+              กำหนด URL ลิงก์ LINE สำหรับให้ผู้ปกครองและนักเรียนติดต่อทาง LINE ผ่านหน้าเว็บและฟุตเดอร์ด้านล่าง
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* School LINE */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-card border border-border">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="qc_school_line" className="text-xs font-bold text-[#06C755] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#06C755]" />
+                    ลิงก์ LINE กลุ่มโรงเรียน / LINE Official
+                  </Label>
+                  {settings.quick_chat_school_line && (
+                    <a
+                      href={settings.quick_chat_school_line}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      ทดสอบเปิดลิงก์
+                    </a>
+                  )}
+                </div>
+                <Input
+                  id="qc_school_line"
+                  value={settings.quick_chat_school_line || ''}
+                  onChange={(e) => handleChange('quick_chat_school_line', e.target.value)}
+                  placeholder="https://line.me/ti/p/~hadkedschool หรือ https://lin.ee/..."
+                  className="text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  แสดงในป๊อปอัพแชทด่วน และเป็นปุ่มติดต่อหลักที่ส่วนล่างสุดของเว็บไซต์ (Footer)
+                </p>
+              </div>
+
+              {/* Director LINE */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-card border border-border">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="qc_director_line" className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                    ลิงก์ LINE ผู้อำนวยการโรงเรียน (ผู้บริหาร)
+                  </Label>
+                  {settings.quick_chat_director_line && (
+                    <a
+                      href={settings.quick_chat_director_line}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-blue-600 hover:underline"
+                    >
+                      ทดสอบเปิดลิงก์
+                    </a>
+                  )}
+                </div>
+                <Input
+                  id="qc_director_line"
+                  value={settings.quick_chat_director_line || ''}
+                  onChange={(e) => handleChange('quick_chat_director_line', e.target.value)}
+                  placeholder="https://line.me/ti/p/~director.hadked"
+                  className="text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  สำหรับติดต่อสายตรงผู้บริหารสถานศึกษา แสดงทั้งในป๊อปอัพและที่ฟุตเดอร์
+                </p>
+              </div>
+            </div>
+
+            {/* Auto Open Switch */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-secondary/50 border border-border">
+              <div className="space-y-0.5">
+                <Label htmlFor="qc_auto_open" className="text-xs font-semibold text-foreground">
+                  แสดงผลป๊อปอัพติดต่อ LINE อัตโนมัติทุกครั้งเมื่อรีเฟรชหน้าจอหรือกลับหน้าหลัก
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  ระบบจะเปิดหน้าต่างป๊อปอัพทักทายขึ้นมาอัตโนมัติ เพื่อต้อนรับและอำนวยความสะดวกให้ผู้เข้าชม
+                </p>
+              </div>
+              <Switch
+                id="qc_auto_open"
+                checked={settings.quick_chat_auto_open_home !== 'false'}
+                onCheckedChange={(checked) => handleChange('quick_chat_auto_open_home', checked ? 'true' : 'false')}
+              />
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="qc_title" className="text-xs">หัวข้อป๊อปอัพแชท</Label>
+                <Input
+                  id="qc_title"
+                  value={settings.quick_chat_title || ''}
+                  onChange={(e) => handleChange('quick_chat_title', e.target.value)}
+                  placeholder="แชทด่วนสอบถามข้อมูล"
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="qc_greeting" className="text-xs">ข้อความต้อนรับอัตโนมัติ</Label>
+                <Input
+                  id="qc_greeting"
+                  value={settings.quick_chat_greeting || ''}
+                  onChange={(e) => handleChange('quick_chat_greeting', e.target.value)}
+                  placeholder="สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด..."
+                  className="text-xs"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

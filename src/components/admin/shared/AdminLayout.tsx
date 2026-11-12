@@ -66,6 +66,7 @@ const menuItems = [
     { id: 'users', label: 'จัดการผู้ใช้/สิทธิ์ (RBAC)', icon: Shield, path: '/admin/dashboard?tab=users' },
     { id: 'homepage_layout', label: 'จัดลำดับหน้าแรก & ป๊อปอัป', icon: LayoutTemplate, path: '/admin/dashboard?tab=homepage_layout' },
     { id: 'hero_slider', label: 'ภาพสไลด์หัวเว็บ', icon: Sliders, path: '/admin/dashboard?tab=hero_slider' },
+    { id: 'subhero_images', label: '2 รูปไฮไลท์ใต้ภาพสไลด์', icon: Image, path: '/admin/dashboard?tab=subhero_images' },
     { id: 'settings', label: 'ตั้งค่าโรงเรียน', icon: Settings, path: '/admin/dashboard?tab=settings' },
 ];
 

@@ -40,12 +40,15 @@ export const AlbumList = ({
                         className="group bg-card rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-border"
                     >
                         {/* Cover Photo */}
-                        {album.cover_photo_url ? (
-                            <div className="h-48 overflow-hidden">
+                        {(album.cover_photo_url || (album as any).cover_image_url) ? (
+                            <div className="h-48 overflow-hidden bg-slate-100 dark:bg-slate-900">
                                 <img
-                                    src={album.cover_photo_url}
-                                    alt={album.title}
+                                    src={album.cover_photo_url || (album as any).cover_image_url}
+                                    alt={album.title || (album as any).name || ''}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                    onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    }}
                                 />
                             </div>
                         ) : (

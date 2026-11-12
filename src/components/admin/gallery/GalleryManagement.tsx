@@ -52,9 +52,9 @@ export const GalleryManagement = () => {
 
             if (albumsError) throw albumsError;
 
-            // Fetch photo counts for each album
+            // Fetch photo counts for each album with field normalization
             const albumsWithCounts = await Promise.all(
-                (albumsData || []).map(async (album) => {
+                (albumsData || []).map(async (album: any) => {
                     const { count } = await supabase
                         .from('gallery_photos')
                         .select('*', { count: 'exact', head: true })
@@ -62,6 +62,8 @@ export const GalleryManagement = () => {
 
                     return {
                         ...album,
+                        title: album.title || album.name || 'ไม่มีชื่ออัลบั้ม',
+                        cover_photo_url: album.cover_photo_url || album.cover_image_url || null,
                         photo_count: count || 0,
                     };
                 })

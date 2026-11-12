@@ -24,6 +24,7 @@ import { ExecutivePortal } from '@/components/admin/portals/ExecutivePortal';
 import { TeacherPortal } from '@/components/admin/portals/TeacherPortal';
 import { SaphaPlusDashboard } from '@/components/admin/saphaplus/SaphaPlusDashboard';
 import { HeroSliderManagement } from '@/components/admin/hero/HeroSliderManagement';
+import { SubHeroImagesManagement } from '@/components/admin/hero/SubHeroImagesManagement';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -195,6 +196,9 @@ const AdminDashboard = () => {
       case 'hero_slider':
         return <HeroSliderManagement />;
 
+      case 'subhero_images':
+        return <SubHeroImagesManagement />;
+
       case 'users':
         return <UsersManagement />;
 
@@ -233,6 +237,7 @@ const AdminDashboard = () => {
           { label: 'ข้อมูลนักเรียน', tab: 'students', icon: GraduationCap, desc: 'สถิติและสภานักเรียน' },
           { label: 'จัดลำดับหน้าแรก · ป๊อปอัป', tab: 'homepage_layout', icon: LayoutTemplate, desc: 'เรียงส่วนหน้าเว็บ ป๊อปอัป & Realtime' },
           { label: 'ภาพสไลด์หัวเว็บ (Hero)', tab: 'hero_slider', icon: Sliders, desc: 'แก้ไขรูปภาพและข้อความสไลด์บนหัวเว็บ' },
+          { label: '2 รูปไฮไลท์ใต้ภาพสไลด์', tab: 'subhero_images', icon: Image, desc: 'แก้ไขรูปภาพบรรยากาศและกิจกรรมนักเรียนใต้ภาพสไลด์' },
           { label: 'ตั้งค่าระบบโรงเรียน', tab: 'settings', icon: Settings, desc: 'แก้ไขข้อมูลทั่วไป' },
         ].filter((item) => !currentUser || hasMenuPermission(currentUser, item.tab));
 

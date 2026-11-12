@@ -103,12 +103,55 @@ VALUES
   )
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Ensure columns exist on gallery_albums for Google Drive and Google Photos sync
+-- 3. Comprehensive Schema Compatibility for gallery_albums & gallery_photos
+-- ปลอดภัย 100%: ป้องกัน Error เรื่องชื่อคอลัมน์ไม่ตรงกันระหว่างโค้ดกับฐานข้อมูล
 ALTER TABLE IF EXISTS public.gallery_albums 
-  ADD COLUMN IF NOT EXISTS google_drive_url TEXT;
-
-ALTER TABLE IF EXISTS public.gallery_albums 
+  ADD COLUMN IF NOT EXISTS title TEXT,
+  ADD COLUMN IF NOT EXISTS name VARCHAR(200),
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'ทั่วไป',
+  ADD COLUMN IF NOT EXISTS cover_photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS cover_image_url TEXT,
+  ADD COLUMN IF NOT EXISTS event_date DATE,
+  ADD COLUMN IF NOT EXISTS location TEXT,
+  ADD COLUMN IF NOT EXISTS views INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS google_drive_url TEXT,
   ADD COLUMN IF NOT EXISTS google_photos_url TEXT;
+
+-- Drop NOT NULL on name so inserting with title succeeds smoothly
+DO $$
+BEGIN
+  ALTER TABLE public.gallery_albums ALTER COLUMN name DROP NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Synchronize name <-> title and cover_image_url <-> cover_photo_url
+UPDATE public.gallery_albums SET title = name WHERE (title IS NULL OR title = '') AND name IS NOT NULL;
+UPDATE public.gallery_albums SET name = title WHERE (name IS NULL OR name = '') AND title IS NOT NULL;
+UPDATE public.gallery_albums SET cover_photo_url = cover_image_url WHERE (cover_photo_url IS NULL OR cover_photo_url = '') AND cover_image_url IS NOT NULL;
+UPDATE public.gallery_albums SET cover_image_url = cover_photo_url WHERE (cover_image_url IS NULL OR cover_image_url = '') AND cover_photo_url IS NOT NULL;
+
+-- Ensure columns exist on gallery_photos
+ALTER TABLE IF EXISTS public.gallery_photos 
+  ADD COLUMN IF NOT EXISTS photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS image_url TEXT,
+  ADD COLUMN IF NOT EXISTS thumbnail_url TEXT,
+  ADD COLUMN IF NOT EXISTS caption TEXT,
+  ADD COLUMN IF NOT EXISTS order_position INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+
+-- Drop NOT NULL on image_url so inserting with photo_url succeeds smoothly
+DO $$
+BEGIN
+  ALTER TABLE public.gallery_photos ALTER COLUMN image_url DROP NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+UPDATE public.gallery_photos SET photo_url = image_url WHERE (photo_url IS NULL OR photo_url = '') AND image_url IS NOT NULL;
+UPDATE public.gallery_photos SET image_url = photo_url WHERE (image_url IS NULL OR image_url = '') AND photo_url IS NOT NULL;
+UPDATE public.gallery_photos SET order_position = sort_order WHERE order_position = 0 AND sort_order != 0;
+UPDATE public.gallery_photos SET sort_order = order_position WHERE sort_order = 0 AND order_position != 0;
 
 -- 4. Ensure image_url exists on curriculum_programs and curriculum_activities
 ALTER TABLE IF EXISTS public.curriculum_programs 
@@ -139,18 +182,23 @@ CREATE POLICY "Public update for contact_messages" ON public.contact_messages FO
 DROP POLICY IF EXISTS "Public delete for contact_messages" ON public.contact_messages;
 CREATE POLICY "Public delete for contact_messages" ON public.contact_messages FOR DELETE USING (true);
 
--- 6. Ensure school_settings keys for Hero Slider and Quick LINE Chat are initialized
+-- 6. Ensure school_settings keys for Hero Slider, Sub-Hero Images, and Quick LINE Chat are initialized
 INSERT INTO public.school_settings (key, value, category, description)
 VALUES 
   ('hero_slides_json', '[]', 'homepage', 'ข้อมูลภาพสไลด์และเนื้อหาบนแบนเนอร์หลักหัวเว็บ JSON'),
   ('hero_autoplay_enabled', 'true', 'homepage', 'เปิดใช้งานการสลับภาพสไลด์หัวเว็บอัตโนมัติ'),
   ('hero_autoplay_interval', '6000', 'homepage', 'ระยะเวลาหน่วงในการสลับภาพสไลด์หัวเว็บ (มิลลิวินาที)'),
+  ('about_left_image_url', '', 'homepage', 'รูปภาพไฮไลท์ซ้ายใต้ภาพสไลด์ (บรรยากาศโรงเรียน)'),
+  ('about_left_image_caption', 'บรรยากาศโรงเรียนบ้านหาดเค็ด', 'homepage', 'คำบรรยายภาพซ้ายใต้ภาพสไลด์'),
+  ('about_right_image_url', '', 'homepage', 'รูปภาพไฮไลท์ขวาใต้ภาพสไลด์ (กิจกรรมนักเรียน)'),
+  ('about_right_image_caption', 'กิจกรรมนักเรียน โรงเรียนบ้านหาดเค็ด', 'homepage', 'คำบรรยายภาพขวาใต้ภาพสไลด์'),
   ('quick_chat_enabled', 'true', 'chat', 'เปิด/ปิดการแสดงผลแชทด่วนมุมขวาล่าง'),
   ('quick_chat_title', 'แชทด่วนสอบถามข้อมูล', 'chat', 'หัวข้อแชทด่วนมุมขวาล่าง'),
   ('quick_chat_greeting', 'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด มีข้อสงสัยหรือต้องการสอบถามข้อมูล สามารถแชทคุยกับเราได้เลยครับ', 'chat', 'ข้อความทักทายอัตโนมัติในแชทด่วน'),
   ('quick_chat_school_line', 'https://line.me/ti/p/~hadkedschool', 'chat', 'ลิงก์กลุ่ม LINE โรงเรียน หรือ LINE Official'),
   ('quick_chat_director_line', 'https://line.me/ti/p/~director.hadked', 'chat', 'ลิงก์ LINE ผู้อำนวยการ หรือ ผู้บริหารสถานศึกษา'),
-  ('quick_chat_phone', '054-710-123', 'chat', 'เบอร์โทรศัพท์ติดต่อด่วน')
+  ('quick_chat_phone', '054-710-123', 'chat', 'เบอร์โทรศัพท์ติดต่อด่วน'),
+  ('quick_chat_auto_open_home', 'true', 'chat', 'เปิดป๊อปอัพแชท LINE อัตโนมัติทุกครั้งเมื่อรีเฟรชหน้าจอหรือกลับหน้าหลัก')
 ON CONFLICT (key) DO NOTHING;
 
 -- 7. Enable Supabase Realtime Replication for instant live sync without errors

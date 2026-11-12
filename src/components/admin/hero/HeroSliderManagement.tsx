@@ -49,6 +49,7 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  ArrowRight,
   GripVertical,
   RotateCcw,
   Save,
@@ -62,6 +63,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
 import heroImage from '@/assets/hero-school.jpg';
@@ -760,6 +762,29 @@ export const HeroSliderManagement = () => {
             {saving ? 'กำลังบันทึก...' : 'บันทึกภาพสไลด์'}
           </Button>
         </div>
+      </div>
+
+      {/* Quick Link Banner to Sub-Hero 2 Images */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 via-blue-500/5 to-transparent border border-sky-500/20 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <ImageIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+              ต้องการแก้ไขรูปภาพ 2 รูปด้านล่างภาพสไลด์หัวเว็บ?
+              <Badge className="bg-sky-500 text-white text-[10px] h-4 px-1.5">ใหม่</Badge>
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              แก้ไขภาพบรรยากาศโรงเรียน (ซ้าย) และภาพกิจกรรมนักเรียน (ขวา) ที่ประกบข้อความต้อนรับ
+            </p>
+          </div>
+        </div>
+        <Button variant="default" size="sm" asChild className="bg-sky-500 hover:bg-sky-600 text-white gap-1.5 text-xs shrink-0 shadow-xs">
+          <Link to="/admin/dashboard?tab=subhero_images">
+            เปิดเมนูจัดการ 2 รูปไฮไลท์ <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </Button>
       </div>
 
       {/* Auto-Play and Transition Settings Bar */}

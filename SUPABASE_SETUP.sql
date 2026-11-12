@@ -52,11 +52,18 @@ COMMENT ON TABLE public.news_categories IS 'ตารางเก็บหมว
 -- =============================================
 CREATE TABLE IF NOT EXISTS public.gallery_albums (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  name VARCHAR(200) NOT NULL,
+  title VARCHAR(200),
+  name VARCHAR(200),
   description TEXT,
   category VARCHAR(50) DEFAULT 'ทั่วไป',
+  cover_photo_url TEXT,
   cover_image_url TEXT,
+  event_date DATE,
+  location TEXT,
+  views INTEGER DEFAULT 0,
   is_published BOOLEAN DEFAULT true,
+  google_drive_url TEXT,
+  google_photos_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -70,8 +77,11 @@ COMMENT ON COLUMN public.gallery_albums.category IS 'หมวดหมู่ �
 CREATE TABLE IF NOT EXISTS public.gallery_photos (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   album_id UUID NOT NULL REFERENCES public.gallery_albums(id) ON DELETE CASCADE,
-  image_url TEXT NOT NULL,
+  photo_url TEXT,
+  image_url TEXT,
+  thumbnail_url TEXT,
   caption TEXT,
+  order_position INTEGER DEFAULT 0,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()

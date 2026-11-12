@@ -78,19 +78,30 @@ const Gallery = () => {
             .eq('album_id', album.id)
             .order('order_position');
 
+          const normalizedPhotos = ((photos as any[]) || []).map((p: any) => ({
+            id: p.id,
+            photo_url: p.photo_url || p.image_url,
+            caption: p.caption,
+            order_position: p.order_position ?? p.sort_order ?? 0,
+          }));
+
           return {
             id: album.id,
-            title: album.title,
-            category: album.category,
+            title: album.title || album.name || 'กิจกรรมโรงเรียน',
+            category: album.category || 'ทั่วไป',
             date: album.event_date
               ? format(new Date(album.event_date), 'dd MMMM yyyy', { locale: th })
               : format(new Date(album.created_at), 'dd MMMM yyyy', { locale: th }),
             location: album.location,
-            cover_photo_url: album.cover_photo_url || ((photos as any)?.[0]?.photo_url) || null,
+            cover_photo_url:
+              album.cover_photo_url ||
+              album.cover_image_url ||
+              normalizedPhotos[0]?.photo_url ||
+              null,
             description: album.description,
             google_drive_url: album.google_drive_url || null,
             google_photos_url: album.google_photos_url || null,
-            photos: (photos as any[]) || [],
+            photos: normalizedPhotos,
           };
         })
       );

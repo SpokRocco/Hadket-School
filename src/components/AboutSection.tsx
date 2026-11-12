@@ -51,13 +51,21 @@ const AboutSection = () => {
         <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center mb-20">
           {/* Left Real Campus Aerial Photo */}
           <div className="lg:col-span-4">
-            <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100">
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100 group relative">
               <img
-                src={heroImage}
-                alt={`บรรยากาศโรงเรียน ${settings.school_name}`}
+                src={settings.about_left_image_url || heroImage}
+                alt={settings.about_left_image_caption || `บรรยากาศโรงเรียน ${settings.school_name}`}
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = heroImage;
+                }}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
               />
+              {settings.about_left_image_caption && (
+                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="line-clamp-2">{settings.about_left_image_caption}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -74,7 +82,7 @@ const AboutSection = () => {
             </p>
 
             {/* 3-Column Sky-Blue Tabular Counter Row from Supabase */}
-            <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-slate-800 py-6 mb-8 border-y border-slate-200/80 dark:border-slate-800">
+            <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-slate-800 py-6 mb-8 border-y border-slate-200/80 dark:divide-slate-800">
               {welcomeCounters.map((counter, idx) => (
                 <div key={idx} className="text-center px-2">
                   <div className="text-2xl sm:text-3xl font-extrabold text-sky-500 font-mono tabular-nums tracking-tight mb-1 whitespace-nowrap">
@@ -97,13 +105,21 @@ const AboutSection = () => {
 
           {/* Right Student Excellence & Activities Photo */}
           <div className="lg:col-span-4">
-            <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100">
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-slate-100 group relative">
               <img
-                src={studentGraduationActivity}
-                alt={`กิจกรรมนักเรียน ${settings.school_name}`}
+                src={settings.about_right_image_url || studentGraduationActivity}
+                alt={settings.about_right_image_caption || `กิจกรรมนักเรียน ${settings.school_name}`}
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = studentGraduationActivity;
+                }}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
               />
+              {settings.about_right_image_caption && (
+                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="line-clamp-2">{settings.about_right_image_caption}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

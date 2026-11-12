@@ -1,4 +1,4 @@
-import { ChevronUp, Facebook, Youtube, Instagram, Mail, Phone, MapPin, MessageCircle, Link as LinkIcon } from 'lucide-react';
+import { ChevronUp, Facebook, Youtube, Instagram, Mail, Phone, MapPin, MessageCircle, ExternalLink, Link as LinkIcon } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Link } from 'react-router-dom';
 
@@ -155,6 +155,56 @@ const Footer = () => {
                 </li>
               )}
             </ul>
+
+            {/* LINE Contact Channels */}
+            <div className="mt-5 pt-4 border-t border-primary-foreground/15 space-y-2">
+              <p className="text-xs font-semibold text-accent flex items-center gap-1.5 uppercase tracking-wider">
+                <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                ช่องทางติดต่อทาง LINE
+              </p>
+
+              {/* School Official LINE */}
+              <a
+                href={settings.quick_chat_school_line || settings.social_line || 'https://line.me/ti/p/~hadkedschool'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2.5 p-2 rounded-xl bg-[#06C755]/20 hover:bg-[#06C755]/30 border border-[#06C755]/40 text-primary-foreground transition-all duration-200 group"
+              >
+                <div className="w-7 h-7 rounded-lg bg-[#06C755] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <MessageCircle className="w-4 h-4 fill-current" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold leading-tight group-hover:text-accent transition-colors truncate">
+                    LINE กลุ่มโรงเรียน
+                  </p>
+                  <p className="text-[10px] text-primary-foreground/70 truncate">
+                    ข่าวสารและสอบถามข้อมูล
+                  </p>
+                </div>
+                <ExternalLink className="w-3 h-3 text-primary-foreground/60 group-hover:text-primary-foreground shrink-0" />
+              </a>
+
+              {/* Director LINE */}
+              <a
+                href={settings.quick_chat_director_line || 'https://line.me/ti/p/~director.hadked'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2.5 p-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-primary-foreground transition-all duration-200 group"
+              >
+                <div className="w-7 h-7 rounded-lg bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <MessageCircle className="w-4 h-4 fill-current" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold leading-tight group-hover:text-accent transition-colors truncate">
+                    LINE ผู้อำนวยการ
+                  </p>
+                  <p className="text-[10px] text-primary-foreground/70 truncate">
+                    สายตรงฝ่ายบริหารสถานศึกษา
+                  </p>
+                </div>
+                <ExternalLink className="w-3 h-3 text-primary-foreground/60 group-hover:text-primary-foreground shrink-0" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

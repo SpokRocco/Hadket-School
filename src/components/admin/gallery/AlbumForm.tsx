@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, ExternalLink, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,9 @@ import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '../shared/ImageUpload';
 import type { Album } from './GalleryManagement';
+import heroImage from '@/assets/hero-school.jpg';
+import studentScienceLab from '@/assets/images/student_science_lab_1794379512287.jpg';
+import studentGraduationActivity from '@/assets/images/student_graduation_activity_1794379513899.jpg';
 
 interface AlbumFormProps {
     album?: Album | null;
@@ -22,10 +25,10 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
     const { toast } = useToast();
 
     const [formData, setFormData] = useState({
-        title: album?.title || '',
+        title: album?.title || (album as any)?.name || '',
         description: album?.description || '',
-        category: album?.category || '',
-        cover_photo_url: album?.cover_photo_url || '',
+        category: album?.category || 'ทั่วไป',
+        cover_photo_url: album?.cover_photo_url || (album as any)?.cover_image_url || '',
         event_date: album?.event_date || '',
         location: album?.location || '',
         is_published: album?.is_published ?? true,
@@ -38,19 +41,47 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
         setIsSubmitting(true);
 
         try {
-            const dataToSave = {
-                ...formData,
+            // Dual-key payload ensures compatibility whether database schema uses (title, cover_photo_url) or (name, cover_image_url)
+            const dataToSave: any = {
+                title: formData.title,
+                name: formData.title,
+                description: formData.description,
+                category: formData.category || 'ทั่วไป',
+                cover_photo_url: formData.cover_photo_url || null,
+                cover_image_url: formData.cover_photo_url || null,
+                event_date: formData.event_date || null,
+                location: formData.location || null,
+                is_published: formData.is_published,
+                google_drive_url: formData.google_drive_url || null,
+                google_photos_url: formData.google_photos_url || null,
                 updated_at: new Date().toISOString(),
             };
 
             if (album) {
                 // Update existing album
-                const { error } = await supabase
+                let { error } = await supabase
                     .from('gallery_albums')
                     .update(dataToSave)
                     .eq('id', album.id);
 
-                if (error) throw error;
+                // If column error occurs on legacy database, retry with minimum required columns
+                if (error) {
+                    console.warn('Update with full schema failed, retrying with legacy schema:', error.message);
+                    const legacyData = {
+                        name: formData.title,
+                        description: formData.description,
+                        category: formData.category || 'ทั่วไป',
+                        cover_image_url: formData.cover_photo_url || null,
+                        is_published: formData.is_published,
+                        updated_at: new Date().toISOString(),
+                    };
+                    const { error: retryError } = await supabase
+                        .from('gallery_albums')
+                        .update(legacyData)
+                        .eq('id', album.id);
+
+                    if (retryError) throw error;
+                }
 
                 toast({
                     title: 'บันทึกสำเร็จ',
@@ -58,12 +89,27 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
                 });
             } else {
                 // Create new album
-                const { error } = await supabase.from('gallery_albums').insert({
+                let { error } = await supabase.from('gallery_albums').insert({
                     ...dataToSave,
                     views: 0,
                 });
 
-                if (error) throw error;
+                // If column error occurs, retry with minimum legacy columns
+                if (error) {
+                    console.warn('Insert with full schema failed, retrying with legacy schema:', error.message);
+                    const legacyData = {
+                        name: formData.title,
+                        description: formData.description,
+                        category: formData.category || 'ทั่วไป',
+                        cover_image_url: formData.cover_photo_url || null,
+                        is_published: formData.is_published,
+                    };
+                    const { error: retryError } = await supabase
+                        .from('gallery_albums')
+                        .insert(legacyData);
+
+                    if (retryError) throw error;
+                }
 
                 toast({
                     title: 'สร้างสำเร็จ',
@@ -75,8 +121,8 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
             onSuccess();
         } catch (error: any) {
             toast({
-                title: 'เกิดข้อผิดพลาด',
-                description: error.message,
+                title: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+                description: error.message || 'ไม่สามารถบันทึกอัลบั้มลงในฐานข้อมูลได้',
                 variant: 'destructive',
             });
         } finally {
@@ -164,9 +210,27 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
                             />
                         </div>
 
-                        {/* Cover Photo */}
-                        <div className="space-y-2">
-                            <Label>รูปปก</Label>
+                        {/* Cover Photo with Direct URL, Device Upload & Presets */}
+                        <div className="space-y-3 p-4 rounded-xl bg-card border border-border shadow-2xs">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold flex items-center gap-2">
+                                    <ImageIcon className="w-4 h-4 text-primary" />
+                                    รูปภาพหน้าปกอัลบั้ม (Cover Photo)
+                                </Label>
+                                {formData.cover_photo_url && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setFormData({ ...formData, cover_photo_url: '' })}
+                                        className="text-xs text-destructive hover:bg-destructive/10 h-7 px-2"
+                                    >
+                                        ลบรูปปก
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Image Upload from Device */}
                             <ImageUpload
                                 currentImage={formData.cover_photo_url}
                                 onUploadComplete={(url) => setFormData({ ...formData, cover_photo_url: url })}
@@ -174,6 +238,69 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
                                 folder="gallery/covers"
                                 compressionPreset="cover"
                             />
+
+                            {/* Direct URL Input */}
+                            <div className="space-y-1.5 pt-2 border-t border-border/60">
+                                <Label htmlFor="cover_photo_url_input" className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                    <LinkIcon className="w-3.5 h-3.5" />
+                                    หรือใส่/วางลิงก์ URL รูปภาพหน้าปกโดยตรง (รองรับ HTTPS, Google Drive, Google Photos, Direct Link หรือ Data URL):
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="cover_photo_url_input"
+                                        type="url"
+                                        value={formData.cover_photo_url}
+                                        onChange={(e) => setFormData({ ...formData, cover_photo_url: e.target.value })}
+                                        placeholder="https://... หรือ data:image/..."
+                                        className="text-xs flex-1"
+                                    />
+                                    {formData.cover_photo_url && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-xs shrink-0"
+                                            onClick={() => window.open(formData.cover_photo_url, '_blank')}
+                                        >
+                                            ดูรูปภาพ <ExternalLink className="w-3 h-3 ml-1" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Quick Preset Buttons */}
+                            <div className="space-y-1 pt-1">
+                                <p className="text-[11px] text-muted-foreground">เลือกใช้ภาพหน้าปกเริ่มต้นของโรงเรียน:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-[11px] h-6 px-2"
+                                        onClick={() => setFormData({ ...formData, cover_photo_url: heroImage })}
+                                    >
+                                        ภาพโรงเรียน
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-[11px] h-6 px-2"
+                                        onClick={() => setFormData({ ...formData, cover_photo_url: studentGraduationActivity })}
+                                    >
+                                        ภาพกิจกรรมนักเรียน
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-[11px] h-6 px-2"
+                                        onClick={() => setFormData({ ...formData, cover_photo_url: studentScienceLab })}
+                                    >
+                                        ภาพห้องแล็บ
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Google Drive Link (For Full Image Collection & Right Click Download) */}

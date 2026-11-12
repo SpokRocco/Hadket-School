@@ -128,6 +128,13 @@ export interface SchoolSettings {
   quick_chat_school_line: string;
   quick_chat_director_line: string;
   quick_chat_phone: string;
+  quick_chat_auto_open_home: string;
+
+  // 2 Highlight Images below Hero Slider (AboutSection Showcase)
+  about_left_image_url: string;
+  about_left_image_caption: string;
+  about_right_image_url: string;
+  about_right_image_caption: string;
 
   // Cloud & Realtime Sync
   supabase_project_ref: string;
@@ -223,6 +230,11 @@ const defaultSettings: SchoolSettings = {
   quick_chat_school_line: 'https://line.me/ti/p/~hadkedschool',
   quick_chat_director_line: 'https://line.me/ti/p/~director.hadked',
   quick_chat_phone: '054-710-123',
+  quick_chat_auto_open_home: 'true',
+  about_left_image_url: '',
+  about_left_image_caption: 'บรรยากาศโรงเรียนบ้านหาดเค็ด',
+  about_right_image_url: '',
+  about_right_image_caption: 'กิจกรรมนักเรียนโรงเรียนบ้านหาดเค็ด',
   supabase_project_ref: 'fhfckuypfstlokashcmu',
   vercel_site_url: '',
   vercel_deploy_hook_url: '',

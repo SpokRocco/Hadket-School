@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Upload, Trash2, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, Trash2, X, Loader2, Link as LinkIcon, Plus, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
@@ -29,6 +38,9 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [showUrlDialog, setShowUrlDialog] = useState(false);
+    const [urlInput, setUrlInput] = useState('');
+    const [urlSubmitting, setUrlSubmitting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
 
@@ -41,11 +53,18 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
             const { data, error } = await supabase
                 .from('gallery_photos')
                 .select('*')
-                .eq('album_id', album.id)
-                .order('order_position');
+                .eq('album_id', album.id);
 
             if (error) throw error;
-            setPhotos(data || []);
+            const normalized: Photo[] = (data || []).map((p: any) => ({
+                id: p.id,
+                photo_url: p.photo_url || p.image_url || '',
+                thumbnail_url: p.thumbnail_url || p.photo_url || p.image_url || '',
+                caption: p.caption || null,
+                order_position: p.order_position ?? p.sort_order ?? 0,
+            })).sort((a: any, b: any) => a.order_position - b.order_position);
+
+            setPhotos(normalized);
         } catch (error: any) {
             toast({
                 title: 'เกิดข้อผิดพลาด',
@@ -54,6 +73,73 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
             });
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleAddPhotoUrls = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!urlInput.trim()) return;
+
+        setUrlSubmitting(true);
+        try {
+            const urls = urlInput
+                .split(/[\n,]/)
+                .map((u) => u.trim())
+                .filter((u) => u.length > 5);
+
+            if (urls.length === 0) {
+                toast({
+                    title: 'ไม่พบ URL ที่ถูกต้อง',
+                    description: 'กรุณาระบุ URL รูปภาพที่ถูกต้อง เช่น https://... หรือ data:image/...',
+                    variant: 'destructive',
+                });
+                return;
+            }
+
+            const nextPosition = photos.length;
+            const photosToInsert = urls.map((url, idx) => ({
+                album_id: album.id,
+                photo_url: url,
+                image_url: url,
+                thumbnail_url: url,
+                caption: null,
+                order_position: nextPosition + idx,
+                sort_order: nextPosition + idx,
+            }));
+
+            let { error: insertError } = await supabase
+                .from('gallery_photos')
+                .insert(photosToInsert);
+
+            if (insertError) {
+                console.warn('Standard insert failed, attempting legacy schema insert:', insertError.message);
+                const legacyPhotos = urls.map((url, idx) => ({
+                    album_id: album.id,
+                    image_url: url,
+                    caption: null,
+                    sort_order: nextPosition + idx,
+                }));
+                const { error: legErr } = await supabase.from('gallery_photos').insert(legacyPhotos);
+                if (legErr) throw insertError;
+            }
+
+            notifyLocalRealtimeListeners('gallery_photos');
+            notifyLocalRealtimeListeners('gallery_albums');
+            toast({
+                title: 'เพิ่มรูปภาพสำเร็จ',
+                description: `เพิ่มรูปภาพจาก URL จำนวน ${urls.length} รูปเรียบร้อยแล้ว`,
+            });
+            setUrlInput('');
+            setShowUrlDialog(false);
+            fetchPhotos();
+        } catch (err: any) {
+            toast({
+                title: 'เกิดข้อผิดพลาด',
+                description: err.message || 'ไม่สามารถเพิ่มรูปภาพจาก URL ได้',
+                variant: 'destructive',
+            });
+        } finally {
+            setUrlSubmitting(false);
         }
     };
 
@@ -129,21 +215,34 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                 });
             }
 
-            // Insert photos into database
+            // Insert photos into database with dual keys (photo_url and image_url, order_position and sort_order)
             if (uploadedPhotos.length > 0) {
                 const nextPosition = photos.length;
                 const photosToInsert = uploadedPhotos.map((photo, index) => ({
                     album_id: album.id,
                     photo_url: photo.photo_url,
+                    image_url: photo.photo_url,
                     thumbnail_url: photo.thumbnail_url,
                     order_position: nextPosition + index,
+                    sort_order: nextPosition + index,
                 }));
 
-                const { error: insertError } = await supabase
+                let { error: insertError } = await supabase
                     .from('gallery_photos')
                     .insert(photosToInsert);
 
-                if (insertError) throw insertError;
+                // If column mismatch in old Supabase schema, retry with legacy columns
+                if (insertError) {
+                    console.warn('Standard photos insert failed, attempting legacy schema insert:', insertError.message);
+                    const legacyPhotos = uploadedPhotos.map((photo, index) => ({
+                        album_id: album.id,
+                        image_url: photo.photo_url,
+                        caption: null,
+                        sort_order: nextPosition + index,
+                    }));
+                    const { error: legacyError } = await supabase.from('gallery_photos').insert(legacyPhotos);
+                    if (legacyError) throw insertError;
+                }
 
                 notifyLocalRealtimeListeners('gallery_photos');
                 notifyLocalRealtimeListeners('gallery_albums');
@@ -273,6 +372,16 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                                 <span>📁 อัปโหลดทั้งโฟลเดอร์</span>
                             </Button>
 
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowUrlDialog(true)}
+                                disabled={isUploading}
+                                className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                            >
+                                <LinkIcon className="w-4 h-4" />
+                                <span>เพิ่มด้วยลิงก์ URL</span>
+                            </Button>
+
                             <Button variant="outline" onClick={onBack}>
                                 <ArrowLeft className="w-4 h-4 mr-2" />
                                 ย้อนกลับ
@@ -306,7 +415,7 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                             <Upload className="w-16 h-16 mx-auto text-primary mb-4" />
                             <h3 className="text-lg font-semibold text-foreground mb-1">ยังไม่มีรูปภาพในอัลบั้มนี้</h3>
                             <p className="text-sm text-muted-foreground mb-6">
-                                รองรับการอัปโหลดได้หลายรูปพร้อมกัน หรือเลือกทั้งโฟลเดอร์จากเครื่องของคุณได้ทันที ไม่จำกัดขนาดไฟล์
+                                รองรับการอัปโหลดได้หลายรูปพร้อมกัน เลือกทั้งโฟลเดอร์จากเครื่อง หรือใส่ลิงก์รูปภาพ (URL) ได้ทันที ไม่จำกัดขนาดไฟล์
                             </p>
                             <div className="flex flex-wrap items-center justify-center gap-3">
                                 <Button onClick={() => fileInputRef.current?.click()} className="gap-2">
@@ -315,6 +424,10 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                                 </Button>
                                 <Button variant="secondary" onClick={() => folderInputRef.current?.click()} className="gap-2 border border-border">
                                     <span>📁 เลือกทั้งโฟลเดอร์</span>
+                                </Button>
+                                <Button variant="outline" onClick={() => setShowUrlDialog(true)} className="gap-2 border-primary/30 text-primary">
+                                    <LinkIcon className="w-4 h-4" />
+                                    เพิ่มด้วยลิงก์ URL
                                 </Button>
                             </div>
                         </div>
@@ -384,6 +497,60 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                 title="ยืนยันการลบรูปภาพ"
                 description="คุณแน่ใจหรือไม่ว่าต้องการลบรูปภาพนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
             />
+
+            {/* Add Photos via URL Dialog */}
+            <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <form onSubmit={handleAddPhotoUrls}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <LinkIcon className="w-5 h-5 text-primary" />
+                                เพิ่มรูปภาพด้วยลิงก์ URL
+                            </DialogTitle>
+                            <DialogDescription>
+                                ใส่ลิงก์รูปภาพโดยตรง (รองรับ HTTPS, Google Drive, Google Photos, Cloud Storage หรือ Data URL) สามารถใส่หลายลิงก์ได้โดยขึ้นบรรทัดใหม่
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 space-y-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="photo_urls_input">วางลิงก์ URL รูปภาพ:</Label>
+                                <Textarea
+                                    id="photo_urls_input"
+                                    value={urlInput}
+                                    onChange={(e) => setUrlInput(e.target.value)}
+                                    placeholder="https://images.unsplash.com/...&#10;https://drive.google.com/uc?...&#10;https://..."
+                                    rows={5}
+                                    className="font-mono text-xs"
+                                    required
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                เคล็ดลับ: สามารถคัดลอกลิงก์รูปภาพหลายรูปมาวางพร้อมกันได้ โดยแยกด้วยการขึ้นบรรทัดใหม่
+                            </p>
+                        </div>
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowUrlDialog(false)}
+                                disabled={urlSubmitting}
+                            >
+                                ยกเลิก
+                            </Button>
+                            <Button type="submit" disabled={urlSubmitting || !urlInput.trim()}>
+                                {urlSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                        กำลังบันทึก...
+                                    </>
+                                ) : (
+                                    'เพิ่มรูปภาพลงอัลบั้ม'
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

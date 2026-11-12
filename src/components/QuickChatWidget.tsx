@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   MessageCircle,
   X,
@@ -32,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export const QuickChatWidget = () => {
   const { settings } = useSchoolSettings();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [showGreetingBubble, setShowGreetingBubble] = useState(true);
@@ -50,13 +52,18 @@ export const QuickChatWidget = () => {
   // Check if feature is enabled in admin settings
   const isEnabled = settings.quick_chat_enabled !== 'false';
 
-  // Check if session dismissed floating trigger
+  // Always show and pop up on refresh or navigating back to homepage (/)
   useEffect(() => {
-    const dismissed = sessionStorage.getItem('quick_chat_dismissed');
-    if (dismissed === 'true') {
-      setIsDismissed(true);
+    setIsDismissed(false);
+    setShowGreetingBubble(true);
+
+    if (location.pathname === '/' && settings.quick_chat_auto_open_home !== 'false') {
+      const timer = setTimeout(() => {
+        setIsOpen(true);
+      }, 750);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [location.pathname, settings.quick_chat_auto_open_home]);
 
   if (!isEnabled || isDismissed) {
     return null;
@@ -73,7 +80,6 @@ export const QuickChatWidget = () => {
   const handleDismissForever = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsDismissed(true);
-    sessionStorage.setItem('quick_chat_dismissed', 'true');
   };
 
   const handleOpenDirectLine = (type: 'school' | 'director') => {
