@@ -523,38 +523,40 @@ export const INITIAL_SEED_DATA: Record<string, any[]> = {
     { id: 'st-6', name: 'นายคอมพิวเตอร์ เก่งมาก', position: 'หัวหน้างานเทคโนโลยีสารสนเทศ', subject: '', department: 'ฝ่ายวิชาการ', education: 'ปริญญาตรี วิทยาการคอมพิวเตอร์', experience: '6 ปี', photo_url: '', staff_type: 'support', order_position: 102 },
   ],
   student_stats: [
-    { id: 'ss-1', label: 'นักเรียนทั้งหมด', value: '1,250', icon: 'Users', color: 'text-primary', order_position: 1, is_active: true },
-    { id: 'ss-2', label: 'ม.ปลาย', value: '650', icon: 'GraduationCap', color: 'text-accent', order_position: 2, is_active: true },
-    { id: 'ss-3', label: 'ม.ต้น', value: '600', icon: 'BookOpen', color: 'text-green-500', order_position: 3, is_active: true },
-    { id: 'ss-4', label: 'นักเรียนเกียรตินิยม', value: '180', icon: 'Trophy', color: 'text-purple-500', order_position: 4, is_active: true },
+    { id: 'ss-1', label: 'นักเรียนปัจจุบัน', value: '74 คน', icon: 'Users', color: 'text-primary', order_position: 1, is_active: true },
+    { id: 'ss-2', label: 'ระดับปฐมวัย (อ.2 - อ.3)', value: '14 คน', icon: 'GraduationCap', color: 'text-accent', order_position: 2, is_active: true },
+    { id: 'ss-3', label: 'ระดับประถมศึกษา (ป.1 - ป.6)', value: '38 คน', icon: 'BookOpen', color: 'text-green-500', order_position: 3, is_active: true },
+    { id: 'ss-4', label: 'ระดับมัธยมศึกษาตอนต้น (ม.1 - ม.3)', value: '22 คน', icon: 'Trophy', color: 'text-purple-500', order_position: 4, is_active: true },
   ],
   grade_data: [
-    { id: 'gd-1', level: 'มัธยมศึกษาปีที่ 1', rooms: 6, students: 210, boys: 105, girls: 105, order_position: 1, is_active: true },
-    { id: 'gd-2', level: 'มัธยมศึกษาปีที่ 2', rooms: 6, students: 200, boys: 98, girls: 102, order_position: 2, is_active: true },
-    { id: 'gd-3', level: 'มัธยมศึกษาปีที่ 3', rooms: 6, students: 190, boys: 95, girls: 95, order_position: 3, is_active: true },
-    { id: 'gd-4', level: 'มัธยมศึกษาปีที่ 4', rooms: 6, students: 220, boys: 110, girls: 110, order_position: 4, is_active: true },
-    { id: 'gd-5', level: 'มัธยมศึกษาปีที่ 5', rooms: 6, students: 215, boys: 108, girls: 107, order_position: 5, is_active: true },
-    { id: 'gd-6', level: 'มัธยมศึกษาปีที่ 6', rooms: 6, students: 215, boys: 107, girls: 108, order_position: 6, is_active: true },
+    { id: 'gd-1', level: 'อนุบาล 2', rooms: 1, students: 7, boys: 4, girls: 3, order_position: 1, is_active: true },
+    { id: 'gd-2', level: 'อนุบาล 3', rooms: 1, students: 7, boys: 3, girls: 4, order_position: 2, is_active: true },
+    { id: 'gd-3', level: 'ประถมศึกษาปีที่ 1', rooms: 1, students: 6, boys: 3, girls: 3, order_position: 3, is_active: true },
+    { id: 'gd-4', level: 'ประถมศึกษาปีที่ 2', rooms: 1, students: 7, boys: 4, girls: 3, order_position: 4, is_active: true },
+    { id: 'gd-5', level: 'ประถมศึกษาปีที่ 3', rooms: 1, students: 6, boys: 2, girls: 4, order_position: 5, is_active: true },
+    { id: 'gd-6', level: 'ประถมศึกษาปีที่ 4', rooms: 1, students: 6, boys: 3, girls: 3, order_position: 6, is_active: true },
+    { id: 'gd-7', level: 'ประถมศึกษาปีที่ 5', rooms: 1, students: 6, boys: 4, girls: 2, order_position: 7, is_active: true },
+    { id: 'gd-8', level: 'ประถมศึกษาปีที่ 6', rooms: 1, students: 7, boys: 3, girls: 4, order_position: 8, is_active: true },
+    { id: 'gd-9', level: 'มัธยมศึกษาปีที่ 1', rooms: 1, students: 8, boys: 4, girls: 4, order_position: 9, is_active: true },
+    { id: 'gd-10', level: 'มัธยมศึกษาปีที่ 2', rooms: 1, students: 7, boys: 3, girls: 4, order_position: 10, is_active: true },
+    { id: 'gd-11', level: 'มัธยมศึกษาปีที่ 3', rooms: 1, students: 7, boys: 4, girls: 3, order_position: 11, is_active: true },
   ],
   student_achievements: [
-    { id: 'ach-1', title: 'เหรียญทองโอลิมปิกวิชาการ', description: 'นักเรียนได้รับเหรียญทองการแข่งขันคณิตศาสตร์โอลิมปิกระดับชาติ', year: '2567', category: 'โอลิมปิก', order_position: 1 },
-    { id: 'ach-2', title: 'รางวัลชนะเลิศวิทยาศาสตร์', description: 'โครงงานวิทยาศาสตร์ได้รับรางวัลชนะเลิศระดับภาค', year: '2567', category: 'วิทยาศาสตร์', order_position: 2 },
-    { id: 'ach-3', title: 'ทุนการศึกษาต่อต่างประเทศ', description: 'นักเรียนได้รับทุนเรียนต่อมหาวิทยาลัยชั้นนำในต่างประเทศ', year: '2567', category: 'ทุนการศึกษา', order_position: 3 },
-    { id: 'ach-4', title: 'ผลสอบ O-NET สูงกว่าค่าเฉลี่ย', description: 'ผลสอบ O-NET ทุกวิชาสูงกว่าค่าเฉลี่ยระดับประเทศ', year: '2566', category: 'วิชาการ', order_position: 4 },
+    { id: 'ach-1', title: 'รางวัลชนะเลิศโครงงานวิทยาศาสตร์และสิ่งแวดล้อม', description: 'ตัวแทนนักเรียนได้รับรางวัลชนะเลิศการประกวดโครงงานระดับเขตพื้นที่การศึกษา', year: '2568', category: 'วิทยาศาสตร์', order_position: 1 },
+    { id: 'ach-2', title: 'รางวัลเหรียญทองการแข่งขันหุ่นยนต์และนวัตกรรม AI', description: 'ตัวแทนนักเรียนคว้ารางวัลเหรียญทองระดับภูมิภาค', year: '2568', category: 'เทคโนโลยี', order_position: 2 },
+    { id: 'ach-3', title: 'รางวัลชนะเลิศการประกวดดนตรีพื้นบ้านและศิลปวัฒนธรรมน่าน', description: 'ร่วมสืบสานและอนุรักษ์ดนตรีพื้นบ้านและศิลปวัฒนธรรมท้องถิ่น', year: '2567', category: 'ศิลปวัฒนธรรม', order_position: 3 },
   ],
   student_activities: [
-    { id: 'act-1', name: 'ชมรมวิทยาศาสตร์', members: 85, description: 'ทดลองและค้นคว้าทางวิทยาศาสตร์', order_position: 1 },
-    { id: 'act-2', name: 'ชมรมคณิตศาสตร์', members: 70, description: 'พัฒนาทักษะการคิดวิเคราะห์', order_position: 2 },
-    { id: 'act-3', name: 'ชมรมภาษาอังกฤษ', members: 90, description: 'พัฒนาทักษะการสื่อสารภาษาอังกฤษ', order_position: 3 },
-    { id: 'act-4', name: 'ชมรมดนตรี', members: 65, description: 'เรียนรู้และแสดงดนตรีหลากหลายแนว', order_position: 4 },
-    { id: 'act-5', name: 'ชมรมกีฬา', members: 120, description: 'ฝึกฝนกีฬาและส่งเสริมสุขภาพ', order_position: 5 },
-    { id: 'act-6', name: 'ชมรมศิลปะ', members: 55, description: 'สร้างสรรค์ผลงานศิลปะหลากหลายรูปแบบ', order_position: 6 },
+    { id: 'act-1', name: 'ชมรมคอมพิวเตอร์และนวัตกรรมดิจิทัล', members: 24, description: 'ฝึกทักษะโค้ดดิ้ง AI และการสร้างสรรค์สื่อดิจิทัลเพื่อการศึกษา', order_position: 1 },
+    { id: 'act-2', name: 'ชมรมวิทยาศาสตร์และเกษตรพอเพียง', members: 20, description: 'เรียนรู้วิทยาศาสตร์เชิงปฏิบัติการและการทำเกษตรอินทรีย์ตามหลักปรัชญาเศรษฐกิจพอเพียง', order_position: 2 },
+    { id: 'act-3', name: 'ชมรมดนตรีและศิลปวัฒนธรรมพื้นบ้าน', members: 18, description: 'สืบสานดนตรีพื้นเมืองและศิลปะการแสดงท้องถิ่นน่าน', order_position: 3 },
+    { id: 'act-4', name: 'ชมรมกีฬาและส่งเสริมสุขภาพ', members: 25, description: 'ฝึกซ้อมฟุตซอล วอลเลย์บอล เปตอง และกรีฑา', order_position: 4 },
   ],
   student_council: [
-    { id: 'sc-1', name: 'นายประสิทธิ์ เก่งมาก', position: 'ประธานสภานักเรียน', class: 'ม.6/1', initial: 'ป', image_url: null, order_position: 1, is_active: true },
-    { id: 'sc-2', name: 'นางสาวสุดา รักเรียน', position: 'รองประธานสภานักเรียนฝ่ายบริหาร', class: 'ม.6/2', initial: 'ส', image_url: null, order_position: 2, is_active: true },
-    { id: 'sc-3', name: 'นายวิชัย ใจดี', position: 'เลขานุการสภานักเรียน', class: 'ม.5/1', initial: 'ว', image_url: null, order_position: 3, is_active: true },
-    { id: 'sc-4', name: 'นางสาวกานดา พัฒนา', position: 'หัวหน้าฝ่ายประชาสัมพันธ์ (Sapha Plus)', class: 'ม.5/2', initial: 'ก', image_url: null, order_position: 4, is_active: true },
+    { id: 'sc-1', name: 'เด็กชายกิตติภพ สุขใจ', position: 'ประธานสภานักเรียน', class: 'ม.3/1', initial: 'ก', image_url: null, order_position: 1, is_active: true },
+    { id: 'sc-2', name: 'เด็กหญิงพิชญา รักเรียน', position: 'รองประธานสภานักเรียน', class: 'ม.3/1', initial: 'พ', image_url: null, order_position: 2, is_active: true },
+    { id: 'sc-3', name: 'เด็กชายธนดล วงศ์วิทย์', position: 'เลขานุการสภานักเรียน', class: 'ม.2/1', initial: 'ธ', image_url: null, order_position: 3, is_active: true },
+    { id: 'sc-4', name: 'เด็กหญิงกัญญารัตน์ สดใส', position: 'หัวหน้าฝ่ายกิจกรรมและประชาสัมพันธ์ (Sapha Plus)', class: 'ม.2/1', initial: 'ก', image_url: null, order_position: 4, is_active: true },
   ],
   curriculum_programs: [
     {
@@ -855,7 +857,41 @@ export const getTableData = (table: string): any[] => {
   const raw = getStorageItem(key);
   if (raw) {
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Sanitize out old legacy fake high-school data (1,250 students or ม.4-ม.6 or ม.6 council)
+        if (table === 'grade_data') {
+          const hasFakeHighSchool = parsed.some((r: any) =>
+            typeof r?.level === 'string' && (r.level.includes('มัธยมศึกษาปีที่ 4') || r.level.includes('มัธยมศึกษาปีที่ 5') || r.level.includes('มัธยมศึกษาปีที่ 6'))
+          );
+          if (hasFakeHighSchool) {
+            const initial = INITIAL_SEED_DATA[table] ? [...INITIAL_SEED_DATA[table]] : [];
+            setStorageItem(key, JSON.stringify(initial));
+            return initial;
+          }
+        }
+        if (table === 'student_stats') {
+          const hasFake1250 = parsed.some((r: any) =>
+            typeof r?.value === 'string' && (r.value.includes('1,250') || r.value.includes('650') || r.value.includes('600'))
+          );
+          if (hasFake1250) {
+            const initial = INITIAL_SEED_DATA[table] ? [...INITIAL_SEED_DATA[table]] : [];
+            setStorageItem(key, JSON.stringify(initial));
+            return initial;
+          }
+        }
+        if (table === 'student_council') {
+          const hasFakeCouncil = parsed.some((r: any) =>
+            typeof r?.class === 'string' && (r.class.includes('ม.6') || r.class.includes('ม.5'))
+          );
+          if (hasFakeCouncil) {
+            const initial = INITIAL_SEED_DATA[table] ? [...INITIAL_SEED_DATA[table]] : [];
+            setStorageItem(key, JSON.stringify(initial));
+            return initial;
+          }
+        }
+        return parsed;
+      }
     } catch {
       // ignore parse error
     }

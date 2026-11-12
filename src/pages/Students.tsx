@@ -84,11 +84,70 @@ const Students = () => {
           .order('order_position', { ascending: true }),
       ]);
 
-      if (!statsRes.error) setStudentStats(statsRes.data || []);
-      if (!gradeRes.error) setGradeData(gradeRes.data || []);
-      if (!achievementsRes.error) setAchievements(achievementsRes.data || []);
-      if (!activitiesRes.error) setActivities(activitiesRes.data || []);
-      if (!councilRes.error) setStudentCouncil(councilRes.data || []);
+      let loadedStats: StudentStat[] = (!statsRes.error && Array.isArray(statsRes.data)) ? statsRes.data : [];
+      let loadedGrades: GradeData[] = (!gradeRes.error && Array.isArray(gradeRes.data)) ? gradeRes.data : [];
+      let loadedAchievements: Achievement[] = (!achievementsRes.error && Array.isArray(achievementsRes.data)) ? achievementsRes.data : [];
+      let loadedActivities: Activity[] = (!activitiesRes.error && Array.isArray(activitiesRes.data)) ? activitiesRes.data : [];
+      let loadedCouncil: StudentCouncil[] = (!councilRes.error && Array.isArray(councilRes.data)) ? councilRes.data : [];
+
+      // Dual Cloud check from school_settings if any table is empty
+      if (
+        loadedStats.length === 0 ||
+        loadedGrades.length === 0 ||
+        loadedAchievements.length === 0 ||
+        loadedActivities.length === 0 ||
+        loadedCouncil.length === 0
+      ) {
+        try {
+          const { data: settingsData } = await supabase
+            .from('school_settings')
+            .select('key, value')
+            .in('key', [
+              'grade_data_json',
+              'student_stats_json',
+              'student_achievements_json',
+              'student_activities_json',
+              'student_council_json',
+            ]);
+
+          if (settingsData && Array.isArray(settingsData)) {
+            const map: Record<string, string> = {};
+            settingsData.forEach((row) => {
+              map[row.key] = row.value;
+            });
+
+            if (loadedGrades.length === 0 && map.grade_data_json) {
+              const p = JSON.parse(map.grade_data_json);
+              if (Array.isArray(p)) loadedGrades = p;
+            }
+            if (loadedStats.length === 0 && map.student_stats_json) {
+              const p = JSON.parse(map.student_stats_json);
+              if (Array.isArray(p)) loadedStats = p;
+            }
+            if (loadedAchievements.length === 0 && map.student_achievements_json) {
+              const p = JSON.parse(map.student_achievements_json);
+              if (Array.isArray(p)) loadedAchievements = p;
+            }
+            if (loadedActivities.length === 0 && map.student_activities_json) {
+              const p = JSON.parse(map.student_activities_json);
+              if (Array.isArray(p)) loadedActivities = p;
+            }
+            if (loadedCouncil.length === 0 && map.student_council_json) {
+              const p = JSON.parse(map.student_council_json);
+              if (Array.isArray(p)) loadedCouncil = p;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Filter out any legacy mock data (1,250 students, ม.4-ม.6, etc.)
+      setStudentStats(loadedStats.filter(s => s.value !== '1,250' && s.value !== '650'));
+      setGradeData(loadedGrades.filter(g => !(/มัธยมศึกษาปีที่\s*[4-6]|ม\.\s*[4-6]/.test(g.level) && (Number(g.students) > 100))));
+      setAchievements(loadedAchievements.filter(a => a.title !== 'เหรียญทองโอลิมปิกวิชาการ'));
+      setActivities(loadedActivities.filter(a => !(a.name === 'ชมรมวิทยาศาสตร์' && a.members === 85)));
+      setStudentCouncil(loadedCouncil.filter(c => !(c.class && (c.class.includes('ม.6') || c.class.includes('ม.5')))));
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -98,7 +157,7 @@ const Students = () => {
     fetchAllData();
     return subscribeToRealtimeTables(
       'realtime_students_page',
-      ['student_stats', 'grade_data', 'student_achievements', 'student_activities', 'student_council'],
+      ['student_stats', 'grade_data', 'student_achievements', 'student_activities', 'student_council', 'school_settings'],
       fetchAllData
     );
   }, [fetchAllData]);

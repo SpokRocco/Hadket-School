@@ -637,10 +637,10 @@ USING (true)
 WITH CHECK (true);
 
 INSERT INTO student_stats (label, value, icon, color, order_position) VALUES
-('นักเรียนทั้งหมด', '1,250', 'Users', 'text-primary', 1),
-('ม.ปลาย', '650', 'GraduationCap', 'text-accent', 2),
-('ม.ต้น', '600', 'BookOpen', 'text-green-500', 3),
-('นักเรียนเกียรตินิยม', '180', 'Trophy', 'text-purple-500', 4);
+('นักเรียนปัจจุบัน', '74 คน', 'Users', 'text-primary', 1),
+('ระดับปฐมวัย (อ.2 - อ.3)', '14 คน', 'GraduationCap', 'text-accent', 2),
+('ระดับประถมศึกษา (ป.1 - ป.6)', '38 คน', 'BookOpen', 'text-green-500', 3),
+('ระดับมัธยมศึกษาตอนต้น (ม.1 - ม.3)', '22 คน', 'Trophy', 'text-purple-500', 4);
 
 -- Create grade_data table for student counts per grade level
 DROP TABLE IF EXISTS grade_data CASCADE;
@@ -648,7 +648,7 @@ DROP TABLE IF EXISTS grade_data CASCADE;
 CREATE TABLE grade_data (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     level TEXT NOT NULL,
-    rooms INTEGER DEFAULT 0,
+    rooms INTEGER DEFAULT 1,
     students INTEGER DEFAULT 0,
     boys INTEGER DEFAULT 0,
     girls INTEGER DEFAULT 0,
@@ -665,12 +665,17 @@ USING (true)
 WITH CHECK (true);
 
 INSERT INTO grade_data (level, rooms, students, boys, girls, order_position) VALUES
-('มัธยมศึกษาปีที่ 1', 6, 210, 105, 105, 1),
-('มัธยมศึกษาปีที่ 2', 6, 200, 98, 102, 2),
-('มัธยมศึกษาปีที่ 3', 6, 190, 95, 95, 3),
-('มัธยมศึกษาปีที่ 4', 6, 220, 110, 110, 4),
-('มัธยมศึกษาปีที่ 5', 6, 215, 108, 107, 5),
-('มัธยมศึกษาปีที่ 6', 6, 215, 107, 108, 6);
+('อนุบาล 2', 1, 7, 4, 3, 1),
+('อนุบาล 3', 1, 7, 3, 4, 2),
+('ประถมศึกษาปีที่ 1', 1, 6, 3, 3, 3),
+('ประถมศึกษาปีที่ 2', 1, 7, 4, 3, 4),
+('ประถมศึกษาปีที่ 3', 1, 6, 2, 4, 5),
+('ประถมศึกษาปีที่ 4', 1, 6, 3, 3, 6),
+('ประถมศึกษาปีที่ 5', 1, 6, 4, 2, 7),
+('ประถมศึกษาปีที่ 6', 1, 7, 3, 4, 8),
+('มัธยมศึกษาปีที่ 1', 1, 8, 4, 4, 9),
+('มัธยมศึกษาปีที่ 2', 1, 7, 3, 4, 10),
+('มัธยมศึกษาปีที่ 3', 1, 7, 4, 3, 11);
 
 -- Create student_council table for student council members
 DROP TABLE IF EXISTS student_council CASCADE;
@@ -695,9 +700,9 @@ USING (true)
 WITH CHECK (true);
 
 INSERT INTO student_council (name, position, class, initial, order_position) VALUES
-('นายประสิทธิ์ เก่งมาก', 'ประธานสภานักเรียน', 'ม.6/1', 'ป', 1),
-('นางสาวสุดา รักเรียน', 'รองประธานสภานักเรียน', 'ม.6/2', 'ส', 2),
-('นายวิชัย ใจดี', 'เลขานุการสภานักเรียน', 'ม.5/1', 'ว', 3);
+('เด็กชายกิตติภพ สขใจ', 'ประธานสภานักเรียน', 'ม.3/1', 'ก', 1),
+('เด็กหญิงพิชญา รักเรียน', 'รองประธานสภานักเรียน', 'ม.3/1', 'พ', 2),
+('เด็กชายธนดล วงศ์วิทย์', 'เลขานุการสภานักเรียน', 'ม.2/1', 'ธ', 3);
 -- Drop existing table (CASCADE will drop policies automatically)
 DROP TABLE IF EXISTS admissions CASCADE;
 

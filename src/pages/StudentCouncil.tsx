@@ -66,9 +66,31 @@ const StudentCouncil = () => {
           .order('order_position', { ascending: true }),
       ]);
 
-      if (!membersRes.error) {
-        setMembers(membersRes.data || []);
+      let loadedMembers = (!membersRes.error && Array.isArray(membersRes.data)) ? membersRes.data : [];
+      if (loadedMembers.length === 0) {
+        try {
+          const { data: sData } = await supabase
+            .from('school_settings')
+            .select('value')
+            .eq('key', 'student_council_json')
+            .maybeSingle();
+          if (sData?.value) {
+            const p = JSON.parse(sData.value);
+            if (Array.isArray(p)) loadedMembers = p;
+          }
+        } catch {
+          // ignore
+        }
       }
+
+      setMembers(
+        loadedMembers.filter(
+          (m) =>
+            !(m.class && (m.class.includes('ม.6') || m.class.includes('ม.5'))) &&
+            m.is_active !== false
+        )
+      );
+
       if (!projRes.error && Array.isArray(projRes.data) && projRes.data.length > 0) {
         setProjects(projRes.data);
       }
