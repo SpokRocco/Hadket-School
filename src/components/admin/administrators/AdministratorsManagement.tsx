@@ -291,7 +291,7 @@ export const AdministratorsManagement = () => {
                                     currentImage={formData.photo_url}
                                     onUploadComplete={(url) => setFormData((prev) => ({ ...prev, photo_url: url }))}
                                     folder="administrators"
-                                    maxSizeMB={5}
+                                    maxSizeMB={0}
                                     compressionPreset="profile"
                                 />
                             </div>

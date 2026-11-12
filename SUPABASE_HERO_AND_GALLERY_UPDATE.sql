@@ -250,10 +250,10 @@ BEGIN
   END IF;
 END $$;
 
--- 8. Ensure Storage Bucket for images allows public reads and uploads without size restrictions
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('images', 'images', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+-- 8. Ensure Storage Bucket for images allows public reads and uploads without size restrictions (100MB limit)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('images', 'images', true, 104857600, null)
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 104857600, allowed_mime_types = null;
 
 -- Ensure public access policies on storage.objects for 'images'
 DO $$

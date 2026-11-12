@@ -736,7 +736,7 @@ export const StaffManagement = () => {
                                     setFormData((prev) => ({ ...prev, photo_url: url }))
                                 }
                                 folder={formData.staff_type === 'director' ? 'administrators' : 'staff'}
-                                maxSizeMB={5}
+                                maxSizeMB={0}
                                 compressionPreset="profile"
                             />
                         </div>

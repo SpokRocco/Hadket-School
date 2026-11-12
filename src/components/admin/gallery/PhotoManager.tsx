@@ -176,43 +176,52 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                 const file = files[i];
                 setUploadProgress({ current: i + 1, total: files.length });
 
-                // No file size limit - optimize image before upload
-                const compressedBlob = await compressImage(file, compressionPresets.gallery);
-                const isSvg = file.type === 'image/svg+xml';
-                const contentType = isSvg ? 'image/svg+xml' : 'image/webp';
-                const fileExt = isSvg ? 'svg' : 'webp';
-                const fileName = `gallery/${album.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-                let photoUrl = '';
                 try {
-                    const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('images')
-                        .upload(fileName, compressedBlob, {
-                            cacheControl: '3600',
-                            upsert: false,
-                            contentType,
+                    // No file size limit - optimize image before upload (handles Sony A7 / Lightroom / HEIC)
+                    const compressedBlob = await compressImage(file, compressionPresets.gallery);
+                    const isWebP = compressedBlob.type === 'image/webp';
+                    const isPng = compressedBlob.type === 'image/png';
+                    const isSvg = file.type === 'image/svg+xml';
+                    const fileExt = isSvg ? 'svg' : isPng ? 'png' : isWebP ? 'webp' : 'jpg';
+                    const contentType = isSvg ? 'image/svg+xml' : isPng ? 'image/png' : isWebP ? 'image/webp' : 'image/jpeg';
+                    const fileName = `gallery/${album.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+                    let photoUrl = '';
+                    try {
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                            .from('images')
+                            .upload(fileName, compressedBlob, {
+                                cacheControl: '3600',
+                                upsert: false,
+                                contentType,
+                            });
+
+                        if (uploadError) throw uploadError;
+
+                        // Get public URL
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('images')
+                            .getPublicUrl(uploadData.path);
+                        photoUrl = publicUrl;
+                    } catch (stErr) {
+                        console.warn('Storage upload fallback to data URL for photo:', file.name, stErr);
+                        photoUrl = await new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.onerror = () => resolve('');
+                            reader.readAsDataURL(compressedBlob);
                         });
+                    }
 
-                    if (uploadError) throw uploadError;
-
-                    // Get public URL
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('images')
-                        .getPublicUrl(uploadData.path);
-                    photoUrl = publicUrl;
-                } catch (stErr) {
-                    console.warn('Storage upload fallback to data URL for photo:', file.name, stErr);
-                    photoUrl = await new Promise<string>((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result as string);
-                        reader.readAsDataURL(compressedBlob);
-                    });
+                    if (photoUrl) {
+                        uploadedPhotos.push({
+                            photo_url: photoUrl,
+                            thumbnail_url: photoUrl,
+                        });
+                    }
+                } catch (singlePhotoErr) {
+                    console.error('Failed to process photo:', file.name, singlePhotoErr);
                 }
-
-                uploadedPhotos.push({
-                    photo_url: photoUrl,
-                    thumbnail_url: photoUrl,
-                });
             }
 
             // Insert photos into database with dual keys (photo_url and image_url, order_position and sort_order)

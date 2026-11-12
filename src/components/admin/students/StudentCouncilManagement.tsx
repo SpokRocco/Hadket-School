@@ -83,19 +83,44 @@ export const StudentCouncilManagement = () => {
         try {
             setUploading(true);
 
-            // Compress image before upload using shared utility
+            // Compress image before upload using shared utility (supports large Sony A7 / camera files)
             const compressedBlob = await compressImage(file, compressionPresets.avatar);
-            const fileName = `council_${Date.now()}.webp`;
+            const isWebP = compressedBlob.type === 'image/webp';
+            const isPng = compressedBlob.type === 'image/png';
+            const fileExt = isPng ? 'png' : isWebP ? 'webp' : 'jpg';
+            const contentType = isPng ? 'image/png' : isWebP ? 'image/webp' : 'image/jpeg';
+            const fileName = `council_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `student-council/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from('images')
-                .upload(filePath, compressedBlob, { cacheControl: '3600', upsert: false, contentType: 'image/webp' });
+            let finalUrl = '';
+            try {
+                const { error: uploadError } = await supabase.storage
+                    .from('images')
+                    .upload(filePath, compressedBlob, {
+                        cacheControl: '3600',
+                        upsert: false,
+                        contentType,
+                    });
 
-            if (uploadError) throw uploadError;
+                if (uploadError) throw uploadError;
 
-            const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
-            setFormData({ ...formData, image_url: urlData.publicUrl });
+                const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
+                finalUrl = urlData.publicUrl;
+            } catch (storageErr) {
+                console.warn('Storage upload fallback to Data URL for council image:', storageErr);
+                finalUrl = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = () => resolve('');
+                    reader.readAsDataURL(compressedBlob);
+                });
+            }
+
+            if (!finalUrl) {
+                throw new Error('ไม่สามารถประมวลผลรูปภาพได้');
+            }
+
+            setFormData({ ...formData, image_url: finalUrl });
             toast({ title: 'สำเร็จ', description: 'อัปโหลดรูปเรียบร้อยแล้ว' });
         } catch (error: any) {
             console.error('Upload error:', error);

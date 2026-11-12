@@ -55,10 +55,15 @@ export const ImageUpload = ({
     try {
       // 1. Compress image before upload with preset
       const compressionOptions =
-        compressionPresets[compressionPreset] || { maxWidth: 1600, maxHeight: 1000, quality: 0.82 };
+        compressionPresets[compressionPreset] || { maxWidth: 1920, maxHeight: 1080, quality: 0.85 };
       const compressedBlob = await compressImage(file, compressionOptions);
 
-      const fileExt = ext === 'heic' || ext === 'heif' ? 'webp' : ext || 'webp';
+      // Determine proper extension and content type directly from the compressed output
+      const isWebP = compressedBlob.type === 'image/webp';
+      const isPng = compressedBlob.type === 'image/png';
+      const isSvg = file.type === 'image/svg+xml';
+      const fileExt = isSvg ? 'svg' : isPng ? 'png' : isWebP ? 'webp' : 'jpg';
+      const contentType = isSvg ? 'image/svg+xml' : isPng ? 'image/png' : isWebP ? 'image/webp' : 'image/jpeg';
       const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       let finalUrl = '';
@@ -70,7 +75,7 @@ export const ImageUpload = ({
           .upload(fileName, compressedBlob, {
             cacheControl: '3600',
             upsert: true,
-            contentType: compressedBlob.type || 'image/webp',
+            contentType,
           });
 
         if (error) {
@@ -99,9 +104,15 @@ export const ImageUpload = ({
         setPreview(finalUrl);
         onUploadComplete(finalUrl);
 
+        const origSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        const compSizeKB = Math.round(compressedBlob.size / 1024);
+        const sizeInfo = file.size > 1.5 * 1024 * 1024
+          ? ` (ปรับขนาดจาก ${origSizeMB} MB เหลือ ${compSizeKB} KB)`
+          : '';
+
         toast({
           title: 'อัปโหลดสำเร็จ',
-          description: `ประมวลผลรูปภาพเรียบร้อย (${file.name})`,
+          description: `ประมวลผลรูปภาพเรียบร้อย${sizeInfo} (${file.name})`,
         });
       } else {
         throw new Error('ไม่สามารถแปลงข้อมูลรูปภาพได้');
@@ -191,8 +202,8 @@ export const ImageUpload = ({
             {isUploading && (
               <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-20">
                 <Loader2 className="h-9 w-9 text-primary animate-spin" />
-                <p className="text-sm font-semibold">กำลังประมวลผลและอัปโหลดรูปภาพ...</p>
-                <p className="text-xs text-white/70">แปลงความละเอียดอัตโนมัติ</p>
+                <p className="text-sm font-semibold">กำลังประมวลผลรูปภาพความละเอียดสูง...</p>
+                <p className="text-xs text-white/70">รองรับ Sony A7 / Lightroom / กล้อง Mirrorless ทุกรุ่น</p>
               </div>
             )}
 
@@ -257,8 +268,8 @@ export const ImageUpload = ({
           {isUploading ? (
             <div className="flex flex-col items-center gap-2 pointer-events-none">
               <Loader2 className="h-10 w-10 text-primary animate-spin" />
-              <p className="text-sm font-semibold text-foreground">กำลังประมวลผลและอัปโหลดรูปภาพ...</p>
-              <p className="text-xs text-muted-foreground">แปลงภาพอัตโนมัติ ไม่จำกัดขนาดไฟล์</p>
+              <p className="text-sm font-semibold text-foreground">กำลังประมวลผลรูปภาพความละเอียดสูง...</p>
+              <p className="text-xs text-muted-foreground">รองรับ Sony A7 / Lightroom / กล้อง Mirrorless ทุกรุ่น ไม่จำกัดขนาดไฟล์</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 pointer-events-none">
