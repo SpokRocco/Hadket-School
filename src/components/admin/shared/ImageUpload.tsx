@@ -1,103 +1,111 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload, X, Loader2 } from 'lucide-react';
+import { Upload, X, Loader2, CheckCircle2, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { compressImage, compressionPresets, type CompressOptions } from '@/utils/imageUtils';
 
 interface ImageUploadProps {
-    onUploadComplete: (url: string) => void;
-    currentImage?: string;
-    bucket?: string;
-    folder?: string;
-    maxSizeMB?: number;
-    compressionPreset?: keyof typeof compressionPresets;
+  onUploadComplete: (url: string) => void;
+  currentImage?: string;
+  bucket?: string;
+  folder?: string;
+  maxSizeMB?: number;
+  compressionPreset?: keyof typeof compressionPresets;
 }
 
 export const ImageUpload = ({
-    onUploadComplete,
-    currentImage,
-    bucket = 'images',
-    folder = 'uploads',
-    maxSizeMB = 0, // 0 = unlimited size
-    compressionPreset = 'profile',
+  onUploadComplete,
+  currentImage,
+  bucket = 'images',
+  folder = 'uploads',
+  maxSizeMB = 0, // 0 = unlimited size
+  compressionPreset = 'cover',
 }: ImageUploadProps) => {
-    const [preview, setPreview] = useState<string | null>(currentImage || null);
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const { toast } = useToast();
+  const [preview, setPreview] = useState<string | null>(currentImage || null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-    // Update preview when currentImage changes
-    useEffect(() => {
-        setPreview(currentImage || null);
-    }, [currentImage]);
+  // Update preview when currentImage changes
+  useEffect(() => {
+    setPreview(currentImage || null);
+  }, [currentImage]);
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+  const processFile = async (file: File) => {
+    if (!file) return;
 
-        // Check if file is image (including iPhone formats)
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        const isImage = file.type.startsWith('image/') || ['heic', 'heif', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext || '');
+    // Check if file is image (including iPhone/iPad formats)
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const isImage =
+      file.type.startsWith('image/') ||
+      ['heic', 'heif', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext || '');
 
-        if (!isImage) {
-            toast({
-                title: 'ประเภทไฟล์ไม่ถูกต้อง',
-                description: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WebP, HEIC, ฯลฯ)',
-                variant: 'destructive',
-            });
-            return;
-        }
+    if (!isImage) {
+      toast({
+        title: 'ประเภทไฟล์ไม่ถูกต้อง',
+        description: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WebP, HEIC, ฯลฯ)',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-        // Upload to Supabase Storage
     setIsUploading(true);
     try {
-      // Compress image before upload
-      const compressionOptions = compressionPresets[compressionPreset];
+      // 1. Compress image before upload with preset
+      const compressionOptions =
+        compressionPresets[compressionPreset] || { maxWidth: 1600, maxHeight: 1000, quality: 0.82 };
       const compressedBlob = await compressImage(file, compressionOptions);
 
-      // Show compressed preview immediately
-      const previewUrl = URL.createObjectURL(compressedBlob);
-      setPreview(previewUrl);
-
-      const fileExt = ext === 'heic' || ext === 'heif' ? 'webp' : (ext || 'webp');
+      const fileExt = ext === 'heic' || ext === 'heif' ? 'webp' : ext || 'webp';
       const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       let finalUrl = '';
+
+      // 2. Try Supabase Storage upload
       try {
         const { data, error } = await supabase.storage
           .from(bucket)
           .upload(fileName, compressedBlob, {
             cacheControl: '3600',
-            upsert: false,
+            upsert: true,
             contentType: compressedBlob.type || 'image/webp',
           });
 
-        if (error) throw error;
+        if (error) {
+          console.warn('Supabase storage upload note:', error);
+        } else if (data?.path) {
+          const { data: publicData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(data.path);
+          finalUrl = publicData?.publicUrl || '';
+        }
+      } catch (storageErr) {
+        console.warn('Storage upload caught, switching to data URL fallback:', storageErr);
+      }
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(data.path);
-
-        finalUrl = publicUrl;
-      } catch (storageErr: any) {
-        console.warn('Storage upload warning, fallback to data URL:', storageErr);
-        // Fallback to data URL
+      // 3. Fallback to persistent Data URL if storage was not configured or returned a temporary blob: URL
+      if (!finalUrl || finalUrl.startsWith('blob:')) {
         finalUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve('');
           reader.readAsDataURL(compressedBlob);
         });
       }
 
-      setPreview(finalUrl);
-      onUploadComplete(finalUrl);
+      if (finalUrl) {
+        setPreview(finalUrl);
+        onUploadComplete(finalUrl);
 
-      toast({
-        title: 'อัปโหลดสำเร็จ',
-        description: 'รูปภาพถูกประมวลผลและพร้อมใช้งานเรียบร้อยแล้ว',
-      });
+        toast({
+          title: 'อัปโหลดสำเร็จ',
+          description: `ประมวลผลรูปภาพเรียบร้อย (${file.name})`,
+        });
+      } else {
+        throw new Error('ไม่สามารถแปลงข้อมูลรูปภาพได้');
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -114,7 +122,37 @@ export const ImageUpload = ({
     }
   };
 
-  const handleRemove = () => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setPreview(null);
     onUploadComplete('');
     if (fileInputRef.current) {
@@ -124,81 +162,124 @@ export const ImageUpload = ({
 
   return (
     <div className="space-y-3">
+      {/* Hidden File Input attached to ref */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.heic,.heif,.webp,.png,.jpg,.jpeg,.svg,.gif"
+        onChange={handleFileSelect}
+        className="hidden"
+        disabled={isUploading}
+      />
+
       {preview ? (
-        <div className="relative group rounded-xl overflow-hidden border-2 border-border bg-slate-950/20">
-          <img
-            src={preview}
-            alt="Preview"
-            referrerPolicy="no-referrer"
-            className="w-full h-56 object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <label className="relative cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-md">
-              <Upload className="w-3.5 h-3.5" />
-              เปลี่ยนรูปภาพ
-              <input
-                type="file"
-                accept="image/*,.heic,.heif,.webp,.png,.jpg,.jpeg,.svg,.gif"
-                onChange={handleFileSelect}
-                className="sr-only"
-                disabled={isUploading}
-              />
-            </label>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="text-xs h-8 gap-1 shadow-md"
-              onClick={handleRemove}
-              disabled={isUploading}
-            >
-              <X className="h-3.5 w-3.5" />
-              ลบรูปนี้
-            </Button>
-          </div>
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            className="absolute top-2 right-2 sm:hidden h-8 w-8 rounded-full"
-            onClick={handleRemove}
-            disabled={isUploading}
+        <div className="space-y-2">
+          {/* Image Display */}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="relative rounded-2xl overflow-hidden border-2 border-border hover:border-primary/60 transition-all bg-slate-950/20 group cursor-pointer shadow-sm"
+            title="คลิกเพื่อเลือกไฟล์รูปใหม่จากเครื่อง"
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <img
+              src={preview}
+              alt="Preview"
+              referrerPolicy="no-referrer"
+              className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+            />
+
+            {/* Uploading Spinner Overlay */}
+            {isUploading && (
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-20">
+                <Loader2 className="h-9 w-9 text-primary animate-spin" />
+                <p className="text-sm font-semibold">กำลังประมวลผลและอัปโหลดรูปภาพ...</p>
+                <p className="text-xs text-white/70">แปลงความละเอียดอัตโนมัติ</p>
+              </div>
+            )}
+
+            {/* Click to change hint banner */}
+            <div className="absolute inset-x-0 bottom-0 py-1.5 px-3 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-white/90 text-xs">
+              <span className="flex items-center gap-1 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                รูปภาพที่เลือกอยู่ขณะนี้
+              </span>
+              <span className="text-[11px] text-white/75 group-hover:text-white transition-colors">
+                คลิกเพื่อเปลี่ยนรูป
+              </span>
+            </div>
+          </div>
+
+          {/* Action Bar (Always visible!) */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/50 border border-border">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                เลือกรูปภาพใหม่จากเครื่อง
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRemove}
+                disabled={isUploading}
+                className="gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              >
+                <X className="w-3.5 h-3.5" />
+                ลบรูปนี้
+              </Button>
+            </div>
+
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              พร้อมบันทึก
+            </span>
+          </div>
         </div>
       ) : (
-        <div className="relative w-full h-52 border-2 border-dashed border-border hover:border-primary rounded-xl flex flex-col items-center justify-center transition-all bg-secondary/40 overflow-hidden group">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,.heic,.heif,.webp,.png,.jpg,.jpeg,.svg,.gif"
-            onChange={handleFileSelect}
-            disabled={isUploading}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            title="คลิกเพื่อเลือกไฟล์รูปภาพ"
-          />
+        /* Empty Dropzone with explicit upload button and drag & drop */
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative w-full min-h-[200px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 text-center transition-all cursor-pointer ${
+            isDragging
+              ? 'border-primary bg-primary/10 scale-[1.01]'
+              : 'border-border hover:border-primary/80 bg-secondary/30 hover:bg-secondary/50'
+          }`}
+        >
           {isUploading ? (
             <div className="flex flex-col items-center gap-2 pointer-events-none">
               <Loader2 className="h-10 w-10 text-primary animate-spin" />
-              <p className="text-sm font-medium text-foreground">กำลังประมวลผลและอัปโหลดรูปภาพ...</p>
-              <p className="text-xs text-muted-foreground">แปลงภาพอัตโนมัติ ไม่จำกัดขนาด</p>
+              <p className="text-sm font-semibold text-foreground">กำลังประมวลผลและอัปโหลดรูปภาพ...</p>
+              <p className="text-xs text-muted-foreground">แปลงภาพอัตโนมัติ ไม่จำกัดขนาดไฟล์</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 p-4 text-center pointer-events-none group-hover:scale-[1.02] transition-transform">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                <Upload className="h-6 w-6" />
+            <div className="flex flex-col items-center gap-3 pointer-events-none">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+                <Upload className="h-7 w-7" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">คลิกเพื่อเลือกหรือลากไฟล์รูปภาพมาวางที่นี่</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  รองรับทุกขนาดและทุกนามสกุลไฟล์ (JPG, PNG, WebP, GIF, HEIC/iPhone/iPad)
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-foreground">
+                  คลิกเพื่อเลือกไฟล์ หรือลากรูปภาพมาวางที่นี่
+                </p>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  รองรับทุกนามสกุลไฟล์ (JPG, PNG, WebP, GIF, HEIC/iPhone/iPad) ไม่จำกัดขนาดของรูปภาพ
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mt-1">
-                <Upload className="w-3 h-3" />
-                เลือกรูปภาพจากเครื่อง
-              </span>
+
+              <div className="pt-1">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs shadow-md">
+                  <Upload className="w-4 h-4" />
+                  เลือกรูปภาพจากเครื่องคอมพิวเตอร์ / มือถือ
+                </span>
+              </div>
             </div>
           )}
         </div>

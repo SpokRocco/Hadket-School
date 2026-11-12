@@ -104,8 +104,11 @@ export const compressionPresets = {
     // Staff/Admin photos (medium)
     profile: { maxWidth: 600, maxHeight: 800, quality: 0.8 },
 
-    // News cover images (wider)
-    cover: { maxWidth: 1200, maxHeight: 800, quality: 0.85 },
+    // News cover images and hero banners (wide, crisp, optimal compression)
+    cover: { maxWidth: 1600, maxHeight: 1000, quality: 0.82 },
+
+    // Hero banner / Header slides
+    hero: { maxWidth: 1600, maxHeight: 1000, quality: 0.82 },
 
     // Gallery photos (high quality)
     gallery: { maxWidth: 1600, maxHeight: 1200, quality: 0.85 },

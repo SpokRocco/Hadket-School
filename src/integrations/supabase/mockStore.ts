@@ -1208,7 +1208,24 @@ export const createMockSupabaseClient = () => {
       from: (_bucket: string) => ({
         upload: async (path: string, fileOrBlob: Blob | File) => {
           try {
-            if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+            if (typeof FileReader !== 'undefined') {
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(fileOrBlob);
+              });
+              if (dataUrl) {
+                uploadedBlobUrls.set(path, dataUrl);
+                try {
+                  if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem(`kk_storage_${path}`, dataUrl);
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            } else if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
               const url = URL.createObjectURL(fileOrBlob);
               uploadedBlobUrls.set(path, url);
             }
@@ -1218,11 +1235,23 @@ export const createMockSupabaseClient = () => {
           return { data: { path }, error: null };
         },
         getPublicUrl: (path: string) => {
-          const url = uploadedBlobUrls.get(path) || heroSchool2;
-          return { data: { publicUrl: url } };
+          let url = uploadedBlobUrls.get(path);
+          if (!url && typeof localStorage !== 'undefined') {
+            url = localStorage.getItem(`kk_storage_${path}`) || undefined;
+          }
+          return { data: { publicUrl: url || heroSchool2 } };
         },
         remove: async (paths: string[]) => {
-          paths.forEach((p) => uploadedBlobUrls.delete(p));
+          paths.forEach((p) => {
+            uploadedBlobUrls.delete(p);
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem(`kk_storage_${p}`);
+              }
+            } catch {
+              // ignore
+            }
+          });
           return { data: paths, error: null };
         },
         list: async () => ({ data: [], error: null }),

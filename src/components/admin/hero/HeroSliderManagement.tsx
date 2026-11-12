@@ -376,6 +376,25 @@ export const HeroSliderManagement = () => {
         // Fallback from school_settings.hero_slides_json or defaults
         const parsed = parseHeroSlides(map.hero_slides_json);
         loadedSlides = parsed.length > 0 ? parsed : DEFAULT_HERO_SLIDES;
+      } else {
+        // If school_settings has more slides than table, harmonize
+        const parsed = parseHeroSlides(map.hero_slides_json);
+        if (parsed.length > loadedSlides.length) {
+          loadedSlides = parsed;
+        }
+      }
+
+      // 3. Harmonize with live cache in localStorage to ensure user never loses uncommitted slides
+      try {
+        const liveRaw = localStorage.getItem('kk_school_hero_slides_live');
+        if (liveRaw) {
+          const liveParsed = parseHeroSlides(liveRaw);
+          if (liveParsed.length >= loadedSlides.length && liveParsed.length > 0) {
+            loadedSlides = liveParsed;
+          }
+        }
+      } catch {
+        // ignore
       }
 
       setIsTableConnected(tableLoaded);
@@ -413,20 +432,40 @@ export const HeroSliderManagement = () => {
     try {
       setSaving(true);
 
-      // 1. Persist to hero_slides table
+      // 1. Instantly write to localStorage live cache so it never disappears on refresh
+      try {
+        localStorage.setItem('kk_school_hero_slides_live', JSON.stringify(newSlides));
+        const cached = localStorage.getItem('school_settings_cache_v3');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.hero_slides_json = JSON.stringify(newSlides);
+          parsed.heroSlides = newSlides;
+          parsed.hero_autoplay_enabled = newAutoplay ? 'true' : 'false';
+          parsed.hero_autoplay_interval = newInterval;
+          localStorage.setItem('school_settings_cache_v3', JSON.stringify(parsed));
+        }
+      } catch (cErr) {
+        console.warn('Local storage cache update note:', cErr);
+      }
+
+      // 2. Persist to hero_slides table
       try {
         const records = newSlides.map((s, idx) => itemToRecord(s, idx));
-        // Upsert records to hero_slides
         if (records.length > 0) {
-          await (supabase as any)
+          const { error: upsertErr } = await (supabase as any)
             .from('hero_slides')
             .upsert(records, { onConflict: 'id' });
+          if (!upsertErr) {
+            setIsTableConnected(true);
+          } else {
+            console.warn('hero_slides table direct upsert note:', upsertErr);
+          }
         }
       } catch (tableErr) {
         console.warn('hero_slides table direct upsert skipped:', tableErr);
       }
 
-      // 2. Persist to school_settings for backward compatibility
+      // 3. Persist to school_settings for backward compatibility & fallback
       const entries = [
         {
           key: 'hero_slides_json',
@@ -446,7 +485,7 @@ export const HeroSliderManagement = () => {
       ];
 
       for (const entry of entries) {
-        await supabase.from('school_settings').upsert(
+        const { error: setErr } = await supabase.from('school_settings').upsert(
           {
             key: entry.key,
             value: entry.value,
@@ -454,13 +493,23 @@ export const HeroSliderManagement = () => {
           } as any,
           { onConflict: 'key' }
         );
+        if (setErr) {
+          await supabase
+            .from('school_settings')
+            .update({ value: entry.value, category: entry.category } as any)
+            .eq('key', entry.key);
+        }
       }
 
-      // Clear cached settings and notify realtime subscribers
-      localStorage.removeItem('school_settings_cache');
-      localStorage.removeItem('school_settings_cache_v3');
+      // 4. Trigger Realtime Sync listeners & DOM broadcast
       notifyLocalRealtimeListeners('hero_slides');
       notifyLocalRealtimeListeners('school_settings');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hero-slides-updated', { detail: newSlides }));
+        window.dispatchEvent(
+          new CustomEvent('kk-school-local-db-change', { detail: { table: 'hero_slides' } })
+        );
+      }
 
       if (showToast) {
         toast({
@@ -517,15 +566,21 @@ export const HeroSliderManagement = () => {
     );
   };
 
-  const handleOpenDialog = (slide?: HeroSlideItem) => {
+  const handleOpenDialog = (slide?: HeroSlideItem, index?: number) => {
     if (slide) {
       setEditingSlide(slide);
-      setFormData({ ...slide });
+      const fallbackImg =
+        slide.image ||
+        (index === 0 ? heroImage : index === 1 ? studentScienceLab : studentGraduationActivity);
+      setFormData({
+        ...slide,
+        image: slide.image || fallbackImg,
+      });
     } else {
       setEditingSlide(null);
       setFormData({
         id: `slide-${Date.now()}`,
-        image: '',
+        image: heroImage,
         kicker: 'เปิดรับสมัครนักเรียนใหม่ · ปีการศึกษา 2569',
         subline: 'ร่วมมือ วิชาการ งานอาชีพ · โรงเรียนบ้านหาดเค็ด',
         title: '',
@@ -558,28 +613,13 @@ export const HeroSliderManagement = () => {
     let updated: HeroSlideItem[] = [];
     if (editingSlide) {
       updated = slides.map((s) => (s.id === editingSlide.id ? { ...formData } : s));
-      // Direct table update
-      try {
-        const rec = itemToRecord(formData, formData.order - 1);
-        await (supabase as any)
-          .from('hero_slides')
-          .update(rec)
-          .eq('id', editingSlide.id);
-      } catch (e) {
-        console.warn('Direct update to hero_slides failed:', e);
-      }
     } else {
-      const newSlide = { ...formData, id: formData.id || `slide-${Date.now()}`, order: slides.length + 1 };
+      const newSlide = {
+        ...formData,
+        id: formData.id || `slide-${Date.now()}`,
+        order: slides.length + 1,
+      };
       updated = [...slides, newSlide];
-      // Direct table insert
-      try {
-        const rec = itemToRecord(newSlide, updated.length - 1);
-        await (supabase as any)
-          .from('hero_slides')
-          .insert(rec);
-      } catch (e) {
-        console.warn('Direct insert to hero_slides failed:', e);
-      }
     }
 
     setIsDialogOpen(false);
@@ -846,7 +886,7 @@ export const HeroSliderManagement = () => {
                       onMoveUp={() => handleMoveSlide(idx, 'up')}
                       onMoveDown={() => handleMoveSlide(idx, 'down')}
                       onToggle={(checked) => handleToggleSlide(slide.id, checked)}
-                      onEdit={() => handleOpenDialog(slide)}
+                      onEdit={() => handleOpenDialog(slide, idx)}
                       onDelete={() => setSlideToDelete(slide)}
                     />
                   ))}
@@ -884,7 +924,7 @@ export const HeroSliderManagement = () => {
                     variant="outline"
                     size="sm"
                     className="text-xs h-7"
-                    onClick={() => setFormData({ ...formData, image: preset.url })}
+                    onClick={() => setFormData((prev) => ({ ...prev, image: preset.url }))}
                   >
                     {preset.label}
                   </Button>
@@ -894,9 +934,9 @@ export const HeroSliderManagement = () => {
               {/* Enhanced ImageUpload component */}
               <ImageUpload
                 currentImage={formData.image}
-                onUploadComplete={(url) => setFormData({ ...formData, image: url })}
+                onUploadComplete={(url) => setFormData((prev) => ({ ...prev, image: url }))}
                 folder="hero_slider"
-                compressionPreset="cover"
+                compressionPreset="hero"
                 maxSizeMB={0}
               />
 
@@ -909,7 +949,10 @@ export const HeroSliderManagement = () => {
                 <Label className="text-xs text-muted-foreground">หรือวาง URL ลิงก์รูปภาพโดยตรง:</Label>
                 <Input
                   value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData((prev) => ({ ...prev, image: val }));
+                  }}
                   placeholder="https://images.unsplash.com/... หรือ URL รูปภาพ"
                 />
               </div>

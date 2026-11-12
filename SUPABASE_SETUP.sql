@@ -204,10 +204,46 @@ CREATE INDEX IF NOT EXISTS idx_gallery_photos_sort_order ON public.gallery_photo
 -- STORAGE BUCKET Setup (for file uploads)
 -- =============================================
 
--- Note: Storage buckets need to be created in Supabase Dashboard or via:
--- INSERT INTO storage.buckets (id, name, public) VALUES ('school-images', 'school-images', true);
+-- Ensure storage bucket 'images' is public
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('images', 'images', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
 
--- This will be handled separately as storage is managed differently
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Public Access for Images" ON storage.objects;
+  CREATE POLICY "Public Access for Images"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'images');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Public Upload for Images" ON storage.objects;
+  CREATE POLICY "Public Upload for Images"
+    ON storage.objects FOR INSERT
+    WITH CHECK (bucket_id = 'images');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Public Update for Images" ON storage.objects;
+  CREATE POLICY "Public Update for Images"
+    ON storage.objects FOR UPDATE
+    USING (bucket_id = 'images');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Public Delete for Images" ON storage.objects;
+  CREATE POLICY "Public Delete for Images"
+    ON storage.objects FOR DELETE
+    USING (bucket_id = 'images');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- =============================================
 -- SAMPLE DATA - ข้อมูลเริ่มต้น

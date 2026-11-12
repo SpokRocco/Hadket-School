@@ -306,7 +306,7 @@ export const useSchoolSettings = () => {
             .order('order_position', { ascending: true });
 
           if (!slidesErr && Array.isArray(slidesData) && slidesData.length > 0) {
-            heroSlides = slidesData.map((row: any, idx: number) => ({
+            const tableSlides = slidesData.map((row: any, idx: number) => ({
               id: String(row.id || `slide-${idx + 1}`),
               title: row.title || '',
               subtitle: row.subtitle || '',
@@ -324,9 +324,26 @@ export const useSchoolSettings = () => {
               enabled: row.is_active !== undefined ? Boolean(row.is_active) : true,
               order: row.order_position || idx + 1,
             }));
+
+            if (tableSlides.length >= heroSlides.length) {
+              heroSlides = tableSlides;
+            }
           }
         } catch (sErr) {
           console.warn('Falling back to hero_slides_json:', sErr);
+        }
+
+        // Harmonize with local storage live cache if present
+        try {
+          const liveRaw = localStorage.getItem('kk_school_hero_slides_live');
+          if (liveRaw) {
+            const liveParsed = parseHeroSlides(liveRaw);
+            if (liveParsed.length >= heroSlides.length && liveParsed.length > 0) {
+              heroSlides = liveParsed;
+            }
+          }
+        } catch {
+          // ignore
         }
 
         const extendedTablesReady = settingsMap.extended_tables_ready === 'true';
@@ -535,11 +552,26 @@ export const useSchoolSettings = () => {
       }
     };
 
+    const handleHeroSlidesUpdated = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      if (Array.isArray(customEvt.detail) && customEvt.detail.length > 0) {
+        setSettings((prev) => ({
+          ...prev,
+          heroSlides: customEvt.detail,
+          hero_slides_json: JSON.stringify(customEvt.detail),
+        }));
+      } else {
+        fetchSettings();
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('hero-slides-updated', handleHeroSlidesUpdated);
 
     return () => {
       unsubscribeRealtime();
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('hero-slides-updated', handleHeroSlidesUpdated);
     };
   }, [fetchSettings]);
 

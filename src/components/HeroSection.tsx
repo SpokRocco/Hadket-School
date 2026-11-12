@@ -111,6 +111,11 @@ const HeroSection = () => {
               src={currentImage}
               alt={currentSlide.title}
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                if (e.currentTarget.src !== heroImage) {
+                  e.currentTarget.src = heroImage;
+                }
+              }}
               className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/30" />

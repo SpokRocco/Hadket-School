@@ -649,7 +649,12 @@ export const parseHeroSlides = (rawJson?: string | null): HeroSlideItem[] => {
     return parsed
       .map((item, idx) => ({
         id: typeof item?.id === 'string' && item.id.trim() ? item.id : `slide-${idx + 1}`,
-        image: typeof item?.image === 'string' ? item.image : '',
+        image:
+          typeof item?.image === 'string' && item.image.trim()
+            ? item.image.trim()
+            : typeof item?.image_url === 'string' && item.image_url.trim()
+            ? item.image_url.trim()
+            : '',
         kicker: typeof item?.kicker === 'string' ? item.kicker : '',
         subline: typeof item?.subline === 'string' ? item.subline : '',
         title: typeof item?.title === 'string' ? item.title : '',

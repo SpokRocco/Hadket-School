@@ -189,6 +189,7 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 -- Ensure public access policies on storage.objects for 'images'
 DO $$
 BEGIN
+  DROP POLICY IF EXISTS "Public Access for Images" ON storage.objects;
   CREATE POLICY "Public Access for Images"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'images');
@@ -197,6 +198,7 @@ END $$;
 
 DO $$
 BEGIN
+  DROP POLICY IF EXISTS "Public Upload for Images" ON storage.objects;
   CREATE POLICY "Public Upload for Images"
     ON storage.objects FOR INSERT
     WITH CHECK (bucket_id = 'images');
@@ -205,6 +207,7 @@ END $$;
 
 DO $$
 BEGIN
+  DROP POLICY IF EXISTS "Public Update for Images" ON storage.objects;
   CREATE POLICY "Public Update for Images"
     ON storage.objects FOR UPDATE
     USING (bucket_id = 'images');
@@ -213,6 +216,7 @@ END $$;
 
 DO $$
 BEGIN
+  DROP POLICY IF EXISTS "Public Delete for Images" ON storage.objects;
   CREATE POLICY "Public Delete for Images"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'images');
