@@ -20,11 +20,32 @@ CREATE TABLE IF NOT EXISTS public.hero_slides (
   track1_range TEXT DEFAULT '74 คน',
   track2_name TEXT DEFAULT 'ระยะเวลาหลักสูตร',
   track2_range TEXT DEFAULT '9 ปี',
+  image_position TEXT DEFAULT 'center center',
+  image_scale NUMERIC DEFAULT 1,
+  show_kicker BOOLEAN NOT NULL DEFAULT true,
+  show_subline BOOLEAN NOT NULL DEFAULT true,
+  show_subtitle BOOLEAN NOT NULL DEFAULT true,
+  show_primary_btn BOOLEAN NOT NULL DEFAULT true,
+  show_secondary_btn BOOLEAN NOT NULL DEFAULT true,
+  show_stats BOOLEAN NOT NULL DEFAULT true,
+  show_overlay BOOLEAN NOT NULL DEFAULT true,
   is_active BOOLEAN NOT NULL DEFAULT true,
   order_position INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Upgrade existing hero_slides table if columns don't exist yet
+ALTER TABLE IF EXISTS public.hero_slides
+  ADD COLUMN IF NOT EXISTS image_position TEXT DEFAULT 'center center',
+  ADD COLUMN IF NOT EXISTS image_scale NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS show_kicker BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_subline BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_subtitle BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_primary_btn BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_secondary_btn BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_stats BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_overlay BOOLEAN DEFAULT true;
 
 -- Index for ordering
 CREATE INDEX IF NOT EXISTS idx_hero_slides_order ON public.hero_slides (order_position ASC);
@@ -270,3 +291,46 @@ BEGIN
     USING (bucket_id = 'images');
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- ==============================================================================
+-- 9. Comprehensive Upgrade for admin_users (RBAC Permissions & 5 Roles Support)
+-- ปลดล็อก Check constraint เดิมที่จำกัดเฉพาะบาง Role เพื่อให้รองรับ executive, admin, teacher, staff, sapha_plus
+-- ==============================================================================
+ALTER TABLE IF EXISTS public.admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check;
+
+ALTER TABLE IF EXISTS public.admin_users
+  ADD COLUMN IF NOT EXISTS password TEXT,
+  ADD COLUMN IF NOT EXISTS password_hash TEXT,
+  ADD COLUMN IF NOT EXISTS subject_department TEXT,
+  ADD COLUMN IF NOT EXISTS custom_link_slug TEXT,
+  ADD COLUMN IF NOT EXISTS google_site_url TEXT,
+  ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Synchronize password <-> password_hash
+UPDATE public.admin_users SET password = password_hash WHERE (password IS NULL OR password = '') AND password_hash IS NOT NULL;
+UPDATE public.admin_users SET password_hash = password WHERE (password_hash IS NULL OR password_hash = '') AND password IS NOT NULL;
+
+-- Ensure RLS on admin_users allows full access for app admin operations
+ALTER TABLE IF EXISTS public.admin_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read admin_users" ON public.admin_users;
+CREATE POLICY "Public Read admin_users" ON public.admin_users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Full Access admin_users" ON public.admin_users;
+CREATE POLICY "Public Full Access admin_users" ON public.admin_users FOR ALL USING (true) WITH CHECK (true);
+
+-- Ensure admin_users is in realtime publication
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'admin_users'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_users;
+    END IF;
+  END IF;
+END $$;
+

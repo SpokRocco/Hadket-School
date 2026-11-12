@@ -52,18 +52,25 @@ export const QuickChatWidget = () => {
   // Check if feature is enabled in admin settings
   const isEnabled = settings.quick_chat_enabled !== 'false';
 
-  // Always show and pop up on refresh or navigating back to homepage (/)
+  // Remember visitor per day: show greeting bubble once per day; never auto-open modal
   useEffect(() => {
     setIsDismissed(false);
-    setShowGreetingBubble(true);
 
-    if (location.pathname === '/' && settings.quick_chat_auto_open_home !== 'false') {
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-      }, 750);
-      return () => clearTimeout(timer);
+    try {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const lastSeenDate = localStorage.getItem('hadket_line_greeting_date');
+      if (lastSeenDate === today) {
+        // Already seen today: keep collapsed as subtle icon
+        setShowGreetingBubble(false);
+      } else {
+        // First time today: show subtle greeting bubble and mark as seen
+        setShowGreetingBubble(true);
+        localStorage.setItem('hadket_line_greeting_date', today);
+      }
+    } catch {
+      setShowGreetingBubble(false);
     }
-  }, [location.pathname, settings.quick_chat_auto_open_home]);
+  }, []);
 
   if (!isEnabled || isDismissed) {
     return null;

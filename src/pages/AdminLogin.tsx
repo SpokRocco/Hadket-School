@@ -108,11 +108,36 @@ const AdminLogin = () => {
         .select('*')
         .or(`username.eq.${trimmedId},email.eq.${trimmedId}`);
 
-      const dbUser = Array.isArray(dbUsers)
-        ? dbUsers.find((u: any) => u.password === password)
+      let dbUser = Array.isArray(dbUsers)
+        ? dbUsers.find((u: any) => u.password === password || u.password_hash === password)
         : null;
 
-      if (!error && dbUser) {
+      // 1.1 ถ้ายังไม่พบในตาราง admin_users ให้ตรวจสอบสำรองจาก school_settings.admin_users_json
+      if (!dbUser) {
+        try {
+          const { data: settingData } = await (supabase as any)
+            .from('school_settings')
+            .select('value')
+            .eq('key', 'admin_users_json')
+            .single();
+
+          if (settingData?.value) {
+            const parsed = JSON.parse(settingData.value);
+            if (Array.isArray(parsed)) {
+              dbUser = parsed.find(
+                (u: any) =>
+                  (u.username?.toLowerCase() === trimmedId.toLowerCase() ||
+                    (u.email && u.email.toLowerCase() === trimmedId.toLowerCase())) &&
+                  (u.password === password || u.password_hash === password)
+              );
+            }
+          }
+        } catch (sErr) {
+          console.warn('school_settings login fallback note:', sErr);
+        }
+      }
+
+      if (dbUser) {
         if (!dbUser.is_active) {
           toast({
             title: 'บัญชีถูกระงับการใช้งาน',
@@ -141,13 +166,27 @@ const AdminLogin = () => {
           return;
         }
 
-        await (supabase as any)
-          .from('admin_users')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', dbUser.id);
+        try {
+          const isUuid =
+            typeof dbUser.id === 'string' &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+              dbUser.id
+            );
+          let updateQuery = (supabase as any)
+            .from('admin_users')
+            .update({ last_login: new Date().toISOString() });
+          if (isUuid) {
+            updateQuery = updateQuery.eq('id', dbUser.id);
+          } else {
+            updateQuery = updateQuery.eq('username', dbUser.username);
+          }
+          await updateQuery;
+        } catch {
+          // ignore
+        }
 
         const loggedInUser: AdminUser = {
-          id: dbUser.id,
+          id: dbUser.id || `user-${Date.now()}`,
           username: dbUser.username,
           display_name: dbUser.display_name,
           email: dbUser.email,
@@ -155,10 +194,11 @@ const AdminLogin = () => {
           subject_department: dbUser.subject_department || null,
           custom_link_slug: dbUser.custom_link_slug || null,
           google_site_url: dbUser.google_site_url || null,
-          permissions: Array.isArray(dbUser.permissions) && dbUser.permissions.length > 0
-            ? dbUser.permissions
-            : DEFAULT_ROLE_PERMISSIONS[userRole],
-          is_active: dbUser.is_active,
+          permissions:
+            Array.isArray(dbUser.permissions) && dbUser.permissions.length > 0
+              ? dbUser.permissions
+              : DEFAULT_ROLE_PERMISSIONS[userRole],
+          is_active: dbUser.is_active !== false,
           last_login: new Date().toISOString(),
         };
 
@@ -172,7 +212,7 @@ const AdminLogin = () => {
         (u) =>
           (u.username.toLowerCase() === trimmedId.toLowerCase() ||
             (u.email && u.email.toLowerCase() === trimmedId.toLowerCase())) &&
-          u.password === password
+          (u.password === password || u.password_hash === password)
       );
 
       if (matchedLocal) {

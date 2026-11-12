@@ -116,16 +116,32 @@ const HeroSection = () => {
                   e.currentTarget.src = heroImage;
                 }
               }}
+              style={{
+                objectPosition: currentSlide.imagePosition || 'center center',
+                transform:
+                  currentSlide.imageScale && currentSlide.imageScale !== 1
+                    ? `scale(${currentSlide.imageScale})`
+                    : undefined,
+                transformOrigin: currentSlide.imagePosition || 'center center',
+              }}
               className="absolute inset-0 w-full h-full object-cover transition-all duration-500"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/30" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/25" />
+            {currentSlide.showOverlay !== false && (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/25" />
+              </>
+            )}
 
             {/* Top Utility & Slide Status Row */}
             <div className="relative z-10 px-6 sm:px-10 lg:px-14 pt-8 flex flex-wrap items-center justify-between gap-4">
-              <p className="text-xs sm:text-sm font-medium tracking-wide text-amber-300">
-                {currentSlide.kicker || `${settings.school_tagline} · ${settings.school_name}`}
-              </p>
+              {currentSlide.showKicker !== false ? (
+                <p className="text-xs sm:text-sm font-medium tracking-wide text-amber-300">
+                  {currentSlide.kicker || `${settings.school_tagline} · ${settings.school_name}`}
+                </p>
+              ) : (
+                <div />
+              )}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -151,8 +167,14 @@ const HeroSection = () => {
 
             {/* Main Hero Content Grid */}
             <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 grid lg:grid-cols-12 gap-8 items-end">
-              <div className="lg:col-span-7 max-w-2xl">
-                {currentSlide.subline && (
+              <div
+                className={
+                  currentSlide.showStats !== false
+                    ? 'lg:col-span-7 max-w-2xl'
+                    : 'lg:col-span-12 max-w-3xl'
+                }
+              >
+                {currentSlide.showSubline !== false && currentSlide.subline && (
                   <p className="text-sm sm:text-base italic text-sky-300 mb-2">
                     {currentSlide.subline}
                   </p>
@@ -163,74 +185,82 @@ const HeroSection = () => {
                 >
                   {currentSlide.title}
                 </h1>
-                <p className="text-base sm:text-lg text-slate-200/95 leading-relaxed mb-8 max-w-xl">
-                  {currentSlide.subtitle}
-                </p>
+                {currentSlide.showSubtitle !== false && currentSlide.subtitle && (
+                  <p className="text-base sm:text-lg text-slate-200/95 leading-relaxed mb-8 max-w-xl">
+                    {currentSlide.subtitle}
+                  </p>
+                )}
 
                 {/* Primary CTA + Secondary Action */}
                 <div className="flex flex-wrap items-center gap-4">
-                  {currentSlide.primaryLabel && currentSlide.primaryHref && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          currentSlide.primaryHref.startsWith('http://') ||
-                          currentSlide.primaryHref.startsWith('https://')
-                        ) {
-                          window.location.href = currentSlide.primaryHref;
-                        } else {
-                          navigate(currentSlide.primaryHref);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm sm:text-base shadow-md transition-colors whitespace-nowrap shrink-0"
-                    >
-                      <span>{currentSlide.primaryLabel}</span>
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  )}
+                  {currentSlide.showPrimaryBtn !== false &&
+                    currentSlide.primaryLabel &&
+                    currentSlide.primaryHref && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            currentSlide.primaryHref.startsWith('http://') ||
+                            currentSlide.primaryHref.startsWith('https://')
+                          ) {
+                            window.location.href = currentSlide.primaryHref;
+                          } else {
+                            navigate(currentSlide.primaryHref);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm sm:text-base shadow-md transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <span>{currentSlide.primaryLabel}</span>
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    )}
 
-                  {currentSlide.secondaryLabel && currentSlide.secondaryHref && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          currentSlide.secondaryHref.startsWith('http://') ||
-                          currentSlide.secondaryHref.startsWith('https://')
-                        ) {
-                          window.location.href = currentSlide.secondaryHref;
-                        } else {
-                          navigate(currentSlide.secondaryHref);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/12 hover:bg-white/20 text-white border border-white/25 font-semibold text-sm sm:text-base backdrop-blur-sm transition-colors whitespace-nowrap shrink-0"
-                    >
-                      <BookOpen className="w-4 h-4 text-amber-300" />
-                      <span>{currentSlide.secondaryLabel}</span>
-                    </button>
-                  )}
+                  {currentSlide.showSecondaryBtn !== false &&
+                    currentSlide.secondaryLabel &&
+                    currentSlide.secondaryHref && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            currentSlide.secondaryHref.startsWith('http://') ||
+                            currentSlide.secondaryHref.startsWith('https://')
+                          ) {
+                            window.location.href = currentSlide.secondaryHref;
+                          } else {
+                            navigate(currentSlide.secondaryHref);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/12 hover:bg-white/20 text-white border border-white/25 font-semibold text-sm sm:text-base backdrop-blur-sm transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <BookOpen className="w-4 h-4 text-amber-300" />
+                        <span>{currentSlide.secondaryLabel}</span>
+                      </button>
+                    )}
                 </div>
               </div>
 
               {/* Right Column: Live Data Highlight Cards */}
-              <div className="lg:col-span-5 flex flex-col gap-3.5">
-                {currentTracks.map((track, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-2xl bg-slate-950/75 backdrop-blur-md border border-white/15 p-5 text-white"
-                  >
-                    <p
-                      className={`text-xs font-bold uppercase tracking-wider mb-1 ${
-                        idx === 0 ? 'text-amber-400' : 'text-sky-400'
-                      }`}
+              {currentSlide.showStats !== false && (
+                <div className="lg:col-span-5 flex flex-col gap-3.5">
+                  {currentTracks.map((track, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-2xl bg-slate-950/75 backdrop-blur-md border border-white/15 p-5 text-white"
                     >
-                      {track.name}
-                    </p>
-                    <p className="text-sm sm:text-base font-semibold text-white/95">
-                      {track.range}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                      <p
+                        className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+                          idx === 0 ? 'text-amber-400' : 'text-sky-400'
+                        }`}
+                      >
+                        {track.name}
+                      </p>
+                      <p className="text-sm sm:text-base font-semibold text-white/95">
+                        {track.range}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Bottom Operational Utility Ribbon */}

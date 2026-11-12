@@ -971,18 +971,22 @@ CREATE TABLE public.admin_users (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   username VARCHAR(100) NOT NULL UNIQUE,
   password TEXT NOT NULL,
+  password_hash TEXT,
   display_name VARCHAR(200) NOT NULL,
   email VARCHAR(200),
-  role VARCHAR(30) NOT NULL DEFAULT 'staff' CHECK (role IN ('super_admin', 'admin', 'staff')),
-  permissions TEXT[] NOT NULL DEFAULT ARRAY['dashboard', 'media', 'news', 'gallery', 'events', 'students', 'admissions'],
+  role VARCHAR(30) NOT NULL DEFAULT 'teacher',
+  subject_department TEXT,
+  custom_link_slug TEXT,
+  google_site_url TEXT,
+  permissions TEXT[] NOT NULL DEFAULT ARRAY['dashboard'],
   is_active BOOLEAN NOT NULL DEFAULT true,
   last_login TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE public.admin_users IS 'ตารางเก็บข้อมูลบัญชีผู้ใช้งานระบบหลังบ้าน (Admin & Staff) และสิทธิ์การเข้าถึงเมนู';
-COMMENT ON COLUMN public.admin_users.role IS 'ระดับผู้ใช้งาน: super_admin (Level 3), admin (Level 2), staff (Level 1)';
+COMMENT ON TABLE public.admin_users IS 'ตารางเก็บข้อมูลบัญชีผู้ใช้งานระบบหลังบ้าน (Admin & Staff & Teachers) และสิทธิ์การเข้าถึงเมนู';
+COMMENT ON COLUMN public.admin_users.role IS 'ระดับผู้ใช้งาน: executive, admin, teacher, staff, sapha_plus';
 COMMENT ON COLUMN public.admin_users.permissions IS 'รายการเมนูที่อนุญาตให้เข้าถึง (Array ของ menu id)';
 
 -- Enable RLS
@@ -1002,24 +1006,66 @@ CREATE TRIGGER update_admin_users_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- Insert default Admin & Staff accounts
-INSERT INTO public.admin_users (username, password, display_name, email, role, permissions, is_active) VALUES
+-- Insert default accounts for all 5 roles
+INSERT INTO public.admin_users (username, password, password_hash, display_name, email, role, subject_department, custom_link_slug, permissions, is_active) VALUES
   (
     'admin',
     'admin123',
+    'admin123',
     'ผู้ดูแลระบบสูงสุด (Super Admin)',
     'admin@school.ac.th',
-    'super_admin',
-    ARRAY['dashboard', 'media', 'news', 'gallery', 'events', 'students', 'admissions', 'staff', 'administrators', 'curriculum', 'activities', 'milestones', 'facilities', 'messages', 'faq', 'settings', 'users'],
+    'admin',
+    NULL,
+    NULL,
+    ARRAY['dashboard', 'media', 'news', 'newsletters', 'gallery', 'events', 'students', 'admissions', 'staff', 'administrators', 'curriculum', 'activities', 'milestones', 'facilities', 'messages', 'faq', 'settings', 'users', 'login_portals', 'homepage_layout', 'hero_slider', 'subhero_images'],
+    true
+  ),
+  (
+    'director',
+    'director123',
+    'director123',
+    'ดร.สมศักดิ์ วิทยาการ (ผู้อำนวยการโรงเรียน)',
+    'director@school.ac.th',
+    'executive',
+    NULL,
+    NULL,
+    ARRAY['dashboard', 'executive_view'],
+    true
+  ),
+  (
+    'teacher01',
+    'teacher123',
+    'teacher123',
+    'ครูสมชาย ใจดี (กลุ่มสาระฯ ภาษาไทย)',
+    'somchai.t@school.ac.th',
+    'teacher',
+    'ภาษาไทย',
+    'kru-somchai',
+    ARRAY['dashboard', 'teacher_workspace', 'media'],
     true
   ),
   (
     'staff',
     'staff123',
-    'เจ้าหน้าที่และคณะครู (Staff)',
-    'staff@school.ac.th',
+    'staff123',
+    'เจ้าหน้าที่งานประชาสัมพันธ์และสารสนเทศ',
+    'pr.staff@school.ac.th',
     'staff',
-    ARRAY['dashboard', 'media', 'news', 'gallery', 'events', 'students', 'admissions'],
+    NULL,
+    NULL,
+    ARRAY['dashboard', 'news', 'newsletters', 'gallery', 'events', 'messages'],
+    true
+  ),
+  (
+    'saphaplus',
+    'sapha123',
+    'sapha123',
+    'ประธานสภานักเรียน (ระบบสภาพลัส Sapha Plus)',
+    'saphaplus@school.ac.th',
+    'sapha_plus',
+    NULL,
+    NULL,
+    ARRAY['dashboard', 'sapha_plus', 'students'],
     true
   )
 ON CONFLICT (username) DO NOTHING;

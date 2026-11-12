@@ -62,6 +62,13 @@ import {
   Database,
   Copy,
   Check,
+  Crop,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Sliders,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +76,7 @@ import { ImageUpload } from '@/components/admin/shared/ImageUpload';
 import heroImage from '@/assets/hero-school.jpg';
 import studentScienceLab from '@/assets/images/student_science_lab_1794379512287.jpg';
 import studentGraduationActivity from '@/assets/images/student_graduation_activity_1794379513899.jpg';
+import { cropImageToDataUrl } from '@/utils/imageUtils';
 import {
   DEFAULT_HERO_SLIDES,
   parseHeroSlides,
@@ -98,6 +106,15 @@ export interface HeroSlideRecord {
   track1_range: string;
   track2_name: string;
   track2_range: string;
+  image_position?: string;
+  image_scale?: number;
+  show_kicker?: boolean;
+  show_subline?: boolean;
+  show_subtitle?: boolean;
+  show_primary_btn?: boolean;
+  show_secondary_btn?: boolean;
+  show_stats?: boolean;
+  show_overlay?: boolean;
   is_active: boolean;
   order_position: number;
   created_at?: string;
@@ -120,6 +137,41 @@ function recordToItem(rec: any, index: number): HeroSlideItem {
     track1Range: rec.track1_range || rec.track1Range || '',
     track2Name: rec.track2_name || rec.track2Name || '',
     track2Range: rec.track2_range || rec.track2Range || '',
+    imagePosition: rec.image_position || rec.imagePosition || 'center center',
+    imageScale:
+      typeof rec.image_scale === 'number' && !isNaN(rec.image_scale)
+        ? rec.image_scale
+        : typeof rec.imageScale === 'number' && !isNaN(rec.imageScale)
+        ? rec.imageScale
+        : 1,
+    showKicker:
+      rec.show_kicker !== undefined
+        ? Boolean(rec.show_kicker)
+        : rec.showKicker !== false,
+    showSubline:
+      rec.show_subline !== undefined
+        ? Boolean(rec.show_subline)
+        : rec.showSubline !== false,
+    showSubtitle:
+      rec.show_subtitle !== undefined
+        ? Boolean(rec.show_subtitle)
+        : rec.showSubtitle !== false,
+    showPrimaryBtn:
+      rec.show_primary_btn !== undefined
+        ? Boolean(rec.show_primary_btn)
+        : rec.showPrimaryBtn !== false,
+    showSecondaryBtn:
+      rec.show_secondary_btn !== undefined
+        ? Boolean(rec.show_secondary_btn)
+        : rec.showSecondaryBtn !== false,
+    showStats:
+      rec.show_stats !== undefined
+        ? Boolean(rec.show_stats)
+        : rec.showStats !== false,
+    showOverlay:
+      rec.show_overlay !== undefined
+        ? Boolean(rec.show_overlay)
+        : rec.showOverlay !== false,
     enabled: rec.is_active !== undefined ? Boolean(rec.is_active) : (rec.enabled !== false),
     order: rec.order_position || rec.order || index + 1,
   };
@@ -141,6 +193,15 @@ function itemToRecord(item: HeroSlideItem, index: number): HeroSlideRecord {
     track1_range: item.track1Range || '',
     track2_name: item.track2Name || '',
     track2_range: item.track2Range || '',
+    image_position: item.imagePosition || 'center center',
+    image_scale: item.imageScale || 1,
+    show_kicker: item.showKicker !== false,
+    show_subline: item.showSubline !== false,
+    show_subtitle: item.showSubtitle !== false,
+    show_primary_btn: item.showPrimaryBtn !== false,
+    show_secondary_btn: item.showSecondaryBtn !== false,
+    show_stats: item.showStats !== false,
+    show_overlay: item.showOverlay !== false,
     is_active: item.enabled !== false,
     order_position: index + 1,
     updated_at: new Date().toISOString(),
@@ -310,6 +371,14 @@ export const HeroSliderManagement = () => {
   const [isTableConnected, setIsTableConnected] = useState(false);
   const [showSqlDialog, setShowSqlDialog] = useState(false);
 
+  // Image Cropping & Framing Modal states
+  const [showCropDialog, setShowCropDialog] = useState(false);
+  const [cropAspectRatio, setCropAspectRatio] = useState<number>(16 / 9);
+  const [cropFocalX, setCropFocalX] = useState<number>(50);
+  const [cropFocalY, setCropFocalY] = useState<number>(50);
+  const [cropZoom, setCropZoom] = useState<number>(1);
+  const [isCropping, setIsCropping] = useState(false);
+
   const [formData, setFormData] = useState<HeroSlideItem>({
     id: '',
     image: '',
@@ -325,6 +394,15 @@ export const HeroSliderManagement = () => {
     track1Range: '74 คน',
     track2Name: 'ระยะเวลาหลักสูตร',
     track2Range: '9 ปี',
+    imagePosition: 'center center',
+    imageScale: 1,
+    showKicker: true,
+    showSubline: true,
+    showSubtitle: true,
+    showPrimaryBtn: true,
+    showSecondaryBtn: true,
+    showStats: true,
+    showOverlay: true,
     enabled: true,
     order: 1,
   });
@@ -577,6 +655,16 @@ export const HeroSliderManagement = () => {
       setFormData({
         ...slide,
         image: slide.image || fallbackImg,
+        imagePosition: slide.imagePosition || 'center center',
+        imageScale:
+          typeof slide.imageScale === 'number' && !isNaN(slide.imageScale) ? slide.imageScale : 1,
+        showKicker: slide.showKicker !== false,
+        showSubline: slide.showSubline !== false,
+        showSubtitle: slide.showSubtitle !== false,
+        showPrimaryBtn: slide.showPrimaryBtn !== false,
+        showSecondaryBtn: slide.showSecondaryBtn !== false,
+        showStats: slide.showStats !== false,
+        showOverlay: slide.showOverlay !== false,
       });
     } else {
       setEditingSlide(null);
@@ -595,11 +683,48 @@ export const HeroSliderManagement = () => {
         track1Range: '74 คน',
         track2Name: 'ระยะเวลาหลักสูตร',
         track2Range: '9 ปี',
+        imagePosition: 'center center',
+        imageScale: 1,
+        showKicker: true,
+        showSubline: true,
+        showSubtitle: true,
+        showPrimaryBtn: true,
+        showSecondaryBtn: true,
+        showStats: true,
+        showOverlay: true,
         enabled: true,
         order: slides.length + 1,
       });
     }
     setIsDialogOpen(true);
+  };
+
+  const handleApplyCrop = async () => {
+    if (!formData.image) return;
+    try {
+      setIsCropping(true);
+      const croppedUrl = await cropImageToDataUrl(
+        formData.image,
+        cropAspectRatio,
+        cropFocalX,
+        cropFocalY,
+        cropZoom
+      );
+      setFormData((prev) => ({ ...prev, image: croppedUrl }));
+      setShowCropDialog(false);
+      toast({
+        title: 'ครอบตัดรูปภาพสำเร็จ',
+        description: 'ปรับแต่งสัดส่วนและนำภาพที่ครอบตัดแล้วมาใช้บนสไลด์เรียบร้อย',
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'ครอบตัดภาพไม่สำเร็จ',
+        description: err?.message || 'เกิดข้อผิดพลาดในการตัดแต่งรูปภาพ',
+      });
+    } finally {
+      setIsCropping(false);
+    }
   };
 
   const handleSaveSlideForm = async (e: React.FormEvent) => {
@@ -981,6 +1106,173 @@ export const HeroSliderManagement = () => {
                   placeholder="https://images.unsplash.com/... หรือ URL รูปภาพ"
                 />
               </div>
+
+              {/* Interactive Image Positioning, Scaling & Cropping Controls */}
+              {formData.image && (
+                <div className="p-3.5 rounded-xl bg-card border border-border space-y-3 mt-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-primary" />
+                      ปรับตำแหน่งภาพ (ลูกศรเลือกจุดโฟกัส) & ซูม (Zoom / Scale)
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="text-xs h-7 gap-1"
+                      onClick={() => setShowCropDialog(true)}
+                    >
+                      <Crop className="w-3.5 h-3.5 text-amber-500" />
+                      ✂️ ครอบตัดรูปภาพ (Crop Tool)
+                    </Button>
+                  </div>
+
+                  {/* Visual Preview Box with current position & scale */}
+                  <div className="relative w-full aspect-[21/9] sm:aspect-[16/7] rounded-lg overflow-hidden bg-slate-950 border border-slate-700">
+                    <img
+                      src={formData.image}
+                      alt="Preview positioning"
+                      style={{
+                        objectPosition: formData.imagePosition || 'center center',
+                        transform:
+                          formData.imageScale && formData.imageScale !== 1
+                            ? `scale(${formData.imageScale})`
+                            : undefined,
+                        transformOrigin: formData.imagePosition || 'center center',
+                      }}
+                      className="absolute inset-0 w-full h-full object-cover transition-all duration-300"
+                    />
+                    {formData.showOverlay !== false && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-transparent pointer-events-none" />
+                    )}
+                    <div className="absolute bottom-2 left-2 text-[10px] bg-slate-950/80 text-white px-2 py-0.5 rounded backdrop-blur-xs font-mono">
+                      ตำแหน่ง: {formData.imagePosition || 'center center'} · ซูม: {((formData.imageScale || 1) * 100).toFixed(0)}%
+                    </div>
+                  </div>
+
+                  {/* Direction Controls (Arrows) & Zoom Buttons */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Focal Position Direction Buttons */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] text-muted-foreground block font-medium">ทิศทางจัดวาง (ลูกศรเลือกจุดโฟกัส):</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Button
+                          type="button"
+                          variant={formData.imagePosition === 'center top' ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() => setFormData((prev) => ({ ...prev, imagePosition: 'center top' }))}
+                          title="เน้นด้านบน"
+                        >
+                          <ArrowUp className="w-3 h-3" /> บน
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={(!formData.imagePosition || formData.imagePosition === 'center center') ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() => setFormData((prev) => ({ ...prev, imagePosition: 'center center' }))}
+                          title="กึ่งกลางภาพ"
+                        >
+                          🎯 กลาง
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={formData.imagePosition === 'center bottom' ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() => setFormData((prev) => ({ ...prev, imagePosition: 'center bottom' }))}
+                          title="เน้นด้านล่าง"
+                        >
+                          <ArrowDown className="w-3 h-3" /> ล่าง
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={formData.imagePosition === 'left center' ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() => setFormData((prev) => ({ ...prev, imagePosition: 'left center' }))}
+                          title="เน้นฝั่งซ้าย"
+                        >
+                          ⬅️ ซ้าย
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={formData.imagePosition === 'right center' ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() => setFormData((prev) => ({ ...prev, imagePosition: 'right center' }))}
+                          title="เน้นฝั่งขวา"
+                        >
+                          ➡️ ขวา
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Zoom / Scale Buttons */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] text-muted-foreground block font-medium">ระดับการซูม (Zoom & Scale):</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              imageScale: Math.max(0.7, Number(((prev.imageScale || 1) - 0.1).toFixed(2))),
+                            }))
+                          }
+                          title="ซูมออก (-10%)"
+                        >
+                          <ZoomOut className="w-3 h-3" /> -10%
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={formData.imageScale === 1 ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 text-xs px-2 font-mono"
+                          onClick={() => setFormData((prev) => ({ ...prev, imageScale: 1 }))}
+                          title="รีเซ็ตขนาดปกติ 100%"
+                        >
+                          100%
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              imageScale: Math.min(2.2, Number(((prev.imageScale || 1) + 0.1).toFixed(2))),
+                            }))
+                          }
+                          title="ซูมเข้า (+10%)"
+                        >
+                          <ZoomIn className="w-3 h-3" /> +10%
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              imageScale: Math.min(2.2, Number(((prev.imageScale || 1) + 0.25).toFixed(2))),
+                            }))
+                          }
+                          title="ซูมเข้า (+25%)"
+                        >
+                          +25%
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Slide Texts */}
@@ -1104,6 +1396,72 @@ export const HeroSliderManagement = () => {
               </div>
             </div>
 
+            {/* Element Visibility Control Card */}
+            <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-semibold text-sm flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  การแสดงผลองค์ประกอบบนสไลด์ (Show/Hide Elements)
+                </Label>
+                <span className="text-xs text-muted-foreground">เปิดหรือปิดการแสดงผลแต่ละส่วนได้ตามต้องการ</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                  <span className="text-xs font-medium">ป้ายบนสุด (Kicker)</span>
+                  <Switch
+                    checked={formData.showKicker !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showKicker: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                  <span className="text-xs font-medium">คำขวัญย่อย (Subline)</span>
+                  <Switch
+                    checked={formData.showSubline !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showSubline: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                  <span className="text-xs font-medium">คำอธิบาย (Subtitle)</span>
+                  <Switch
+                    checked={formData.showSubtitle !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showSubtitle: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                  <span className="text-xs font-medium">ปุ่มกดหลัก (Primary)</span>
+                  <Switch
+                    checked={formData.showPrimaryBtn !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showPrimaryBtn: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                  <span className="text-xs font-medium">ปุ่มกดรอง (Secondary)</span>
+                  <Switch
+                    checked={formData.showSecondaryBtn !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showSecondaryBtn: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border">
+                  <span className="text-xs font-medium">กล่องสถิติ (Stats Cards)</span>
+                  <Switch
+                    checked={formData.showStats !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showStats: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border sm:col-span-2 lg:col-span-3">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">ฟิลเตอร์เงาพื้นหลัง (Contrast Overlay)</span>
+                    <span className="text-[11px] text-muted-foreground">ไล่เฉดเงาดำช่วยให้อ่านตัวหนังสือชัดเจนขึ้น</span>
+                  </div>
+                  <Switch
+                    checked={formData.showOverlay !== false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showOverlay: checked })}
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between pt-4 border-t border-border">
               <div className="flex items-center gap-2">
                 <Switch
@@ -1123,6 +1481,100 @@ export const HeroSliderManagement = () => {
               </div>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Interactive Crop Image Modal Dialog */}
+      <Dialog open={showCropDialog} onOpenChange={setShowCropDialog}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Crop className="w-5 h-5" />
+              ครอบตัดรูปภาพภาพสไลด์ (Crop Image Tool)
+            </DialogTitle>
+            <DialogDescription>
+              เลือกสัดส่วนภาพและจุดโฟกัสที่ต้องการ ระบบจะประมวลผลตัดรูปภาพให้อัตโนมัติ
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Aspect Ratio Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">สัดส่วนภาพ (Aspect Ratio):</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: '16:9 แบนเนอร์', value: 16 / 9 },
+                  { label: '21:9 จอกว้าง', value: 21 / 9 },
+                  { label: '4:3 มาตรฐาน', value: 4 / 3 },
+                  { label: '1:1 จัตุรัส', value: 1 },
+                ].map((ratio, rIdx) => (
+                  <Button
+                    key={rIdx}
+                    type="button"
+                    variant={cropAspectRatio === ratio.value ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => setCropAspectRatio(ratio.value)}
+                  >
+                    {ratio.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Focal Point percent sliders */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">จุดโฟกัสแนวนอน (X: {cropFocalX}%):</Label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={cropFocalX}
+                  onChange={(e) => setCropFocalX(Number(e.target.value))}
+                  className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">จุดโฟกัสแนวตั้ง (Y: {cropFocalY}%):</Label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={cropFocalY}
+                  onChange={(e) => setCropFocalY(Number(e.target.value))}
+                  className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Live Crop Preview Box */}
+            <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden bg-slate-950 border border-slate-700 flex items-center justify-center">
+              <img
+                src={formData.image}
+                alt="Crop preview"
+                style={{
+                  objectPosition: `${cropFocalX}% ${cropFocalY}%`,
+                }}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setShowCropDialog(false)}>
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              onClick={handleApplyCrop}
+              disabled={isCropping}
+              className="gap-1.5"
+            >
+              <Crop className="w-4 h-4" />
+              {isCropping ? 'กำลังตัดแต่งภาพ...' : 'ยืนยันครอบตัดภาพ'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

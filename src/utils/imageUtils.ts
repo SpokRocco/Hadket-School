@@ -34,63 +34,119 @@ export const isHeicFile = (file: File): boolean => {
  * @param options - Compression options
  * @returns Compressed image as a Blob in WebP (or original) format
  */
-export const compressImage = (
+export const compressImage = async (
     file: File,
     options: CompressOptions = {}
 ): Promise<Blob> => {
-    const { maxWidth = 2000, maxHeight = 2000, quality = 0.85 } = options;
+    const { maxWidth = 1920, maxHeight = 1080, quality = 0.85 } = options;
 
-    return new Promise((resolve, reject) => {
-        // If SVG or GIF with animation, return raw blob directly to preserve quality
-        if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
-            resolve(file);
-            return;
+    // If SVG or animated GIF, keep original
+    if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+        return file;
+    }
+
+    let workingFile: Blob = file;
+
+    // 1. Convert HEIC/HEIF images (common from iPhone, iPad, and Mac) to standard JPEG
+    if (isHeicFile(file)) {
+        try {
+            const heic2anyModule = await import('heic2any');
+            const heic2any = heic2anyModule.default || heic2anyModule;
+            const converted = await heic2any({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.9,
+            });
+            const singleBlob = Array.isArray(converted) ? converted[0] : converted;
+            if (singleBlob && singleBlob.size > 0) {
+                workingFile = singleBlob;
+            }
+        } catch (heicErr) {
+            console.warn('HEIC dynamic conversion note:', heicErr);
         }
+    }
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+    return new Promise((resolve) => {
         const img = new Image();
+        const objectUrl = URL.createObjectURL(workingFile);
 
         img.onload = () => {
-            let width = img.width;
-            let height = img.height;
+            URL.revokeObjectURL(objectUrl);
+            let width = img.naturalWidth || img.width;
+            let height = img.naturalHeight || img.height;
 
-            // Calculate new dimensions while maintaining aspect ratio
+            // If dimensions are invalid or 0, fallback
+            if (!width || !height) {
+                resolve(workingFile);
+                return;
+            }
+
+            // Downscale to target max width/height while maintaining aspect ratio
             if (width > maxWidth || height > maxHeight) {
                 const ratio = Math.min(maxWidth / width, maxHeight / height);
                 width = Math.round(width * ratio);
                 height = Math.round(height * ratio);
             }
 
+            const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
-            ctx?.drawImage(img, 0, 0, width, height);
+            const ctx = canvas.getContext('2d', { willReadFrequently: false });
 
+            if (!ctx) {
+                resolve(workingFile);
+                return;
+            }
+
+            // High-quality rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Attempt WebP first, fallback to JPEG for Safari / Mac compatibility
             canvas.toBlob(
                 (blob) => {
-                    if (blob) {
+                    if (blob && blob.size > 0) {
                         resolve(blob);
                     } else {
-                        // Fallback to original file
-                        resolve(file);
+                        // Safari / Mac fallback to image/jpeg
+                        canvas.toBlob(
+                            (jpegBlob) => {
+                                if (jpegBlob && jpegBlob.size > 0) {
+                                    resolve(jpegBlob);
+                                } else {
+                                    // Extreme fallback: canvas data URL to blob
+                                    try {
+                                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                                        const byteString = atob(dataUrl.split(',')[1]);
+                                        const ab = new ArrayBuffer(byteString.length);
+                                        const ia = new Uint8Array(ab);
+                                        for (let i = 0; i < byteString.length; i++) {
+                                            ia[i] = byteString.charCodeAt(i);
+                                        }
+                                        resolve(new Blob([ab], { type: 'image/jpeg' }));
+                                    } catch {
+                                        resolve(workingFile);
+                                    }
+                                }
+                            },
+                            'image/jpeg',
+                            quality
+                        );
                     }
                 },
                 'image/webp',
                 quality
             );
-
-            // Cleanup
-            URL.revokeObjectURL(img.src);
         };
 
         img.onerror = () => {
-            URL.revokeObjectURL(img.src);
-            // If browser failed to render directly (e.g. raw HEIC without native decoder), return file blob as fallback
-            console.warn('Image failed canvas decode, using raw file:', file.name);
-            resolve(file);
+            URL.revokeObjectURL(objectUrl);
+            console.warn('Canvas image load failed, returning working file:', file.name);
+            resolve(workingFile);
         };
 
-        img.src = URL.createObjectURL(file);
+        img.src = objectUrl;
     });
 };
 
@@ -125,4 +181,93 @@ export const compressionPresets = {
  */
 export const generateWebPFilename = (prefix: string): string => {
     return `${prefix}_${Date.now()}.webp`;
+};
+
+/**
+ * Crop and scale an image with aspect ratio and focal point position
+ */
+export const cropImageToDataUrl = (
+  imageSrc: string,
+  aspectRatio: number, // width / height, e.g. 16/9, 21/9, 4/3, 1
+  focalXPercent: number = 50, // 0 to 100 (50 is center)
+  focalYPercent: number = 50, // 0 to 100 (50 is center)
+  zoomScale: number = 1.0 // 1.0 = 100%
+): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      const naturalWidth = img.naturalWidth || img.width;
+      const naturalHeight = img.naturalHeight || img.height;
+
+      if (!naturalWidth || !naturalHeight) {
+        resolve(imageSrc);
+        return;
+      }
+
+      // Calculate target crop dimensions
+      let cropWidth = naturalWidth;
+      let cropHeight = naturalWidth / aspectRatio;
+
+      if (cropHeight > naturalHeight) {
+        cropHeight = naturalHeight;
+        cropWidth = naturalHeight * aspectRatio;
+      }
+
+      // Apply zoom if requested (zoom in means smaller crop window)
+      if (zoomScale > 1.0) {
+        cropWidth = cropWidth / zoomScale;
+        cropHeight = cropHeight / zoomScale;
+      }
+
+      // Calculate crop top-left position based on focal percentages
+      const maxStartX = Math.max(0, naturalWidth - cropWidth);
+      const maxStartY = Math.max(0, naturalHeight - cropHeight);
+
+      const startX = Math.max(0, Math.min(maxStartX, (focalXPercent / 100) * maxStartX));
+      const startY = Math.max(0, Math.min(maxStartY, (focalYPercent / 100) * maxStartY));
+
+      // Output canvas
+      const targetWidth = Math.min(1920, Math.round(cropWidth));
+      const targetHeight = Math.round(targetWidth / aspectRatio);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        resolve(imageSrc);
+        return;
+      }
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(
+        img,
+        startX,
+        startY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        targetWidth,
+        targetHeight
+      );
+
+      try {
+        const resultUrl = canvas.toDataURL('image/jpeg', 0.88);
+        resolve(resultUrl);
+      } catch {
+        resolve(imageSrc);
+      }
+    };
+
+    img.onerror = () => {
+      resolve(imageSrc);
+    };
+
+    img.src = imageSrc;
+  });
 };

@@ -5,8 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,6 +32,11 @@ import {
   KeyRound,
   RotateCcw,
   Link2,
+  Database,
+  Copy,
+  ExternalLink,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -42,11 +55,18 @@ import { SUBJECT_DEPARTMENTS } from '@/pages/MediaLibrary';
 
 const MAIN_ROLES: AdminRole[] = ['executive', 'admin', 'teacher', 'staff', 'sapha_plus'];
 
+const isUuid = (val?: string) =>
+  typeof val === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+
 export const UsersManagement = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [showSqlDialog, setShowSqlDialog] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -64,6 +84,24 @@ export const UsersManagement = () => {
   const navigate = useNavigate();
   const currentUser = getCurrentAdminUser();
 
+  const persistUsersToCloud = async (usersList: AdminUser[]) => {
+    try {
+      await (supabase as any)
+        .from('school_settings')
+        .upsert(
+          {
+            key: 'admin_users_json',
+            value: JSON.stringify(usersList),
+            category: 'users',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' }
+        );
+    } catch (e) {
+      console.warn('Could not backup users to school_settings:', e);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -71,21 +109,79 @@ export const UsersManagement = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from('admin_users')
-        .select('*')
-        .order('created_at', { ascending: true });
+      // 1. Fetch from admin_users table
+      let tableUsers: AdminUser[] = [];
+      try {
+        const { data, error } = await (supabase as any)
+          .from('admin_users')
+          .select('*')
+          .order('created_at', { ascending: true });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const normalized = data.map((u: any) => ({
-          ...u,
-          role: normalizeRole(u.role),
-        }));
-        setUsers(normalized);
-        saveLocalUsers(normalized);
-      } else {
-        setUsers(getLocalUsers());
+        if (!error && Array.isArray(data) && data.length > 0) {
+          tableUsers = data.map((u: any) => ({
+            ...u,
+            password: u.password || u.password_hash || '',
+            role: normalizeRole(u.role),
+          }));
+        }
+      } catch (tErr) {
+        console.warn('admin_users table fetch warning:', tErr);
       }
+
+      // 2. Fetch from school_settings.admin_users_json backup
+      let cloudUsers: AdminUser[] = [];
+      try {
+        const { data: settingData } = await (supabase as any)
+          .from('school_settings')
+          .select('value')
+          .eq('key', 'admin_users_json')
+          .single();
+
+        if (settingData?.value) {
+          const parsed = JSON.parse(settingData.value);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            cloudUsers = parsed.map((u: any) => ({
+              ...u,
+              role: normalizeRole(u.role),
+            }));
+          }
+        }
+      } catch (sErr) {
+        console.warn('school_settings admin_users_json warning:', sErr);
+      }
+
+      // 3. Fallback to local users
+      const localUsers = getLocalUsers();
+
+      // Harmonize: table users priority, then cloud users, then local users
+      let finalUsers: AdminUser[] = [];
+      if (tableUsers.length > 0) {
+        finalUsers = [...tableUsers];
+        for (const cu of cloudUsers) {
+          const existing = finalUsers.find(
+            (u) => u.username.toLowerCase() === cu.username.toLowerCase()
+          );
+          if (!existing) {
+            finalUsers.push(cu);
+          } else if (!existing.password && cu.password) {
+            existing.password = cu.password;
+          }
+        }
+      } else if (cloudUsers.length > 0) {
+        finalUsers = cloudUsers;
+      } else {
+        finalUsers = localUsers;
+      }
+
+      // Ensure seed admin always exists
+      for (const seed of localUsers) {
+        if (!finalUsers.some((u) => u.username.toLowerCase() === seed.username.toLowerCase())) {
+          finalUsers.push(seed);
+        }
+      }
+
+      setUsers(finalUsers);
+      saveLocalUsers(finalUsers);
     } catch {
       setUsers(getLocalUsers());
     } finally {
@@ -191,9 +287,10 @@ export const UsersManagement = () => {
       const nextList = users.map((u) => (u.id === editingUser.id ? updatedUser : u));
       setUsers(nextList);
       saveLocalUsers(nextList);
+      await persistUsersToCloud(nextList);
 
       try {
-        const dbPayload: Record<string, any> = {
+        const fullPayload: Record<string, any> = {
           username: updatedUser.username,
           display_name: updatedUser.display_name,
           email: updatedUser.email,
@@ -205,11 +302,41 @@ export const UsersManagement = () => {
           is_active: updatedUser.is_active,
         };
         if (formData.password.trim()) {
-          dbPayload.password = formData.password.trim();
+          fullPayload.password = formData.password.trim();
+          fullPayload.password_hash = formData.password.trim();
         }
-        await (supabase as any).from('admin_users').update(dbPayload).eq('id', editingUser.id);
-      } catch {
-        // Saved in localStorage fallback
+
+        let updateQuery = (supabase as any).from('admin_users').update(fullPayload);
+        if (isUuid(editingUser.id)) {
+          updateQuery = updateQuery.eq('id', editingUser.id);
+        } else {
+          updateQuery = updateQuery.eq('username', editingUser.username);
+        }
+
+        const { error: updateErr } = await updateQuery;
+        if (updateErr) {
+          console.warn('Full update failed, retrying with base columns:', updateErr);
+          const basePayload: Record<string, any> = {
+            username: updatedUser.username,
+            display_name: updatedUser.display_name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            is_active: updatedUser.is_active,
+          };
+          if (formData.password.trim()) {
+            basePayload.password = formData.password.trim();
+            basePayload.password_hash = formData.password.trim();
+          }
+          let retryQuery = (supabase as any).from('admin_users').update(basePayload);
+          if (isUuid(editingUser.id)) {
+            retryQuery = retryQuery.eq('id', editingUser.id);
+          } else {
+            retryQuery = retryQuery.eq('username', editingUser.username);
+          }
+          await retryQuery;
+        }
+      } catch (err) {
+        console.warn('admin_users update exception:', err);
       }
 
       if (currentUser && currentUser.id === editingUser.id) {
@@ -217,8 +344,8 @@ export const UsersManagement = () => {
       }
 
       toast({
-        title: 'อัปเดตผู้ใช้งานสำเร็จ',
-        description: `บันทึกสิทธิ์ของ ${updatedUser.display_name} (${ROLE_INFO[updatedUser.role].shortLabel}) เรียบร้อยแล้ว`,
+        title: 'อัปเดตผู้ใช้งานสำเร็จ (Realtime Sync)',
+        description: `บันทึกข้อมูลของ ${updatedUser.display_name} (${ROLE_INFO[updatedUser.role].shortLabel}) เรียบร้อยแล้ว`,
       });
       setIsDialogOpen(false);
       resetForm();
@@ -259,35 +386,60 @@ export const UsersManagement = () => {
     };
 
     try {
+      const insertPayload: Record<string, any> = {
+        username: newUser.username,
+        password: newUser.password,
+        password_hash: newUser.password,
+        display_name: newUser.display_name,
+        email: newUser.email,
+        role: newUser.role,
+        subject_department: newUser.subject_department,
+        custom_link_slug: newUser.custom_link_slug,
+        google_site_url: newUser.google_site_url,
+        permissions: newUser.permissions,
+        is_active: newUser.is_active,
+      };
+
       const { data, error } = await (supabase as any)
         .from('admin_users')
-        .insert({
-          username: newUser.username,
-          password: newUser.password,
-          display_name: newUser.display_name,
-          email: newUser.email,
-          role: newUser.role,
-          subject_department: newUser.subject_department,
-          custom_link_slug: newUser.custom_link_slug,
-          google_site_url: newUser.google_site_url,
-          permissions: newUser.permissions,
-          is_active: newUser.is_active,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
-      const finalUser = !error && data ? { ...newUser, id: data.id } : newUser;
-      const nextList = [...users, finalUser];
-      setUsers(nextList);
-      saveLocalUsers(nextList);
-    } catch {
-      const nextList = [...users, newUser];
-      setUsers(nextList);
-      saveLocalUsers(nextList);
+      if (error) {
+        console.warn('Full insert failed, retrying with base columns:', error);
+        const baseInsert: Record<string, any> = {
+          username: newUser.username,
+          password: newUser.password,
+          password_hash: newUser.password,
+          display_name: newUser.display_name,
+          email: newUser.email,
+          role: newUser.role,
+          is_active: newUser.is_active,
+        };
+        const { data: baseData } = await (supabase as any)
+          .from('admin_users')
+          .insert(baseInsert)
+          .select()
+          .single();
+
+        if (baseData?.id) {
+          newUser.id = baseData.id;
+        }
+      } else if (data?.id) {
+        newUser.id = data.id;
+      }
+    } catch (err) {
+      console.warn('Insert admin_users note:', err);
     }
 
+    const nextList = [...users, newUser];
+    setUsers(nextList);
+    saveLocalUsers(nextList);
+    await persistUsersToCloud(nextList);
+
     toast({
-      title: 'เพิ่มผู้ใช้งานสำเร็จ',
+      title: 'เพิ่มผู้ใช้งานสำเร็จ (Realtime Sync)',
       description: `สร้างบัญชี ${newUser.display_name} (${ROLE_INFO[newUser.role].label}) เรียบร้อยแล้ว`,
     });
     setIsDialogOpen(false);
@@ -307,14 +459,18 @@ export const UsersManagement = () => {
     const nextList = users.map((u) => (u.id === user.id ? { ...u, is_active: checked } : u));
     setUsers(nextList);
     saveLocalUsers(nextList);
+    await persistUsersToCloud(nextList);
 
     try {
-      await (supabase as any)
-        .from('admin_users')
-        .update({ is_active: checked })
-        .eq('id', user.id);
-    } catch {
-      // Saved locally
+      let query = (supabase as any).from('admin_users').update({ is_active: checked });
+      if (isUuid(user.id)) {
+        query = query.eq('id', user.id);
+      } else {
+        query = query.eq('username', user.username);
+      }
+      await query;
+    } catch (err) {
+      console.warn('Toggle active error:', err);
     }
 
     toast({
@@ -323,7 +479,7 @@ export const UsersManagement = () => {
     });
   };
 
-  const handleDelete = async (user: AdminUser) => {
+  const handleDelete = (user: AdminUser) => {
     if (currentUser && currentUser.id === user.id) {
       toast({
         variant: 'destructive',
@@ -343,21 +499,34 @@ export const UsersManagement = () => {
       return;
     }
 
-    if (!confirm(`ต้องการลบบัญชีผู้ใช้ "${user.display_name} (@${user.username})" หรือไม่?`)) return;
+    setUserToDelete(user);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    const user = userToDelete;
 
     const nextList = users.filter((u) => u.id !== user.id);
     setUsers(nextList);
     saveLocalUsers(nextList);
+    await persistUsersToCloud(nextList);
 
     try {
-      await (supabase as any).from('admin_users').delete().eq('id', user.id);
-    } catch {
-      // Saved locally
+      let query = (supabase as any).from('admin_users').delete();
+      if (isUuid(user.id)) {
+        query = query.eq('id', user.id);
+      } else {
+        query = query.eq('username', user.username);
+      }
+      await query;
+    } catch (err) {
+      console.warn('Delete error:', err);
     }
 
+    setUserToDelete(null);
     toast({
-      title: 'ลบผู้ใช้งานสำเร็จ',
-      description: `ลบบัญชี @${user.username} ออกจากระบบแล้ว`,
+      title: 'ลบผู้ใช้งานสำเร็จ (Realtime Sync)',
+      description: `ลบบัญชี @${user.username} ออกจากระบบเรียบร้อยแล้ว`,
     });
   };
 
@@ -379,14 +548,24 @@ export const UsersManagement = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2.5">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowSqlDialog(true)}
+            className="gap-2 text-primary border-primary/30 hover:bg-primary/5"
+          >
+            <Database className="w-4 h-4" />
+            คำสั่ง SQL (Supabase)
+          </Button>
+
           <Button
             variant="outline"
             onClick={() => navigate('/admin/dashboard?tab=login_portals')}
             className="gap-2"
           >
             <Link2 className="w-4 h-4 text-primary" />
-            จัดการลิงก์เข้าสู่ระบบ (Login Links)
+            จัดการลิงก์เข้าสู่ระบบ (Portals)
           </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -717,6 +896,130 @@ export const UsersManagement = () => {
           })}
         </div>
       )}
+      {/* In-app Delete Confirmation Modal */}
+      <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              ยืนยันการลบบัญชีผู้ใช้งาน
+            </DialogTitle>
+            <DialogDescription>
+              คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีผู้ใช้นี้ออกจากระบบ? การลบนี้จะมีผลทันที
+            </DialogDescription>
+          </DialogHeader>
+
+          {userToDelete && (
+            <div className="p-3.5 rounded-xl border bg-secondary/30 space-y-1 my-2">
+              <p className="font-bold text-sm text-foreground">{userToDelete.display_name}</p>
+              <p className="text-xs text-muted-foreground font-mono">@{userToDelete.username}</p>
+              <Badge variant="outline" className="text-xs mt-1">
+                {ROLE_INFO[normalizeRole(userToDelete.role)]?.label}
+              </Badge>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setUserToDelete(null)}
+              disabled={saving}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDeleteUser}
+              disabled={saving}
+              className="gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              {saving ? 'กำลังลบ...' : 'ยืนยันลบบัญชีนี้'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SQL Migration Instruction Dialog */}
+      <Dialog open={showSqlDialog} onOpenChange={setShowSqlDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Database className="w-5 h-5" />
+              คำสั่ง SQL สำหรับตั้งค่าและแก้ไขตาราง admin_users ใน Supabase
+            </DialogTitle>
+            <DialogDescription>
+              คัดลอกคำสั่งด้านล่างนี้ไปวางและกดรันใน Supabase SQL Editor เพื่อปลดล็อกข้อจำกัดสิทธิ์ทั้ง 5 บทบาท และเพิ่มคอลัมน์ที่จำเป็นทั้งหมด
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+              💡 <strong>ความปลอดภัย:</strong> คำสั่งนี้ใช้ <code>IF NOT EXISTS</code> และปลดล็อก Check Constraint เดิมเพื่อรองรับบทบาททั้ง 5 (Executive, Admin, Teacher, Staff, Sapha Plus) ได้อย่างสมบูรณ์แบบ
+            </div>
+
+            <pre className="p-3 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto max-h-64 leading-relaxed">
+{`-- 1. ปลดล็อกข้อจำกัดบทบาทเดิม (Check constraint)
+ALTER TABLE public.admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check;
+
+-- 2. เพิ่มคอลัมน์ที่จำเป็นหากยังไม่มี
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS subject_department TEXT;
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS custom_link_slug TEXT;
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS google_site_url TEXT;
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+-- 3. กำหนดสิทธิ์ RLS ให้เข้าถึงได้เต็มรูปแบบ (Full Control)
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read admin_users" ON public.admin_users;
+CREATE POLICY "Public Read admin_users" ON public.admin_users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Full Access admin_users" ON public.admin_users;
+CREATE POLICY "Public Full Access admin_users" ON public.admin_users FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. เชื่อมต่อ Supabase Realtime
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'admin_users'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_users;
+    END IF;
+  END IF;
+END $$;`}
+            </pre>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const sqlText = `-- 1. ปลดล็อกข้อจำกัดบทบาทเดิม (Check constraint)\nALTER TABLE public.admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check;\n\n-- 2. เพิ่มคอลัมน์ที่จำเป็นหากยังไม่มี\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS password TEXT;\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS password_hash TEXT;\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS subject_department TEXT;\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS custom_link_slug TEXT;\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS google_site_url TEXT;\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb;\nALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;\n\n-- 3. กำหนดสิทธิ์ RLS ให้เข้าถึงได้เต็มรูปแบบ (Full Control)\nALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;\nDROP POLICY IF EXISTS "Public Read admin_users" ON public.admin_users;\nCREATE POLICY "Public Read admin_users" ON public.admin_users FOR SELECT USING (true);\nDROP POLICY IF EXISTS "Public Full Access admin_users" ON public.admin_users;\nCREATE POLICY "Public Full Access admin_users" ON public.admin_users FOR ALL USING (true) WITH CHECK (true);\n\n-- 4. เชื่อมต่อ Supabase Realtime\nDO $$\nBEGIN\n  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN\n    IF NOT EXISTS (\n      SELECT 1 FROM pg_publication_tables \n      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'admin_users'\n    ) THEN\n      ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_users;\n    END IF;\n  END IF;\nEND $$;`;
+                navigator.clipboard.writeText(sqlText);
+                toast({ title: 'คัดลอกคำสั่ง SQL แล้ว', description: 'นำไปวางและกด Run ใน Supabase SQL Editor ได้ทันที' });
+              }}
+              className="gap-1.5"
+            >
+              <Copy className="w-4 h-4" />
+              คัดลอกคำสั่ง SQL
+            </Button>
+            <Button
+              type="button"
+              onClick={() => window.open('https://supabase.com/dashboard/project/fhfckuypfstlokashcmu/sql/new', '_blank')}
+              className="gap-1.5"
+            >
+              <ExternalLink className="w-4 h-4" />
+              เปิด Supabase SQL Editor ↗
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

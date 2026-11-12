@@ -571,6 +571,15 @@ export interface HeroSlideItem {
   track1Range?: string;
   track2Name?: string;
   track2Range?: string;
+  imagePosition?: string;
+  imageScale?: number;
+  showKicker?: boolean;
+  showSubline?: boolean;
+  showSubtitle?: boolean;
+  showPrimaryBtn?: boolean;
+  showSecondaryBtn?: boolean;
+  showStats?: boolean;
+  showOverlay?: boolean;
   enabled: boolean;
   order: number;
 }
@@ -592,6 +601,15 @@ export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
     track1Range: '74 คน · 16 บุคลากรคุณภาพ',
     track2Name: 'ระยะเวลาหลักสูตร',
     track2Range: '9 ปี · เวลาเรียน 08.30-16.30 น.',
+    imagePosition: 'center center',
+    imageScale: 1,
+    showKicker: true,
+    showSubline: true,
+    showSubtitle: true,
+    showPrimaryBtn: true,
+    showSecondaryBtn: true,
+    showStats: true,
+    showOverlay: true,
     enabled: true,
     order: 1,
   },
@@ -611,6 +629,15 @@ export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
     track1Range: 'ก่อตั้งและพัฒนาการศึกษาต่อเนื่อง 116 ปี',
     track2Name: 'อัตราการศึกษาต่อ',
     track2Range: '90 % ศึกษาต่อและพัฒนาศักยภาพตามเกณฑ์',
+    imagePosition: 'center center',
+    imageScale: 1,
+    showKicker: true,
+    showSubline: true,
+    showSubtitle: true,
+    showPrimaryBtn: true,
+    showSecondaryBtn: true,
+    showStats: true,
+    showOverlay: true,
     enabled: true,
     order: 2,
   },
@@ -630,6 +657,15 @@ export const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
     track1Range: '1000+ เครือข่ายศิษย์เก่าและชุมชนเข้มแข็ง',
     track2Name: 'การมีส่วนร่วมของผู้เรียน',
     track2Range: 'กิจกรรมสภานักเรียน ชมรม และพัฒนาผู้เรียนรอบด้าน',
+    imagePosition: 'center center',
+    imageScale: 1,
+    showKicker: true,
+    showSubline: true,
+    showSubtitle: true,
+    showPrimaryBtn: true,
+    showSecondaryBtn: true,
+    showStats: true,
+    showOverlay: true,
     enabled: true,
     order: 3,
   },
@@ -667,6 +703,15 @@ export const parseHeroSlides = (rawJson?: string | null): HeroSlideItem[] => {
         track1Range: typeof item?.track1Range === 'string' ? item.track1Range : '',
         track2Name: typeof item?.track2Name === 'string' ? item.track2Name : '',
         track2Range: typeof item?.track2Range === 'string' ? item.track2Range : '',
+        imagePosition: typeof item?.imagePosition === 'string' && item.imagePosition ? item.imagePosition : 'center center',
+        imageScale: typeof item?.imageScale === 'number' && !isNaN(item.imageScale) ? item.imageScale : 1,
+        showKicker: typeof item?.showKicker === 'boolean' ? item.showKicker : true,
+        showSubline: typeof item?.showSubline === 'boolean' ? item.showSubline : true,
+        showSubtitle: typeof item?.showSubtitle === 'boolean' ? item.showSubtitle : true,
+        showPrimaryBtn: typeof item?.showPrimaryBtn === 'boolean' ? item.showPrimaryBtn : true,
+        showSecondaryBtn: typeof item?.showSecondaryBtn === 'boolean' ? item.showSecondaryBtn : true,
+        showStats: typeof item?.showStats === 'boolean' ? item.showStats : true,
+        showOverlay: typeof item?.showOverlay === 'boolean' ? item.showOverlay : true,
         enabled: typeof item?.enabled === 'boolean' ? item.enabled : true,
         order: typeof item?.order === 'number' ? item.order : idx + 1,
       }))
