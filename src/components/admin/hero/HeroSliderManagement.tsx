@@ -293,11 +293,93 @@ export const HeroSliderManagement = () => {
     return subscribeToRealtimeTables('realtime_hero_slider_admin', ['school_settings'], loadData);
   }, [loadData]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const persistSlides = async (
+    newSlides: HeroSlideItem[],
+    newAutoplay = autoplayEnabled,
+    newInterval = autoplayInterval,
+    showToast = true,
+    toastMsg = 'บันทึกภาพสไลด์เรียบร้อยแล้ว'
+  ) => {
+    setSlides(newSlides);
+    try {
+      setSaving(true);
+      const entries = [
+        {
+          key: 'hero_slides_json',
+          value: JSON.stringify(newSlides),
+          category: 'homepage',
+        },
+        {
+          key: 'hero_autoplay_enabled',
+          value: newAutoplay ? 'true' : 'false',
+          category: 'homepage',
+        },
+        {
+          key: 'hero_autoplay_interval',
+          value: newInterval,
+          category: 'homepage',
+        },
+      ];
+
+      for (const entry of entries) {
+        const { error } = await supabase.from('school_settings').upsert(
+          {
+            key: entry.key,
+            value: entry.value,
+            category: entry.category,
+          } as any,
+          { onConflict: 'key' }
+        );
+        if (error) throw error;
+      }
+
+      // Clear cached settings and notify realtime subscribers
+      localStorage.removeItem('school_settings_cache');
+      localStorage.removeItem('school_settings_cache_v3');
+      notifyLocalRealtimeListeners('school_settings');
+
+      if (showToast) {
+        toast({
+          title: 'สำเร็จ (Realtime Sync)',
+          description: toastMsg,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error saving hero slides:', error);
+      toast({
+        variant: 'destructive',
+        title: 'บันทึกลงฐานข้อมูลไม่สำเร็จ',
+        description: error?.message || 'เกิดข้อผิดพลาดในการบันทึก',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      setSlides(reorderItemsById(slides, String(active.id), String(over.id)));
+      const reordered = reorderItemsById(slides, String(active.id), String(over.id));
+      await persistSlides(reordered, autoplayEnabled, autoplayInterval, false);
+      toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับสไลด์ใหม่แล้ว' });
     }
+  };
+
+  const handleMoveSlide = async (idx: number, direction: 'up' | 'down') => {
+    const moved = moveItemInOrder(slides, idx, direction);
+    await persistSlides(moved, autoplayEnabled, autoplayInterval, false);
+    toast({ title: 'จัดเรียงสำเร็จ', description: 'บันทึกลำดับสไลด์ใหม่แล้ว' });
+  };
+
+  const handleToggleSlide = async (slideId: string, checked: boolean) => {
+    const updated = slides.map((s) => (s.id === slideId ? { ...s, enabled: checked } : s));
+    await persistSlides(
+      updated,
+      autoplayEnabled,
+      autoplayInterval,
+      true,
+      checked ? 'เปิดแสดงผลสไลด์แล้ว' : 'ปิดซ่อนสไลด์แล้ว'
+    );
   };
 
   const handleOpenDialog = (slide?: HeroSlideItem) => {
@@ -328,7 +410,7 @@ export const HeroSliderManagement = () => {
     setIsDialogOpen(true);
   };
 
-  const handleSaveSlideForm = (e: React.FormEvent) => {
+  const handleSaveSlideForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) {
       toast({
@@ -338,20 +420,24 @@ export const HeroSliderManagement = () => {
       return;
     }
 
+    let updated: HeroSlideItem[] = [];
     if (editingSlide) {
-      setSlides((prev) => prev.map((s) => (s.id === editingSlide.id ? { ...formData } : s)));
+      updated = slides.map((s) => (s.id === editingSlide.id ? { ...formData } : s));
     } else {
-      setSlides((prev) => [...prev, { ...formData, order: prev.length + 1 }]);
+      updated = [...slides, { ...formData, order: slides.length + 1 }];
     }
 
     setIsDialogOpen(false);
-    toast({
-      title: editingSlide ? 'แก้ไขสไลด์เรียบร้อย' : 'เพิ่มสไลด์ใหม่เรียบร้อย',
-      description: 'อย่าลืมกด "บันทึกภาพสไลด์" เพื่อยืนยันการเปลี่ยนแปลงบนหน้าเว็บไซต์',
-    });
+    await persistSlides(
+      updated,
+      autoplayEnabled,
+      autoplayInterval,
+      true,
+      editingSlide ? 'บันทึกการแก้ไขสไลด์สำเร็จ' : 'เพิ่มภาพสไลด์ใหม่สำเร็จ'
+    );
   };
 
-  const handleDeleteSlide = (slideId: string, slideTitle: string) => {
+  const handleDeleteSlide = async (slideId: string, slideTitle: string) => {
     if (slides.length <= 1) {
       toast({
         variant: 'destructive',
@@ -367,77 +453,25 @@ export const HeroSliderManagement = () => {
       .filter((s) => s.id !== slideId)
       .map((s, idx) => ({ ...s, order: idx + 1 }));
 
-    setSlides(remaining);
-    toast({
-      title: 'ลบสไลด์แล้ว',
-      description: 'กด "บันทึกภาพสไลด์" เพื่อยืนยันบนฐานข้อมูล',
-    });
+    await persistSlides(remaining, autoplayEnabled, autoplayInterval, true, 'ลบสไลด์เรียบร้อยแล้ว');
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     if (!confirm('ต้องการรีเซ็ตภาพสไลด์กลับเป็นค่ามาตรฐาน 3 สไลด์ของโรงเรียนหรือไม่?')) return;
-    setSlides(DEFAULT_HERO_SLIDES.map((s) => ({ ...s })));
+    const defaults = DEFAULT_HERO_SLIDES.map((s) => ({ ...s }));
     setAutoplayEnabled(true);
     setAutoplayInterval('6000');
-    toast({
-      title: 'รีเซ็ตภาพสไลด์เป็นค่ามาตรฐานแล้ว',
-      description: 'กด "บันทึกภาพสไลด์" เพื่อยืนยันบนหน้าเว็บ',
-    });
+    await persistSlides(defaults, true, '6000', true, 'รีเซ็ตภาพสไลด์เป็นค่าเริ่มต้นเรียบร้อยแล้ว');
   };
 
   const handleSaveAll = async () => {
-    try {
-      setSaving(true);
-
-      const entries = [
-        {
-          key: 'hero_slides_json',
-          value: JSON.stringify(slides),
-          category: 'homepage',
-        },
-        {
-          key: 'hero_autoplay_enabled',
-          value: autoplayEnabled ? 'true' : 'false',
-          category: 'homepage',
-        },
-        {
-          key: 'hero_autoplay_interval',
-          value: autoplayInterval,
-          category: 'homepage',
-        },
-      ];
-
-      for (const entry of entries) {
-        const { error } = await supabase.from('school_settings').upsert(
-          {
-            key: entry.key,
-            value: entry.value,
-            category: entry.category,
-          } as any,
-          { onConflict: 'key' }
-        );
-        if (error) throw error;
-      }
-
-      // Clear cached settings and notify realtime subscribers
-      localStorage.removeItem('school_settings_cache');
-      localStorage.removeItem('school_settings_cache_v3');
-      notifyLocalRealtimeListeners('school_settings');
-
-      toast({
-        title: 'บันทึกภาพสไลด์สำเร็จ (Realtime Sync)',
-        description: 'ภาพสไลด์บนหัวเว็บหน้าแรกอัปเดตเรียบร้อยแล้วทันที',
-      });
-    } catch (error: any) {
-      console.error('Error saving hero slides:', error);
-      toast({
-        variant: 'destructive',
-        title: 'บันทึกไม่สำเร็จ',
-        description: error?.message || 'เกิดข้อผิดพลาดในการบันทึกลง Supabase',
-      });
-    } finally {
-      setSaving(false);
-    }
+    await persistSlides(
+      slides,
+      autoplayEnabled,
+      autoplayInterval,
+      true,
+      'บันทึกภาพสไลด์สำเร็จ (Realtime Sync)'
+    );
   };
 
   if (loading) {
@@ -502,13 +536,25 @@ export const HeroSliderManagement = () => {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">สลับอัตโนมัติ:</span>
-              <Switch checked={autoplayEnabled} onCheckedChange={setAutoplayEnabled} />
+              <Switch
+                checked={autoplayEnabled}
+                onCheckedChange={(val) => {
+                  setAutoplayEnabled(val);
+                  persistSlides(slides, val, autoplayInterval, true, val ? 'เปิดสไลด์อัตโนมัติแล้ว' : 'ปิดสไลด์อัตโนมัติแล้ว');
+                }}
+              />
             </div>
 
             {autoplayEnabled && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">ความเร็ว:</span>
-                <Select value={autoplayInterval} onValueChange={setAutoplayInterval}>
+                <Select
+                  value={autoplayInterval}
+                  onValueChange={(val) => {
+                    setAutoplayInterval(val);
+                    persistSlides(slides, autoplayEnabled, val, true, 'ปรับความเร็วสไลด์แล้ว');
+                  }}
+                >
                   <SelectTrigger className="w-36 h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -574,13 +620,9 @@ export const HeroSliderManagement = () => {
                     slide={slide}
                     index={idx}
                     total={slides.length}
-                    onMoveUp={() => setSlides(moveItemInOrder(slides, idx, 'up'))}
-                    onMoveDown={() => setSlides(moveItemInOrder(slides, idx, 'down'))}
-                    onToggle={(checked) =>
-                      setSlides(
-                        slides.map((s) => (s.id === slide.id ? { ...s, enabled: checked } : s))
-                      )
-                    }
+                    onMoveUp={() => handleMoveSlide(idx, 'up')}
+                    onMoveDown={() => handleMoveSlide(idx, 'down')}
+                    onToggle={(checked) => handleToggleSlide(slide.id, checked)}
                     onEdit={() => handleOpenDialog(slide)}
                     onDelete={() => handleDeleteSlide(slide.id, slide.title)}
                   />

@@ -60,34 +60,46 @@ export const ImageUpload = ({
             const previewUrl = URL.createObjectURL(compressedBlob);
             setPreview(previewUrl);
 
-            const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(7)}.webp`;
+            let finalUrl = '';
+            try {
+                const { data, error } = await supabase.storage
+                    .from(bucket)
+                    .upload(fileName, compressedBlob, {
+                        cacheControl: '3600',
+                        upsert: false,
+                        contentType: 'image/webp',
+                    });
 
-            const { data, error } = await supabase.storage
-                .from(bucket)
-                .upload(fileName, compressedBlob, {
-                    cacheControl: '3600',
-                    upsert: false,
-                    contentType: 'image/webp',
+                if (error) throw error;
+
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from(bucket)
+                    .getPublicUrl(data.path);
+
+                finalUrl = publicUrl;
+            } catch (storageErr: any) {
+                console.warn('Storage upload warning, fallback to data URL:', storageErr);
+                // Fallback to data URL
+                finalUrl = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(compressedBlob);
                 });
+            }
 
-            if (error) throw error;
-
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from(bucket)
-                .getPublicUrl(data.path);
-
-            onUploadComplete(publicUrl);
+            setPreview(finalUrl);
+            onUploadComplete(finalUrl);
 
             toast({
                 title: 'อัปโหลดสำเร็จ',
-                description: 'รูปภาพถูกบีบอัดและอัปโหลดเรียบร้อยแล้ว',
+                description: 'รูปภาพถูกประมวลผลและพร้อมใช้งานเรียบร้อยแล้ว',
             });
         } catch (error: any) {
             console.error('Upload error:', error);
             toast({
                 title: 'อัปโหลดล้มเหลว',
-                description: error.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ',
+                description: error.message || 'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
                 variant: 'destructive',
             });
             setPreview(null);

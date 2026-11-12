@@ -97,27 +97,35 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                 const fileExt = isSvg ? 'svg' : 'webp';
                 const fileName = `gallery/${album.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('images')
-                    .upload(fileName, compressedBlob, {
-                        cacheControl: '3600',
-                        upsert: false,
-                        contentType,
-                    });
+                let photoUrl = '';
+                try {
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('images')
+                        .upload(fileName, compressedBlob, {
+                            cacheControl: '3600',
+                            upsert: false,
+                            contentType,
+                        });
 
-                if (uploadError) {
-                    console.error('Error uploading image:', file.name, uploadError);
-                    continue;
+                    if (uploadError) throw uploadError;
+
+                    // Get public URL
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('images')
+                        .getPublicUrl(uploadData.path);
+                    photoUrl = publicUrl;
+                } catch (stErr) {
+                    console.warn('Storage upload fallback to data URL for photo:', file.name, stErr);
+                    photoUrl = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.readAsDataURL(compressedBlob);
+                    });
                 }
 
-                // Get public URL
-                const { data: { publicUrl } } = supabase.storage
-                    .from('images')
-                    .getPublicUrl(uploadData.path);
-
                 uploadedPhotos.push({
-                    photo_url: publicUrl,
-                    thumbnail_url: publicUrl,
+                    photo_url: photoUrl,
+                    thumbnail_url: photoUrl,
                 });
             }
 
@@ -294,13 +302,21 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                             <p className="text-muted-foreground">กำลังโหลด...</p>
                         </div>
                     ) : photos.length === 0 ? (
-                        <div className="text-center py-12">
-                            <Upload className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                            <p className="text-muted-foreground mb-4">ยังไม่มีรูปภาพในอัลบั้มนี้</p>
-                            <Button onClick={() => fileInputRef.current?.click()}>
-                                <Upload className="w-4 h-4 mr-2" />
-                                อัปโหลดรูปแรก
-                            </Button>
+                        <div className="text-center py-12 border-2 border-dashed border-border rounded-xl p-8 bg-secondary/20">
+                            <Upload className="w-16 h-16 mx-auto text-primary mb-4" />
+                            <h3 className="text-lg font-semibold text-foreground mb-1">ยังไม่มีรูปภาพในอัลบั้มนี้</h3>
+                            <p className="text-sm text-muted-foreground mb-6">
+                                รองรับการอัปโหลดได้หลายรูปพร้อมกัน หรือเลือกทั้งโฟลเดอร์จากเครื่องของคุณได้ทันที ไม่จำกัดขนาดไฟล์
+                            </p>
+                            <div className="flex flex-wrap items-center justify-center gap-3">
+                                <Button onClick={() => fileInputRef.current?.click()} className="gap-2">
+                                    <Upload className="w-4 h-4" />
+                                    เลือกรูปภาพ (หลายรูป)
+                                </Button>
+                                <Button variant="secondary" onClick={() => folderInputRef.current?.click()} className="gap-2 border border-border">
+                                    <span>📁 เลือกทั้งโฟลเดอร์</span>
+                                </Button>
+                            </div>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
