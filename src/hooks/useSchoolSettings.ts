@@ -121,6 +121,14 @@ export interface SchoolSettings {
   welcomePopup: WelcomePopupConfig;
   heroSlides: HeroSlideItem[];
 
+  // Quick Chat Widget (Floating LINE & Direct Inquiry)
+  quick_chat_enabled: string;
+  quick_chat_title: string;
+  quick_chat_greeting: string;
+  quick_chat_school_line: string;
+  quick_chat_director_line: string;
+  quick_chat_phone: string;
+
   // Cloud & Realtime Sync
   supabase_project_ref: string;
   vercel_site_url: string;
@@ -209,6 +217,12 @@ const defaultSettings: SchoolSettings = {
     imageUrl: heroImage,
   },
   heroSlides: DEFAULT_HERO_SLIDES,
+  quick_chat_enabled: 'true',
+  quick_chat_title: 'แชทด่วนสอบถามข้อมูล',
+  quick_chat_greeting: 'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด มีข้อสงสัยหรือต้องการสอบถามข้อมูล สามารถแชทคุยกับเราได้เลยครับ',
+  quick_chat_school_line: 'https://line.me/ti/p/~hadkedschool',
+  quick_chat_director_line: 'https://line.me/ti/p/~director.hadked',
+  quick_chat_phone: '054-710-123',
   supabase_project_ref: 'fhfckuypfstlokashcmu',
   vercel_site_url: '',
   vercel_deploy_hook_url: '',
@@ -468,6 +482,18 @@ export const useSchoolSettings = () => {
             settingsMap.hero_autoplay_enabled || defaultSettings.hero_autoplay_enabled,
           hero_autoplay_interval:
             settingsMap.hero_autoplay_interval || defaultSettings.hero_autoplay_interval,
+          quick_chat_enabled:
+            settingsMap.quick_chat_enabled ?? defaultSettings.quick_chat_enabled,
+          quick_chat_title:
+            settingsMap.quick_chat_title || defaultSettings.quick_chat_title,
+          quick_chat_greeting:
+            settingsMap.quick_chat_greeting || defaultSettings.quick_chat_greeting,
+          quick_chat_school_line:
+            settingsMap.quick_chat_school_line || defaultSettings.quick_chat_school_line,
+          quick_chat_director_line:
+            settingsMap.quick_chat_director_line || defaultSettings.quick_chat_director_line,
+          quick_chat_phone:
+            settingsMap.quick_chat_phone || defaultSettings.quick_chat_phone,
           homepageSections,
           newsHubSubSections,
           navbarMenuItems,

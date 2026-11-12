@@ -24,6 +24,7 @@ import {
   Megaphone,
   Eye,
   Trash2,
+  MessageCircle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
@@ -1210,6 +1211,103 @@ export const SettingsManagement = () => {
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        {/* Quick LINE Chat Widget Settings */}
+        <Card className="border-[#06C755]/30">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <div className="w-7 h-7 rounded-lg bg-[#06C755] text-white flex items-center justify-center">
+                    <MessageCircle className="w-4 h-4 fill-current" />
+                  </div>
+                  ระบบแชทด่วนมุมขวาล่าง (Quick LINE Chat Widget)
+                </CardTitle>
+                <CardDescription>
+                  ป๊อปอัปแชทด่วนมุมขวาล่างสำหรับติดต่อไปยังกลุ่ม LINE โรงเรียน หรือ LINE ผู้อำนวยการ พร้อมกล่องฝากข้อความสอบถาม
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {settings.quick_chat_enabled !== 'false' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                </span>
+                <Switch
+                  checked={settings.quick_chat_enabled !== 'false'}
+                  onCheckedChange={(checked) =>
+                    handleChange('quick_chat_enabled', checked ? 'true' : 'false')
+                  }
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick_chat_title">หัวข้อแชทด่วน</Label>
+                <Input
+                  id="quick_chat_title"
+                  value={settings.quick_chat_title || 'แชทด่วนสอบถามข้อมูล'}
+                  onChange={(e) => handleChange('quick_chat_title', e.target.value)}
+                  placeholder="แชทด่วนสอบถามข้อมูล"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quick_chat_phone">เบอร์โทรศัพท์ติดต่อด่วน</Label>
+                <Input
+                  id="quick_chat_phone"
+                  value={settings.quick_chat_phone || '054-710-123'}
+                  onChange={(e) => handleChange('quick_chat_phone', e.target.value)}
+                  placeholder="054-710-123"
+                />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick_chat_school_line" className="text-[#06C755] font-semibold">
+                  🔗 ลิงก์กลุ่ม LINE โรงเรียน หรือ LINE Official
+                </Label>
+                <Input
+                  id="quick_chat_school_line"
+                  value={settings.quick_chat_school_line || ''}
+                  onChange={(e) => handleChange('quick_chat_school_line', e.target.value)}
+                  placeholder="https://line.me/ti/p/~hadkedschool หรือ https://line.me/ti/g/..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  ใส่ URL สำหรับให้ผู้ปกครองหรือผู้สนใจกดเข้าร่วมกลุ่ม LINE ของโรงเรียน
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quick_chat_director_line" className="text-blue-600 dark:text-blue-400 font-semibold">
+                  🔗 ลิงก์ LINE ผู้อำนวยการ หรือ ผู้บริหารโรงเรียน
+                </Label>
+                <Input
+                  id="quick_chat_director_line"
+                  value={settings.quick_chat_director_line || ''}
+                  onChange={(e) => handleChange('quick_chat_director_line', e.target.value)}
+                  placeholder="https://line.me/ti/p/~director.hadked"
+                />
+                <p className="text-xs text-muted-foreground">
+                  ใส่ URL LINE ID หรือ LINE ส่วนตัวของผู้อำนวยการเพื่อรับเรื่องโดยตรง
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quick_chat_greeting">ข้อความทักทายอัตโนมัติในหน้าต่างแชท</Label>
+              <Input
+                id="quick_chat_greeting"
+                value={
+                  settings.quick_chat_greeting ||
+                  'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด มีข้อสงสัยหรือต้องการสอบถามข้อมูล สามารถแชทคุยกับเราได้เลยครับ'
+                }
+                onChange={(e) => handleChange('quick_chat_greeting', e.target.value)}
+                placeholder="ข้อความทักทายเมื่อเปิดหน้าต่างแชท"
+              />
+            </div>
           </CardContent>
         </Card>
 

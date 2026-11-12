@@ -58,6 +58,9 @@ import {
   Layers,
   AlertTriangle,
   CheckCircle2,
+  Database,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
@@ -302,6 +305,8 @@ export const HeroSliderManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSlide, setEditingSlide] = useState<HeroSlideItem | null>(null);
   const [slideToDelete, setSlideToDelete] = useState<HeroSlideItem | null>(null);
+  const [isTableConnected, setIsTableConnected] = useState(false);
+  const [showSqlDialog, setShowSqlDialog] = useState(false);
 
   const [formData, setFormData] = useState<HeroSlideItem>({
     id: '',
@@ -373,6 +378,7 @@ export const HeroSliderManagement = () => {
         loadedSlides = parsed.length > 0 ? parsed : DEFAULT_HERO_SLIDES;
       }
 
+      setIsTableConnected(tableLoaded);
       setSlides(loadedSlides);
     } catch (error: any) {
       console.error('Error loading hero slides:', error);
@@ -664,21 +670,37 @@ export const HeroSliderManagement = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
               <CheckCircle2 className="w-3 h-3 mr-1" />
               Full Control System
             </Badge>
-            <Badge variant="outline" className="text-muted-foreground text-xs">
-              Table: hero_slides
-            </Badge>
+            {isTableConnected ? (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs">
+                🟢 Supabase Table: hero_slides
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">
+                🟡 โหมดสำรอง Realtime Sync (school_settings)
+              </Badge>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSqlDialog(true)}
+              className="text-xs h-6 px-2 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <Database className="w-3 h-3" />
+              คำสั่ง SQL สำหรับ Supabase
+            </Button>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2.5 mt-1.5">
             <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
-            จัดการภาพสไลด์บนหัวเว็บ (Hero Slider)
+            จัดการภาพสไลด์บนหัวเว็บ (Hero Slider Console)
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            ปรับแต่ง เพิ่ม ลบ แก้ไขภาพสไลด์บนหัวเว็บไซต์ จัดลำดับ และอัปโหลดรูปภาพได้อิสระโดยไม่จำกัดขนาด
+            ปรับแต่ง เพิ่ม ลบ แก้ไขภาพสไลด์บนหัวเว็บไซต์ จัดลำดับ และอัปโหลดรูปภาพได้อิสระแบบ Full Control โดยไม่จำกัดขนาด
           </p>
         </div>
 
@@ -1083,6 +1105,95 @@ export const HeroSliderManagement = () => {
             >
               <Trash2 className="w-4 h-4" />
               {saving ? 'กำลังลบ...' : 'ยืนยันลบสไลด์นี้'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SQL Migration Instruction Dialog */}
+      <Dialog open={showSqlDialog} onOpenChange={setShowSqlDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Database className="w-5 h-5" />
+              คำสั่ง SQL สำหรับเพิ่มตาราง hero_slides ใน Supabase
+            </DialogTitle>
+            <DialogDescription>
+              คัดลอกคำสั่งด้านล่างนี้ไปวางและกดรันใน Supabase SQL Editor เพื่อสร้างตาราง hero_slides พร้อมสิทธิ์ RLS และเปิด Realtime
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+              💡 <strong>คำแนะนำ:</strong> คำสั่งนี้ปลอดภัย 100% (ใช้ IF NOT EXISTS) สามารถรันซ้ำได้โดยไม่กระทบข้อมูลเดิมของโรงเรียน และถึงแม้ยังไม่ได้รัน ระบบก็ยังสามารถบันทึกสไลด์ผ่าน school_settings แบบ Full Control ได้ทันที
+            </div>
+
+            <pre className="p-3 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto max-h-64 leading-relaxed">
+{`-- 1. สร้างตาราง hero_slides
+CREATE TABLE IF NOT EXISTS public.hero_slides (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT DEFAULT '',
+  kicker TEXT DEFAULT '',
+  subline TEXT DEFAULT '',
+  image_url TEXT DEFAULT '',
+  primary_label TEXT DEFAULT 'สมัครเรียนออนไลน์',
+  primary_href TEXT DEFAULT '/enrollment',
+  secondary_label TEXT DEFAULT 'เกี่ยวกับโรงเรียน',
+  secondary_href TEXT DEFAULT '/about',
+  track1_name TEXT DEFAULT 'นักเรียนปัจจุบัน',
+  track1_range TEXT DEFAULT '74 คน',
+  track2_name TEXT DEFAULT 'ระยะเวลาหลักสูตร',
+  track2_range TEXT DEFAULT '9 ปี',
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  order_position INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. กำหนดสิทธิ์ RLS
+ALTER TABLE public.hero_slides ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read for hero_slides" ON public.hero_slides;
+CREATE POLICY "Public Read for hero_slides" ON public.hero_slides FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Full Access for hero_slides" ON public.hero_slides;
+CREATE POLICY "Public Full Access for hero_slides" ON public.hero_slides FOR ALL USING (true) WITH CHECK (true);
+
+-- 3. เปิดใช้งาน Supabase Realtime
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'hero_slides'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.hero_slides;
+    END IF;
+  END IF;
+END $$;`}
+            </pre>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const sqlText = `-- 1. สร้างตาราง hero_slides\nCREATE TABLE IF NOT EXISTS public.hero_slides (\n  id TEXT PRIMARY KEY,\n  title TEXT NOT NULL,\n  subtitle TEXT DEFAULT '',\n  kicker TEXT DEFAULT '',\n  subline TEXT DEFAULT '',\n  image_url TEXT DEFAULT '',\n  primary_label TEXT DEFAULT 'สมัครเรียนออนไลน์',\n  primary_href TEXT DEFAULT '/enrollment',\n  secondary_label TEXT DEFAULT 'เกี่ยวกับโรงเรียน',\n  secondary_href TEXT DEFAULT '/about',\n  track1_name TEXT DEFAULT 'นักเรียนปัจจุบัน',\n  track1_range TEXT DEFAULT '74 คน',\n  track2_name TEXT DEFAULT 'ระยะเวลาหลักสูตร',\n  track2_range TEXT DEFAULT '9 ปี',\n  is_active BOOLEAN NOT NULL DEFAULT true,\n  order_position INTEGER NOT NULL DEFAULT 1,\n  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),\n  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n);\n\n-- 2. กำหนดสิทธิ์ RLS\nALTER TABLE public.hero_slides ENABLE ROW LEVEL SECURITY;\nDROP POLICY IF EXISTS "Public Read for hero_slides" ON public.hero_slides;\nCREATE POLICY "Public Read for hero_slides" ON public.hero_slides FOR SELECT USING (true);\nDROP POLICY IF EXISTS "Public Full Access for hero_slides" ON public.hero_slides;\nCREATE POLICY "Public Full Access for hero_slides" ON public.hero_slides FOR ALL USING (true) WITH CHECK (true);\n\n-- 3. เปิดใช้งาน Supabase Realtime\nDO $$\nBEGIN\n  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN\n    IF NOT EXISTS (\n      SELECT 1 FROM pg_publication_tables \n      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'hero_slides'\n    ) THEN\n      ALTER PUBLICATION supabase_realtime ADD TABLE public.hero_slides;\n    END IF;\n  END IF;\nEND $$;`;
+                navigator.clipboard.writeText(sqlText);
+                toast({ title: 'คัดลอกคำสั่ง SQL แล้ว', description: 'นำไปวางและกด Run ใน Supabase SQL Editor ได้ทันที' });
+              }}
+              className="gap-1.5"
+            >
+              <Copy className="w-4 h-4" />
+              คัดลอกคำสั่ง SQL
+            </Button>
+            <Button
+              type="button"
+              onClick={() => window.open('https://supabase.com/dashboard/project/fhfckuypfstlokashcmu/sql/new', '_blank')}
+              className="gap-1.5"
+            >
+              <ExternalLink className="w-4 h-4" />
+              เปิด Supabase SQL Editor ↗
             </Button>
           </DialogFooter>
         </DialogContent>

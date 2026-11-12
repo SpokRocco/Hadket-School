@@ -22,6 +22,7 @@ export interface Album {
     created_at: string;
     photo_count?: number;
     google_photos_url?: string | null;
+    google_drive_url?: string | null;
 }
 
 export const GalleryManagement = () => {

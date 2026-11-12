@@ -3,8 +3,8 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, ChevronLeft, ChevronRight, Image as ImageIcon, Calendar, MapPin } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { X, ChevronLeft, ChevronRight, Image as ImageIcon, Calendar, MapPin, FolderDown, ExternalLink } from 'lucide-react';
 import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -17,6 +17,7 @@ interface Album {
   location: string | null;
   cover_photo_url: string | null;
   description: string | null;
+  google_drive_url?: string | null;
   google_photos_url?: string | null;
   photos: Photo[];
 }
@@ -43,6 +44,21 @@ const Gallery = () => {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [rightClickTarget, setRightClickTarget] = useState<{
+    isOpen: boolean;
+    album: Album | null;
+    photoUrl?: string;
+  }>({ isOpen: false, album: null });
+
+  const handlePhotoContextMenu = (e: React.MouseEvent, album: Album, photoUrl?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRightClickTarget({
+      isOpen: true,
+      album,
+      photoUrl: photoUrl || album.cover_photo_url || undefined,
+    });
+  };
 
   const fetchAlbums = useCallback(async () => {
     try {
@@ -72,6 +88,7 @@ const Gallery = () => {
             location: album.location,
             cover_photo_url: album.cover_photo_url || ((photos as any)?.[0]?.photo_url) || null,
             description: album.description,
+            google_drive_url: album.google_drive_url || null,
             google_photos_url: album.google_photos_url || null,
             photos: (photos as any[]) || [],
           };
@@ -167,68 +184,156 @@ const Gallery = () => {
           <p className="text-center text-muted-foreground text-lg">ไม่พบอัลบั้มในหมวดหมู่นี้</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredAlbums.map((album) => (
-              <div
-                key={album.id}
-                className="bg-card rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300 group relative"
-                onClick={() => handleAlbumClick(album)}
-              >
-                <div className="relative w-full h-48 overflow-hidden">
-                  {album.cover_photo_url ? (
-                    <img
-                      src={album.cover_photo_url}
-                      alt={album.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
-                      <ImageIcon className="w-12 h-12" />
+            {filteredAlbums.map((album) => {
+              const previewPhotos = (album.photos || []).slice(0, 10);
+              return (
+                <div
+                  key={album.id}
+                  className="bg-card rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-border overflow-hidden cursor-pointer flex flex-col group"
+                  onClick={() => handleAlbumClick(album)}
+                >
+                  {/* Cover Photo with Right Click Interceptor */}
+                  <div
+                    className="relative w-full h-52 overflow-hidden bg-slate-900"
+                    onContextMenu={(e) => handlePhotoContextMenu(e, album, album.cover_photo_url || undefined)}
+                    title="คลิกเพื่อเปิดดูภาพเต็ม · คลิกขวาเพื่อดาวน์โหลดผ่าน Google Drive"
+                  >
+                    {album.cover_photo_url ? (
+                      <img
+                        src={album.cover_photo_url}
+                        alt={album.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
+                        <ImageIcon className="w-12 h-12" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent opacity-90 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3.5">
+                      <div className="flex justify-between items-start gap-2">
+                        {album.category && (
+                          <Badge className={`${categoryColors[album.category] || 'bg-primary'} text-white shadow-md text-xs`}>
+                            {album.category}
+                          </Badge>
+                        )}
+                        {album.photos.length > 0 && (
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-xs border border-white/10">
+                            📸 {album.photos.length} รูป
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2 drop-shadow-md">
+                          {album.title}
+                        </h3>
+                      </div>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <h3 className="text-lg font-semibold text-white">{album.title}</h3>
                   </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold mb-2">{album.title}</h3>
-                  {album.category && (
-                    <Badge className={`mb-2 ${categoryColors[album.category] || 'bg-gray-500'}`}>
-                      {album.category}
-                    </Badge>
-                  )}
-                  <div className="flex items-center text-sm text-muted-foreground mt-2">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    <span>{album.date}</span>
-                  </div>
-                  {album.location && (
-                    <div className="flex items-center text-sm text-muted-foreground mt-1">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      <span>{album.location}</span>
-                    </div>
-                  )}
 
-                  {album.google_photos_url && (
-                    <div className="mt-3 pt-2 border-t border-border">
-                      <a
-                        href={album.google_photos_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        <span>📷 เปิดอัลบั้มใน Google Photos</span>
-                        <span>↗</span>
-                      </a>
+                  {/* Album Body & 10 Sample Preview Photos */}
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{album.date}</span>
+                        </div>
+                        {album.location && (
+                          <div className="flex items-center gap-1 truncate max-w-[140px]">
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{album.location}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {album.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                          {album.description}
+                        </p>
+                      )}
                     </div>
-                  )}
+
+                    {/* 10 Sample Preview Thumbnails */}
+                    {previewPhotos.length > 0 && (
+                      <div className="pt-2 border-t border-border/80">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3 text-primary" />
+                            รูปภาพตัวอย่าง ({previewPhotos.length} รูป)
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            คลิกขวาเพื่อดู Drive
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1">
+                          {previewPhotos.map((photo, pIdx) => (
+                            <div
+                              key={photo.id || pIdx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAlbum(album);
+                                setCurrentPhotoIndex(pIdx);
+                              }}
+                              onContextMenu={(e) => handlePhotoContextMenu(e, album, photo.photo_url)}
+                              title={photo.caption || `รูปตัวอย่างที่ ${pIdx + 1} (คลิกขวาเพื่อดูลิงก์ Google Drive)`}
+                              className="relative aspect-square rounded-md overflow-hidden bg-slate-900 border border-border/70 hover:border-primary hover:scale-105 transition-all cursor-pointer group/thumb shadow-xs"
+                            >
+                              <img
+                                src={photo.photo_url}
+                                alt={photo.caption || `รูปที่ ${pIdx + 1}`}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Direct Links (Google Drive & Google Photos) */}
+                    <div className="pt-2 border-t border-border flex flex-col gap-1.5">
+                      {album.google_drive_url && (
+                        <a
+                          href={album.google_drive_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center justify-between px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-500/20 transition-colors"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <FolderDown className="w-3.5 h-3.5" />
+                            Google Drive รวมภาพทั้งหมด
+                          </span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                      {album.google_photos_url && (
+                        <a
+                          href={album.google_photos_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center justify-between px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-semibold border border-blue-500/20 transition-colors"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            อัลบั้ม Google Photos
+                          </span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
 
+      {/* Lightbox Dialog */}
       <Dialog open={!!selectedAlbum} onOpenChange={() => setSelectedAlbum(null)}>
         <DialogContent className="max-w-7xl w-[95vw] h-[90vh] p-0 flex flex-col bg-black/50 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden [&>button]:hidden focus:outline-none">
           {selectedAlbum && selectedAlbum.photos.length > 0 && (
@@ -238,10 +343,22 @@ const Gallery = () => {
                 <div className="flex-1 min-w-0 pointer-events-auto bg-black/40 backdrop-blur-md px-6 py-2 rounded-full inline-block mr-auto border border-white/10 shadow-lg animate-in slide-in-from-top-4 duration-500">
                   <h3 className="font-bold text-lg truncate text-white">{selectedAlbum.title}</h3>
                   <p className="text-xs text-white/70 uppercase tracking-wider">
-                    PHOTO {currentPhotoIndex + 1} OF {selectedAlbum.photos.length}
+                    PHOTO {currentPhotoIndex + 1} OF {selectedAlbum.photos.length} · คลิกขวาเพื่อเปิด Google Drive
                   </p>
                 </div>
                 <div className="flex items-center gap-2 pointer-events-auto">
+                  {selectedAlbum.google_drive_url && (
+                    <a
+                      href={selectedAlbum.google_drive_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600/90 hover:bg-emerald-600 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-lg transition-all hover:scale-105"
+                    >
+                      <FolderDown className="w-3.5 h-3.5" />
+                      <span>Google Drive รวมภาพทั้งหมด</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                   {selectedAlbum.google_photos_url && (
                     <a
                       href={selectedAlbum.google_photos_url}
@@ -272,7 +389,9 @@ const Gallery = () => {
                   src={selectedAlbum.photos[currentPhotoIndex].photo_url}
                   alt={selectedAlbum.photos[currentPhotoIndex].caption || `รูปที่ ${currentPhotoIndex + 1}`}
                   referrerPolicy="no-referrer"
-                  className="max-w-full max-h-full object-contain p-4 sm:p-12 transition-all duration-500 animate-in zoom-in-95"
+                  onContextMenu={(e) => handlePhotoContextMenu(e, selectedAlbum, selectedAlbum.photos[currentPhotoIndex].photo_url)}
+                  className="max-w-full max-h-full object-contain p-4 sm:p-12 transition-all duration-500 animate-in zoom-in-95 cursor-pointer"
+                  title="คลิกขวาเพื่อดาวน์โหลดผ่าน Google Drive"
                 />
 
                 {/* Navigation Arrows - Big & Floating */}
@@ -306,8 +425,7 @@ const Gallery = () => {
 
               {/* Footer - Caption & Thumbnails */}
               <div className="shrink-0 bg-black/60 backdrop-blur-xl border-t border-white/5 pb-6 pt-4 px-6">
-
-                {/* Caption - Elegant Typography */}
+                {/* Caption */}
                 {selectedAlbum.photos[currentPhotoIndex].caption && (
                   <div className="mb-4 text-center max-w-4xl mx-auto">
                     <p className="text-base text-white/90 font-light tracking-wide leading-relaxed">
@@ -338,10 +456,12 @@ const Gallery = () => {
                           <button
                             key={photo.id}
                             onClick={() => setCurrentPhotoIndex(idx)}
-                            className={`flex-shrink-0 w-20 h-14 rounded-md overflow-hidden transition-all duration-300 relative ${idx === currentPhotoIndex
-                              ? 'ring-2 ring-white scale-105 shadow-lg opacity-100'
-                              : 'opacity-40 hover:opacity-80 hover:scale-105 grayscale hover:grayscale-0'
-                              }`}
+                            onContextMenu={(e) => handlePhotoContextMenu(e, selectedAlbum, photo.photo_url)}
+                            className={`flex-shrink-0 w-20 h-14 rounded-md overflow-hidden transition-all duration-300 relative ${
+                              idx === currentPhotoIndex
+                                ? 'ring-2 ring-white scale-105 shadow-lg opacity-100'
+                                : 'opacity-40 hover:opacity-80 hover:scale-105 grayscale hover:grayscale-0'
+                            }`}
                           >
                             <img
                               src={photo.photo_url}
@@ -349,7 +469,6 @@ const Gallery = () => {
                               referrerPolicy="no-referrer"
                               className="w-full h-full object-cover"
                             />
-                            {/* Overlay for inactive */}
                             {idx !== currentPhotoIndex && <div className="absolute inset-0 bg-black/20" />}
                           </button>
                         ))}
@@ -369,6 +488,98 @@ const Gallery = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Right-Click Interception Modal for Google Drive */}
+      <Dialog
+        open={rightClickTarget.isOpen}
+        onOpenChange={(open) => !open && setRightClickTarget({ isOpen: false, album: null })}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <FolderDown className="w-5 h-5" />
+              ดาวน์โหลดรูปภาพทั้งหมดผ่าน Google Drive
+            </DialogTitle>
+            <DialogDescription>
+              โรงเรียนบ้านหาดเค็ดจัดเก็บรูปภาพกิจกรรมต้นฉบับความละเอียดสูงไว้บน Google Drive
+            </DialogDescription>
+          </DialogHeader>
+
+          {rightClickTarget.album && (
+            <div className="space-y-3 my-2">
+              <div className="p-3 rounded-xl border bg-secondary/30 flex items-center gap-3">
+                <div className="w-20 h-16 rounded-lg overflow-hidden bg-slate-900 border shrink-0">
+                  <img
+                    src={rightClickTarget.photoUrl || rightClickTarget.album.cover_photo_url || ''}
+                    alt={rightClickTarget.album.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sm line-clamp-2">{rightClickTarget.album.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{rightClickTarget.album.date}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                เพื่อความสะดวกในการดาวน์โหลดรูปภาพกิจกรรมคุณภาพสูงของนักเรียน ผู้ปกครอง และคณะครู ท่านสามารถเข้าถึงโฟลเดอร์ Google Drive รวมรูปภาพทั้งหมดของอัลบั้มนี้ได้โดยตรง
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-col gap-2">
+            {rightClickTarget.album?.google_drive_url ? (
+              <Button
+                type="button"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm"
+                onClick={() => {
+                  window.open(rightClickTarget.album?.google_drive_url || '', '_blank');
+                  setRightClickTarget({ isOpen: false, album: null });
+                }}
+              >
+                <FolderDown className="w-4 h-4" />
+                เปิดโฟลเดอร์ Google Drive รวมรูปภาพทั้งหมด ↗
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm"
+                onClick={() => {
+                  window.open('https://drive.google.com', '_blank');
+                  setRightClickTarget({ isOpen: false, album: null });
+                }}
+              >
+                <FolderDown className="w-4 h-4" />
+                ไปยังคลัง Google Drive ของโรงเรียน ↗
+              </Button>
+            )}
+
+            {rightClickTarget.album?.google_photos_url && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                onClick={() => {
+                  window.open(rightClickTarget.album?.google_photos_url || '', '_blank');
+                  setRightClickTarget({ isOpen: false, album: null });
+                }}
+              >
+                <ImageIcon className="w-4 h-4" />
+                หรือเปิดดูอัลบั้มใน Google Photos ↗
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setRightClickTarget({ isOpen: false, album: null })}
+              className="w-full text-xs text-muted-foreground"
+            >
+              ปิดหน้าต่าง
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       <Footer />

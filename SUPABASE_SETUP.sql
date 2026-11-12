@@ -1143,12 +1143,24 @@ INSERT INTO public.newsletters (issue_no, academic_year, issue_date, title, summ
     3
   );
 
--- Add google_photos_url to gallery_albums
+-- Add google_photos_url and google_drive_url to gallery_albums
 ALTER TABLE gallery_albums ADD COLUMN IF NOT EXISTS google_photos_url TEXT;
+ALTER TABLE gallery_albums ADD COLUMN IF NOT EXISTS google_drive_url TEXT;
 
 -- Add image_url to curriculum_programs and curriculum_activities
 ALTER TABLE curriculum_programs ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE curriculum_activities ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- Quick LINE Chat Settings
+INSERT INTO public.school_settings (key, value, category, description)
+VALUES 
+  ('quick_chat_enabled', 'true', 'chat', 'เปิด/ปิดการแสดงผลแชทด่วนมุมขวาล่าง'),
+  ('quick_chat_title', 'แชทด่วนสอบถามข้อมูล', 'chat', 'หัวข้อแชทด่วนมุมขวาล่าง'),
+  ('quick_chat_greeting', 'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด มีข้อสงสัยหรือต้องการสอบถามข้อมูล สามารถแชทคุยกับเราได้เลยครับ', 'chat', 'ข้อความทักทายอัตโนมัติในแชทด่วน'),
+  ('quick_chat_school_line', 'https://line.me/ti/p/~hadkedschool', 'chat', 'ลิงก์กลุ่ม LINE โรงเรียน หรือ LINE Official'),
+  ('quick_chat_director_line', 'https://line.me/ti/p/~director.hadked', 'chat', 'ลิงก์ LINE ผู้อำนวยการ หรือ ผู้บริหารสถานศึกษา'),
+  ('quick_chat_phone', '054-710-123', 'chat', 'เบอร์โทรศัพท์ติดต่อด่วน')
+ON CONFLICT (key) DO NOTHING;
 
 -- Create Dedicated hero_slides table for Full Control Hero Slider
 CREATE TABLE IF NOT EXISTS public.hero_slides (

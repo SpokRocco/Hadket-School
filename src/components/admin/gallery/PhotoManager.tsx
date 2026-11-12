@@ -320,17 +320,22 @@ export const PhotoManager = ({ album, onBack }: PhotoManagerProps) => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {photos.map((photo) => (
+                            {photos.map((photo, index) => (
                                 <div
                                     key={photo.id}
-                                    className="group relative bg-card rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all"
+                                    className="group relative bg-card rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all border border-border"
                                 >
-                                    <div className="aspect-square overflow-hidden">
+                                    <div className="aspect-square overflow-hidden relative">
                                         <img
                                             src={photo.photo_url}
                                             alt={photo.caption || ''}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                                         />
+                                        {index < 10 && (
+                                            <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full bg-blue-600/90 text-white text-[10px] font-semibold shadow-md backdrop-blur-xs flex items-center gap-1">
+                                                <span>⭐ ตัวอย่าง #{index + 1}</span>
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="p-2">

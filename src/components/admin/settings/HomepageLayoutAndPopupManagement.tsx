@@ -118,6 +118,8 @@ const HEALTH_CHECK_TABLES: { table: string; label: string; group: 'existing' | '
   { table: 'homepage_sections', label: 'ลำดับส่วนหน้าแรก (homepage_sections)', group: 'extended' },
   { table: 'site_popups', label: 'หน้าต่างป๊อปอัปหน้าแรก (site_popups)', group: 'extended' },
   { table: 'deployment_configs', label: 'ข้อมูลเชื่อมต่อ Cloud/Deploy (deployment_configs)', group: 'extended' },
+  { table: 'hero_slides', label: 'ภาพสไลด์หัวเว็บ Full Control (hero_slides)', group: 'extended' },
+  { table: 'contact_messages', label: 'กล่องข้อความติดต่อ & แชทด่วน (contact_messages)', group: 'existing' },
 ];
 
 interface SortableSectionRowProps {

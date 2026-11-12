@@ -105,6 +105,12 @@ export const AlbumList = ({
                                     {album.photo_count || 0} รูป
                                 </div>
 
+                                {album.google_drive_url && (
+                                    <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate">
+                                        <span>📁 Google Drive เชื่อมต่อแล้ว</span>
+                                    </div>
+                                )}
+
                                 {album.google_photos_url && (
                                     <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium truncate">
                                         <span>📷 Google Photos เชื่อมต่อแล้ว</span>

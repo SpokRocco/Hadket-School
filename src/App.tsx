@@ -21,6 +21,7 @@ import Events from "./pages/Events";
 import MediaLibrary from "./pages/MediaLibrary";
 import Newsletters from "./pages/Newsletters";
 import StudentCouncil from "./pages/StudentCouncil";
+import { QuickChatWidget } from "@/components/QuickChatWidget";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <QuickChatWidget />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/about" element={<About />} />

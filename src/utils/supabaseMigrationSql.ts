@@ -116,8 +116,61 @@ VALUES
   ('hero_slides_json', '[]', 'hero', 'ข้อมูลภาพสไลด์และเนื้อหาบนแบนเนอร์หลักหัวเว็บ JSON'),
   ('hero_autoplay_enabled', 'true', 'hero', 'เปิด/ปิดการเลื่อนภาพสไลด์หัวเว็บอัตโนมัติ'),
   ('hero_autoplay_interval', '6000', 'hero', 'ระยะเวลาหน่วงในการเปลี่ยนภาพสไลด์หัวเว็บ (มิลลิวินาที)'),
-  ('popup_enabled', 'true', 'popup', 'เปิด/ปิด การแสดงผลหน้าต่างป๊อปอัปหน้าแรก')
+  ('popup_enabled', 'true', 'popup', 'เปิด/ปิด การแสดงผลหน้าต่างป๊อปอัปหน้าแรก'),
+  ('quick_chat_enabled', 'true', 'chat', 'เปิด/ปิดการแสดงผลแชทด่วนมุมขวาล่าง'),
+  ('quick_chat_title', 'แชทด่วนสอบถามข้อมูล', 'chat', 'หัวข้อแชทด่วนมุมขวาล่าง'),
+  ('quick_chat_greeting', 'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด มีข้อสงสัยหรือต้องการสอบถามข้อมูล สามารถแชทคุยกับเราได้เลยครับ', 'chat', 'ข้อความทักทายอัตโนมัติในแชทด่วน'),
+  ('quick_chat_school_line', 'https://line.me/ti/p/~hadkedschool', 'chat', 'ลิงก์กลุ่ม LINE โรงเรียน หรือ LINE Official'),
+  ('quick_chat_director_line', 'https://line.me/ti/p/~director.hadked', 'chat', 'ลิงก์ LINE ผู้อำนวยการ หรือ ผู้บริหารสถานศึกษา'),
+  ('quick_chat_phone', '054-710-123', 'chat', 'เบอร์โทรศัพท์ติดต่อด่วน')
 ON CONFLICT (key) DO NOTHING;
+
+-- Create Dedicated hero_slides table for Full Control Hero Slider
+CREATE TABLE IF NOT EXISTS public.hero_slides (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT DEFAULT '',
+  kicker TEXT DEFAULT '',
+  subline TEXT DEFAULT '',
+  image_url TEXT DEFAULT '',
+  primary_label TEXT DEFAULT 'สมัครเรียนออนไลน์',
+  primary_href TEXT DEFAULT '/enrollment',
+  secondary_label TEXT DEFAULT 'เกี่ยวกับโรงเรียน',
+  secondary_href TEXT DEFAULT '/about',
+  track1_name TEXT DEFAULT 'นักเรียนปัจจุบัน',
+  track1_range TEXT DEFAULT '74 คน',
+  track2_name TEXT DEFAULT 'ระยะเวลาหลักสูตร',
+  track2_range TEXT DEFAULT '9 ปี',
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  order_position INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_hero_slides_order ON public.hero_slides (order_position ASC);
+
+ALTER TABLE public.hero_slides ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read for hero_slides" ON public.hero_slides;
+CREATE POLICY "Public Read for hero_slides" ON public.hero_slides FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Full Access for hero_slides" ON public.hero_slides;
+CREATE POLICY "Public Full Access for hero_slides" ON public.hero_slides FOR ALL USING (true) WITH CHECK (true);
+
+INSERT INTO public.hero_slides (
+  id, title, subtitle, kicker, subline, image_url, 
+  primary_label, primary_href, secondary_label, secondary_href, 
+  track1_name, track1_range, track2_name, track2_range, 
+  is_active, order_position
+)
+VALUES
+  ('slide-admissions', 'ร่วมมือ วิชาการ งานอาชีพ ด้วยปัญญา', 'มุ่งพัฒนาผู้เรียนให้มีคุณภาพตามมาตรฐานการศึกษา ส่งเสริมคุณธรรม น้อมนำหลักปรัชญาของเศรษฐกิจพอเพียง พร้อมก้าวทันเทคโนโลยี', 'เปิดรับสมัครนักเรียนใหม่ · ปีการศึกษา 2569', 'ร่วมมือ วิชาการ งานอาชีพ · โรงเรียนบ้านหาดเค็ด', '', 'สมัครเรียนออนไลน์', '/enrollment', 'เกี่ยวกับโรงเรียน', '/about', 'นักเรียนปัจจุบัน', '74 คน', 'ระยะเวลาหลักสูตร', '9 ปี', true, 1),
+  ('slide-academic', 'มุ่งเน้นความเป็นเลิศทางวิชาการและเทคโนโลยี', 'ส่งเสริมการเรียนรู้วิทยาศาสตร์ คณิตศาสตร์ ภาษาต่างประเทศ และนวัตกรรมดิจิทัลเพื่ออนาคต', 'พัฒนาศักยภาพผู้เรียนรอบด้าน', 'ห้องปฏิบัติการวิทยาศาสตร์ และคอมพิวเตอร์ทันสมัย', '', 'ดูหลักสูตรการศึกษา', '/curriculum', 'ผลงานนักเรียน', '/news', 'ปีแห่งความเป็นเลิศ', 'พัฒนาต่อเนื่อง', 'อัตราศึกษาต่อ', '100 %', true, 2),
+  ('slide-activities', 'กิจกรรมส่งเสริมทักษะชีวิตและคุณธรรม', 'ปลูกฝังวินัย คุณธรรม จริยธรรม และการทำงานร่วมกันผ่านกิจกรรมลูกเสือ กีฬา และศิลปวัฒนธรรม', 'กิจกรรมพัฒนาผู้เรียนรอบด้าน', 'ดนตรี กีฬา ศิลปะ จิตอาสา', '', 'คลังภาพกิจกรรม', '/gallery', 'ติดต่อโรงเรียน', '/contact', 'ศิษย์เก่าโรงเรียน', 'เครือข่ายเข้มแข็ง', 'กิจกรรมสภานักเรียน', 'พัฒนาผู้เรียนรอบด้าน', true, 3)
+ON CONFLICT (id) DO NOTHING;
+
+-- Gallery Google Drive and Photos columns
+ALTER TABLE IF EXISTS public.gallery_albums 
+  ADD COLUMN IF NOT EXISTS google_drive_url TEXT,
+  ADD COLUMN IF NOT EXISTS google_photos_url TEXT;
 
 DO $$
 DECLARE
@@ -131,7 +184,7 @@ BEGIN
     'curriculum_programs', 'curriculum_activities', 'milestones',
     'facilities', 'faq', 'media_resources', 'teacher_media_items',
     'newsletters', 'homepage_sections', 'site_popups', 'deployment_configs',
-    'sapha_projects', 'sapha_links'
+    'sapha_projects', 'sapha_links', 'hero_slides', 'contact_messages'
   ]
   LOOP
     BEGIN

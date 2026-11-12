@@ -29,6 +29,7 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
         event_date: album?.event_date || '',
         location: album?.location || '',
         is_published: album?.is_published ?? true,
+        google_drive_url: album?.google_drive_url || '',
         google_photos_url: album?.google_photos_url || '',
     });
 
@@ -175,6 +176,23 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
                             />
                         </div>
 
+                        {/* Google Drive Link (For Full Image Collection & Right Click Download) */}
+                        <div className="space-y-2 p-4 bg-emerald-500/5 rounded-lg border border-emerald-500/20">
+                            <Label htmlFor="google_drive_url" className="flex items-center gap-2">
+                                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">📁 ลิงก์โฟลเดอร์ Google Drive รวมรูปภาพทั้งหมด (ดาวน์โหลดความละเอียดสูง)</span>
+                            </Label>
+                            <Input
+                                id="google_drive_url"
+                                type="url"
+                                value={formData.google_drive_url}
+                                onChange={(e) => setFormData({ ...formData, google_drive_url: e.target.value })}
+                                placeholder="https://drive.google.com/drive/folders/..."
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                เมื่อผู้เข้าชมคลิกขวาที่รูปภาพเพื่อต้องการบันทึก ระบบจะแสดงลิงก์เชื่อมต่อไปยัง Google Drive นี้โดยอัตโนมัติ เพื่อให้ดาวน์โหลดภาพกิจกรรมทั้งหมดแบบความละเอียดสูงได้สะดวก
+                            </p>
+                        </div>
+
                         {/* Google Photos Sync Link */}
                         <div className="space-y-2 p-4 bg-secondary/50 rounded-lg border border-border">
                             <Label htmlFor="google_photos_url" className="flex items-center gap-2">
@@ -189,6 +207,16 @@ export const AlbumForm = ({ album, onSuccess, onCancel }: AlbumFormProps) => {
                             />
                             <p className="text-xs text-muted-foreground">
                                 สามารถวางลิงก์อัลบั้ม Google Photos ที่แชร์สาธารณะ เพื่อให้ผู้เข้าชมสามารถกดเปิดชมอัลบั้มภาพเต็มผ่าน Google Photos ได้ทันที
+                            </p>
+                        </div>
+
+                        {/* 10 Preview Photos Guide */}
+                        <div className="p-4 bg-blue-500/5 rounded-lg border border-blue-500/20 text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                            <p className="font-semibold flex items-center gap-1.5">
+                                📸 ระบบแสดงผลรูปภาพตัวอย่าง 10 รูปในแต่ละอัลบั้ม:
+                            </p>
+                            <p>
+                                นอกจากภาพหน้าปกแล้ว หน้าแกลเลอรีจะแสดงผลภาพตัวอย่างจำนวน 10 รูปแรกของอัลบั้มโดยอัตโนมัติ เพื่อให้ผู้เข้าชมสามารถดูตัวอย่างกิจกรรมได้ทันที โดยสามารถเข้าไปอัปโหลดรูปภาพตัวอย่างและรูปทั้งหมดได้ที่เมนู <strong>"จัดการรูปภาพ"</strong>
                             </p>
                         </div>
 
