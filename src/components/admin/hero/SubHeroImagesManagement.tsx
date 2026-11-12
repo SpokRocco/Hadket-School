@@ -43,24 +43,28 @@ export const SubHeroImagesManagement = () => {
     about_right_image_caption: settings.about_right_image_caption || 'กิจกรรมนักเรียน โรงเรียนบ้านหาดเค็ด',
   });
 
-  // Keep form data in sync if settings update externally
-  useEffect(() => {
-    setFormData({
-      about_left_image_url: settings.about_left_image_url || '',
-      about_left_image_caption: settings.about_left_image_caption || 'บรรยากาศโรงเรียนบ้านหาดเค็ด',
-      about_right_image_url: settings.about_right_image_url || '',
-      about_right_image_caption: settings.about_right_image_caption || 'กิจกรรมนักเรียน โรงเรียนบ้านหาดเค็ด',
-    });
-  }, [settings]);
+  const [isDirty, setIsDirty] = useState(false);
 
-  const handleSave = async () => {
+  // Initialize form data once when settings load, without overwriting user edits
+  useEffect(() => {
+    if (!isDirty) {
+      setFormData({
+        about_left_image_url: settings.about_left_image_url || '',
+        about_left_image_caption: settings.about_left_image_caption || 'บรรยากาศโรงเรียนบ้านหาดเค็ด',
+        about_right_image_url: settings.about_right_image_url || '',
+        about_right_image_caption: settings.about_right_image_caption || 'กิจกรรมนักเรียน โรงเรียนบ้านหาดเค็ด',
+      });
+    }
+  }, [settings.about_left_image_url, settings.about_left_image_caption, settings.about_right_image_url, settings.about_right_image_caption, isDirty]);
+
+  const saveToDatabase = async (dataToSave: typeof formData) => {
+    setSaving(true);
     try {
-      setSaving(true);
       const updates = [
-        { key: 'about_left_image_url', value: formData.about_left_image_url },
-        { key: 'about_left_image_caption', value: formData.about_left_image_caption },
-        { key: 'about_right_image_url', value: formData.about_right_image_url },
-        { key: 'about_right_image_caption', value: formData.about_right_image_caption },
+        { key: 'about_left_image_url', value: dataToSave.about_left_image_url },
+        { key: 'about_left_image_caption', value: dataToSave.about_left_image_caption },
+        { key: 'about_right_image_url', value: dataToSave.about_right_image_url },
+        { key: 'about_right_image_caption', value: dataToSave.about_right_image_caption },
       ];
 
       for (const item of updates) {
@@ -72,13 +76,27 @@ export const SubHeroImagesManagement = () => {
         }
       }
 
-      // Clear local cache so settings re-fetch immediately
-      localStorage.removeItem('school_settings_cache');
-      localStorage.removeItem('school_settings_cache_v3');
-      notifyLocalRealtimeListeners('school_settings');
+      // Update local storage cache v3 immediately so next fetch reads it
+      try {
+        const cached = localStorage.getItem('school_settings_cache_v3');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const updated = {
+            ...parsed,
+            about_left_image_url: dataToSave.about_left_image_url,
+            about_left_image_caption: dataToSave.about_left_image_caption,
+            about_right_image_url: dataToSave.about_right_image_url,
+            about_right_image_caption: dataToSave.about_right_image_caption,
+          };
+          localStorage.setItem('school_settings_cache_v3', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.warn('Cache update warning:', e);
+      }
 
-      // Dispatch custom DOM event for instant live re-render
+      notifyLocalRealtimeListeners('school_settings');
       window.dispatchEvent(new CustomEvent('school-settings-updated'));
+      setIsDirty(false);
 
       toast({
         title: 'บันทึกรูปภาพสำเร็จ',
@@ -93,6 +111,22 @@ export const SubHeroImagesManagement = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = () => saveToDatabase(formData);
+
+  const handleLeftImageUploaded = (url: string) => {
+    setIsDirty(true);
+    const updated = { ...formData, about_left_image_url: url };
+    setFormData(updated);
+    saveToDatabase(updated);
+  };
+
+  const handleRightImageUploaded = (url: string) => {
+    setIsDirty(true);
+    const updated = { ...formData, about_right_image_url: url };
+    setFormData(updated);
+    saveToDatabase(updated);
   };
 
   const handleResetDefaults = () => {
@@ -199,7 +233,7 @@ export const SubHeroImagesManagement = () => {
               </Label>
               <ImageUpload
                 currentImage={formData.about_left_image_url}
-                onUploadComplete={(url) => setFormData({ ...formData, about_left_image_url: url })}
+                onUploadComplete={handleLeftImageUploaded}
                 bucket="images"
                 folder="about_showcase"
                 compressionPreset="cover"
@@ -294,7 +328,7 @@ export const SubHeroImagesManagement = () => {
               </Label>
               <ImageUpload
                 currentImage={formData.about_right_image_url}
-                onUploadComplete={(url) => setFormData({ ...formData, about_right_image_url: url })}
+                onUploadComplete={handleRightImageUploaded}
                 bucket="images"
                 folder="about_showcase"
                 compressionPreset="cover"

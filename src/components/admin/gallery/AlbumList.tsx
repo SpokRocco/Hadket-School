@@ -61,7 +61,7 @@ export const AlbumList = ({
                         <div className="p-4">
                             <div className="flex items-start justify-between mb-3">
                                 <h3 className="font-semibold text-lg text-foreground line-clamp-2 flex-1">
-                                    {album.title}
+                                    {album.title || (album as any).name || 'กิจกรรมโรงเรียน'}
                                 </h3>
                                 {album.is_published ? (
                                     <Badge className="bg-green-500 ml-2">

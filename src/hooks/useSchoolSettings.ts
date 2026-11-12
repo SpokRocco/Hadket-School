@@ -523,6 +523,16 @@ export const useSchoolSettings = () => {
             settingsMap.quick_chat_director_line || defaultSettings.quick_chat_director_line,
           quick_chat_phone:
             settingsMap.quick_chat_phone || defaultSettings.quick_chat_phone,
+          quick_chat_auto_open_home:
+            settingsMap.quick_chat_auto_open_home || defaultSettings.quick_chat_auto_open_home,
+          about_left_image_url:
+            settingsMap.about_left_image_url || '',
+          about_left_image_caption:
+            settingsMap.about_left_image_caption || defaultSettings.about_left_image_caption,
+          about_right_image_url:
+            settingsMap.about_right_image_url || '',
+          about_right_image_caption:
+            settingsMap.about_right_image_caption || defaultSettings.about_right_image_caption,
           homepageSections,
           newsHubSubSections,
           navbarMenuItems,

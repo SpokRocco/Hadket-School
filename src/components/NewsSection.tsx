@@ -25,13 +25,14 @@ import {
 import type { NewsHubSubSectionId } from '@/utils/homepageLayoutUtils';
 import heroImage from '@/assets/hero-school.jpg';
 import studentGraduationActivity from '@/assets/images/student_graduation_activity_1794379513899.jpg';
-import studentScienceLab from '@/assets/images/student_science_lab_1794379512287.jpg';
+import NewsDetailModal from '@/components/NewsDetailModal';
 
 interface NewsItem {
   id: string;
   category: string;
   title: string;
   excerpt: string;
+  content?: string;
   date: string;
   views: number;
   featured?: boolean;
@@ -40,6 +41,7 @@ interface NewsItem {
   published_at?: string | null;
   created_at?: string;
   cover_image_url?: string;
+  external_links?: { title: string; url: string }[];
 }
 
 const NewsSection = () => {
@@ -49,6 +51,7 @@ const NewsSection = () => {
   const [activeCategoryTab, setActiveCategoryTab] = useState<string>('ทั้งหมด');
   const [prPage, setPrPage] = useState(0);
   const [actPage, setActPage] = useState(0);
+  const [selectedNewsForModal, setSelectedNewsForModal] = useState<NewsItem | null>(null);
   const navigate = useNavigate();
   const { settings } = useSchoolSettings();
 
@@ -71,6 +74,8 @@ const NewsSection = () => {
         category: item.category || 'ข่าวประชาสัมพันธ์',
         title: item.title,
         excerpt: item.excerpt || '',
+        content: item.content || item.excerpt || '',
+        external_links: item.external_links || [],
         date: item.published_at
           ? format(new Date(item.published_at), 'd MMMM yyyy', { locale: th })
           : format(new Date(item.created_at), 'd MMMM yyyy', { locale: th }),
@@ -140,7 +145,7 @@ const NewsSection = () => {
   const renderNewsCard = (item: NewsItem) => (
     <article
       key={item.id}
-      onClick={() => navigate(`/news?id=${item.id}`)}
+      onClick={() => setSelectedNewsForModal(item)}
       className="group bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col"
     >
       <div className="aspect-[16/10] bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
@@ -375,11 +380,11 @@ const NewsSection = () => {
               smartStudents.slice(0, 2).map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate(`/news?id=${item.id}`)}
+                  onClick={() => setSelectedNewsForModal(item)}
                   className="group flex gap-4 cursor-pointer p-2.5 -mx-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                 >
                   <img
-                    src={item.cover_image_url || studentScienceLab}
+                    src={item.cover_image_url || heroImage}
                     alt={item.title}
                     referrerPolicy="no-referrer"
                     className="w-20 h-20 rounded-xl object-cover shrink-0 bg-slate-100"
@@ -423,7 +428,7 @@ const NewsSection = () => {
               prideItems.slice(0, 2).map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate(`/news?id=${item.id}`)}
+                  onClick={() => setSelectedNewsForModal(item)}
                   className="group flex gap-4 cursor-pointer p-2.5 -mx-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                 >
                   <img
@@ -641,6 +646,13 @@ const NewsSection = () => {
           </>
         )}
       </div>
+
+      {/* Persistent Full Details Modal Popup */}
+      <NewsDetailModal
+        news={selectedNewsForModal}
+        isOpen={!!selectedNewsForModal}
+        onClose={() => setSelectedNewsForModal(null)}
+      />
     </section>
   );
 };

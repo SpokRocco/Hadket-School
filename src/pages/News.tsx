@@ -15,6 +15,7 @@ import {
   sortNewsForDisplay,
 } from '@/utils/newsUtils';
 import heroImage from '@/assets/hero-school.jpg';
+import NewsDetailModal from '@/components/NewsDetailModal';
 
 interface NewsItem {
   id: string;
@@ -158,84 +159,6 @@ const News = () => {
     searchTerm,
   });
 
-  if (selectedNews) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <main className="container-school pt-28 pb-16">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setSelectedNews(null);
-              window.history.pushState({}, '', '/news');
-              window.scrollTo(0, 0);
-            }}
-            className="mb-8 gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            กลับสู่หน้ารวมข่าวสาร
-          </Button>
-
-          <article className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-4 font-mono tabular-nums">
-              <span className="font-sans font-bold text-rose-600 dark:text-rose-400">
-                {selectedNews.category}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>{selectedNews.date}</span>
-              <span aria-hidden="true">·</span>
-              <span>อ่าน {selectedNews.views.toLocaleString()} ครั้ง</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-8 leading-tight">
-              {selectedNews.title}
-            </h1>
-
-            <div className="aspect-[16/9] rounded-2xl overflow-hidden mb-8 bg-slate-100">
-              <img
-                src={selectedNews.cover_image_url || heroImage}
-                alt={selectedNews.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div
-              className="prose prose-lg max-w-none text-slate-700 dark:text-slate-200 leading-relaxed mb-8"
-              dangerouslySetInnerHTML={{ __html: selectedNews.content }}
-            />
-
-            {selectedNews.external_links && selectedNews.external_links.length > 0 && (
-              <div className="flex flex-col gap-4 p-6 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  ลิงก์และเอกสารที่เกี่ยวข้อง
-                </h3>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {selectedNews.external_links.map((link, idx) => (
-                    <a
-                      key={idx}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-sky-500 transition-all group"
-                    >
-                      <span className="font-medium text-slate-900 dark:text-white group-hover:text-sky-600 transition-colors truncate pr-4">
-                        {link.title || link.url}
-                      </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-sky-600 shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-          </article>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -372,6 +295,16 @@ const News = () => {
           )}
         </div>
       </section>
+
+      {/* Persistent Full Details Modal Popup */}
+      <NewsDetailModal
+        news={selectedNews}
+        isOpen={!!selectedNews}
+        onClose={() => {
+          setSelectedNews(null);
+          window.history.pushState({}, '', '/news');
+        }}
+      />
 
       <Footer />
     </div>

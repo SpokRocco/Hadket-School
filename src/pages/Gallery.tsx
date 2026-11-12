@@ -134,10 +134,22 @@ const Gallery = () => {
       : albums.filter((album) => album.category === selectedCategory);
 
   const handleAlbumClick = (album: Album) => {
-    if (album.photos.length > 0) {
-      setSelectedAlbum(album);
-      setCurrentPhotoIndex(0);
+    let albumToView = album;
+    if ((!album.photos || album.photos.length === 0) && album.cover_photo_url) {
+      albumToView = {
+        ...album,
+        photos: [
+          {
+            id: `cover-${album.id}`,
+            photo_url: album.cover_photo_url,
+            caption: album.title,
+            order_position: 1,
+          },
+        ],
+      };
     }
+    setSelectedAlbum(albumToView);
+    setCurrentPhotoIndex(0);
   };
 
   const thumbnailContainerRef = useRef<HTMLDivElement>(null);
@@ -395,49 +407,73 @@ const Gallery = () => {
               {/* Main Stage - Image Area */}
               <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-black/50 via-transparent to-black/50">
                 <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                <img
-                  key={currentPhotoIndex}
-                  src={selectedAlbum.photos[currentPhotoIndex].photo_url}
-                  alt={selectedAlbum.photos[currentPhotoIndex].caption || `รูปที่ ${currentPhotoIndex + 1}`}
-                  referrerPolicy="no-referrer"
-                  onContextMenu={(e) => handlePhotoContextMenu(e, selectedAlbum, selectedAlbum.photos[currentPhotoIndex].photo_url)}
-                  className="max-w-full max-h-full object-contain p-4 sm:p-12 transition-all duration-500 animate-in zoom-in-95 cursor-pointer"
-                  title="คลิกขวาเพื่อดาวน์โหลดผ่าน Google Drive"
-                />
-
-                {/* Navigation Arrows - Big & Floating */}
-                {selectedAlbum.photos.length > 1 && (
+                {selectedAlbum.photos && selectedAlbum.photos.length > 0 ? (
                   <>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full z-10 w-14 h-14 bg-black/20 hover:bg-white/10 text-white/80 hover:text-white backdrop-blur-md border border-white/5 transition-all duration-300 hover:scale-110 active:scale-95 group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePrev();
-                      }}
-                    >
-                      <ChevronLeft className="w-8 h-8 group-hover:-translate-x-1 transition-transform" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full z-10 w-14 h-14 bg-black/20 hover:bg-white/10 text-white/80 hover:text-white backdrop-blur-md border border-white/5 transition-all duration-300 hover:scale-110 active:scale-95 group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNext();
-                      }}
-                    >
-                      <ChevronRight className="w-8 h-8 group-hover:translate-x-1 transition-transform" />
-                    </Button>
+                    <img
+                      key={currentPhotoIndex}
+                      src={selectedAlbum.photos[currentPhotoIndex]?.photo_url}
+                      alt={selectedAlbum.photos[currentPhotoIndex]?.caption || `รูปที่ ${currentPhotoIndex + 1}`}
+                      referrerPolicy="no-referrer"
+                      onContextMenu={(e) => handlePhotoContextMenu(e, selectedAlbum, selectedAlbum.photos[currentPhotoIndex]?.photo_url)}
+                      className="max-w-full max-h-full object-contain p-4 sm:p-12 transition-all duration-500 animate-in zoom-in-95 cursor-pointer"
+                      title="คลิกขวาเพื่อดาวน์โหลดผ่าน Google Drive"
+                    />
+
+                    {/* Navigation Arrows - Big & Floating */}
+                    {selectedAlbum.photos.length > 1 && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full z-10 w-14 h-14 bg-black/20 hover:bg-white/10 text-white/80 hover:text-white backdrop-blur-md border border-white/5 transition-all duration-300 hover:scale-110 active:scale-95 group"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePrev();
+                          }}
+                        >
+                          <ChevronLeft className="w-8 h-8 group-hover:-translate-x-1 transition-transform" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full z-10 w-14 h-14 bg-black/20 hover:bg-white/10 text-white/80 hover:text-white backdrop-blur-md border border-white/5 transition-all duration-300 hover:scale-110 active:scale-95 group"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNext();
+                          }}
+                        >
+                          <ChevronRight className="w-8 h-8 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      </>
+                    )}
                   </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-white max-w-lg">
+                    <ImageIcon className="w-16 h-16 text-white/40 mb-4" />
+                    <h3 className="text-xl font-bold mb-2">{selectedAlbum.title}</h3>
+                    <p className="text-sm text-white/70 mb-6 leading-relaxed">
+                      {selectedAlbum.description || 'ยังไม่มีรูปภาพเพิ่มเติมในอัลบั้มนี้'}
+                    </p>
+                    {selectedAlbum.google_drive_url && (
+                      <a
+                        href={selectedAlbum.google_drive_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm shadow-lg transition-transform hover:scale-105"
+                      >
+                        <FolderDown className="w-4 h-4" />
+                        เปิดดูรูปภาพทั้งหมดใน Google Drive
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
 
               {/* Footer - Caption & Thumbnails */}
               <div className="shrink-0 bg-black/60 backdrop-blur-xl border-t border-white/5 pb-6 pt-4 px-6">
                 {/* Caption */}
-                {selectedAlbum.photos[currentPhotoIndex].caption && (
+                {selectedAlbum.photos && selectedAlbum.photos[currentPhotoIndex]?.caption && (
                   <div className="mb-4 text-center max-w-4xl mx-auto">
                     <p className="text-base text-white/90 font-light tracking-wide leading-relaxed">
                       "{selectedAlbum.photos[currentPhotoIndex].caption}"
@@ -446,7 +482,7 @@ const Gallery = () => {
                 )}
 
                 {/* Thumbnails - Glass Strip */}
-                {selectedAlbum.photos.length > 1 && (
+                {selectedAlbum.photos && selectedAlbum.photos.length > 1 && (
                   <div className="relative group max-w-4xl mx-auto flex items-center justify-center gap-4">
                     <Button
                       variant="ghost"
