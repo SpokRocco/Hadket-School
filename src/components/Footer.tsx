@@ -212,12 +212,47 @@ const Footer = () => {
       {/* Bottom Bar */}
       <div className="border-t border-primary-foreground/10">
         <div className="container-school py-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-primary-foreground/60 text-center md:text-left">
-            © {new Date().getFullYear()} {settings.school_name}. สงวนลิขสิทธิ์.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center md:text-left">
+            <p className="text-sm text-primary-foreground/60">
+              © {new Date().getFullYear()} {settings.school_name}. สงวนลิขสิทธิ์.
+            </p>
+
+            {/* Creator / Developer Credits (Structured for user self-input) */}
+            {(settings.creator_name || settings.creator_email) && (
+              <div className="flex items-center gap-1.5 text-xs text-primary-foreground/75 font-sans">
+                <span className="text-primary-foreground/40 hidden sm:inline">•</span>
+                <span className="text-primary-foreground/60">พัฒนาและจัดทำโดย:</span>
+                {settings.creator_url ? (
+                  <a
+                    href={settings.creator_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-accent hover:underline"
+                  >
+                    {settings.creator_name || 'ผู้จัดทำเว็บไซต์'}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-accent">
+                    {settings.creator_name || 'ผู้จัดทำเว็บไซต์'}
+                  </span>
+                )}
+                {settings.creator_email && (
+                  <a
+                    href={`mailto:${settings.creator_email}`}
+                    className="inline-flex items-center gap-1 text-primary-foreground/75 hover:text-accent transition-colors ml-1 underline decoration-primary-foreground/30 hover:decoration-accent"
+                    title={`ส่งอีเมลถึงผู้จัดทำ: ${settings.creator_email}`}
+                  >
+                    <Mail className="w-3 h-3 text-accent" />
+                    <span>{settings.creator_email}</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={scrollToTop}
-            className="flex items-center gap-2 text-sm text-primary-foreground/60 hover:text-accent transition-colors"
+            className="flex items-center gap-2 text-sm text-primary-foreground/60 hover:text-accent transition-colors shrink-0"
           >
             กลับด้านบน
             <ChevronUp className="w-4 h-4" />

@@ -176,6 +176,7 @@ export type Database = {
                     id: string
                     year: string
                     event: string
+                    image_url: string | null
                     order_position: number
                     is_active: boolean
                     created_at: string
@@ -185,6 +186,7 @@ export type Database = {
                     id?: string
                     year: string
                     event: string
+                    image_url?: string | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -194,6 +196,7 @@ export type Database = {
                     id?: string
                     year?: string
                     event?: string
+                    image_url?: string | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string

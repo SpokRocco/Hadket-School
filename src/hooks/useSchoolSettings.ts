@@ -136,6 +136,11 @@ export interface SchoolSettings {
   about_right_image_url: string;
   about_right_image_caption: string;
 
+  // Website Creator / Developer (Footer Credits)
+  creator_name: string;
+  creator_email: string;
+  creator_url: string;
+
   // Cloud & Realtime Sync
   supabase_project_ref: string;
   vercel_site_url: string;
@@ -235,6 +240,9 @@ const defaultSettings: SchoolSettings = {
   about_left_image_caption: 'บรรยากาศโรงเรียนบ้านหาดเค็ด',
   about_right_image_url: '',
   about_right_image_caption: 'กิจกรรมนักเรียนโรงเรียนบ้านหาดเค็ด',
+  creator_name: '',
+  creator_email: '',
+  creator_url: '',
   supabase_project_ref: 'fhfckuypfstlokashcmu',
   vercel_site_url: '',
   vercel_deploy_hook_url: '',
@@ -533,6 +541,9 @@ export const useSchoolSettings = () => {
             settingsMap.about_right_image_url || '',
           about_right_image_caption:
             settingsMap.about_right_image_caption || defaultSettings.about_right_image_caption,
+          creator_name: settingsMap.creator_name || '',
+          creator_email: settingsMap.creator_email || '',
+          creator_url: settingsMap.creator_url || '',
           homepageSections,
           newsHubSubSections,
           navbarMenuItems,

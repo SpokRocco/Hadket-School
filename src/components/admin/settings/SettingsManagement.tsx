@@ -1442,6 +1442,49 @@ export const SettingsManagement = () => {
           </CardContent>
         </Card>
 
+        {/* Creator / Developer Info (Footer Credits) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">ข้อมูลผู้จัดทำเว็บไซต์ (Website Creator / Developer)</CardTitle>
+            <CardDescription>
+              ระบุชื่อและอีเมลของผู้จัดทำเว็บไซต์เพื่อแสดงเครดิตที่ส่วนท้ายของเว็บไซต์ (Footer) หากเว้นว่างไว้จะไม่แสดงผล
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="creator_name">ชื่อผู้จัดทำ / ผู้พัฒนาเว็บไซต์</Label>
+                <Input
+                  id="creator_name"
+                  value={settings.creator_name || ''}
+                  onChange={(e) => handleChange('creator_name', e.target.value)}
+                  placeholder="เช่น นายสมคิด สดใส หรือ ทีมผู้พัฒนาเว็บไซต์"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="creator_email">อีเมลผู้จัดทำ (Creator Email)</Label>
+                <Input
+                  id="creator_email"
+                  type="email"
+                  value={settings.creator_email || ''}
+                  onChange={(e) => handleChange('creator_email', e.target.value)}
+                  placeholder="creator@example.com"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="creator_url">ลิงก์เว็บไซต์หรือโปรไฟล์ผู้จัดทำ (ตัวเลือกเสริม)</Label>
+              <Input
+                id="creator_url"
+                type="url"
+                value={settings.creator_url || ''}
+                onChange={(e) => handleChange('creator_url', e.target.value)}
+                placeholder="https://github.com/... หรือ https://..."
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Quick LINE Chat Widget Settings */}
         <Card className="border-[#06C755]/30">
           <CardHeader>

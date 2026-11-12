@@ -10,6 +10,7 @@ interface Milestone {
   id: string;
   year: string;
   event: string;
+  image_url?: string | null;
 }
 
 interface Facility {
@@ -175,8 +176,20 @@ const About = () => {
                       )}
                     </div>
                     <div className="flex-1 pb-8">
-                      <div className="bg-card rounded-xl p-6 shadow-md border border-border">
-                        <p className="text-foreground">{milestone.event}</p>
+                      <div className="bg-card rounded-2xl p-6 sm:p-7 shadow-md border border-border space-y-4">
+                        {milestone.image_url && (
+                          <div className="aspect-[16/10] sm:aspect-[16/9] max-h-80 rounded-xl overflow-hidden bg-slate-900 border border-border shadow-xs">
+                            <img
+                              src={milestone.image_url}
+                              alt={`ประวัติโรงเรียน ปี พ.ศ. ${milestone.year}`}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                            />
+                          </div>
+                        )}
+                        <p className="text-foreground leading-relaxed whitespace-pre-line text-sm sm:text-base">
+                          {milestone.event}
+                        </p>
                       </div>
                     </div>
                   </div>

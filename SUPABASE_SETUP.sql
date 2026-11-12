@@ -838,6 +838,7 @@ CREATE TABLE milestones (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     year VARCHAR(10) NOT NULL,
     event TEXT NOT NULL,
+    image_url TEXT,
     order_position INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
