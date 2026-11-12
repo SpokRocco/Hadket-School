@@ -1149,3 +1149,58 @@ ALTER TABLE gallery_albums ADD COLUMN IF NOT EXISTS google_photos_url TEXT;
 -- Add image_url to curriculum_programs and curriculum_activities
 ALTER TABLE curriculum_programs ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE curriculum_activities ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- Create Dedicated hero_slides table for Full Control Hero Slider
+CREATE TABLE IF NOT EXISTS public.hero_slides (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT DEFAULT '',
+  kicker TEXT DEFAULT '',
+  subline TEXT DEFAULT '',
+  image_url TEXT DEFAULT '',
+  primary_label TEXT DEFAULT 'สมัครเรียนออนไลน์',
+  primary_href TEXT DEFAULT '/enrollment',
+  secondary_label TEXT DEFAULT 'เกี่ยวกับโรงเรียน',
+  secondary_href TEXT DEFAULT '/about',
+  track1_name TEXT DEFAULT 'นักเรียนปัจจุบัน',
+  track1_range TEXT DEFAULT '74 คน',
+  track2_name TEXT DEFAULT 'ระยะเวลาหลักสูตร',
+  track2_range TEXT DEFAULT '9 ปี',
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  order_position INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_hero_slides_order ON public.hero_slides (order_position ASC);
+
+ALTER TABLE public.hero_slides ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  CREATE POLICY "Allow public full access for hero_slides"
+    ON public.hero_slides FOR ALL
+    USING (true)
+    WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+INSERT INTO public.hero_slides (
+  id, title, subtitle, kicker, subline, image_url, 
+  primary_label, primary_href, secondary_label, secondary_href, 
+  track1_name, track1_range, track2_name, track2_range, 
+  is_active, order_position
+)
+VALUES
+  ('slide-admissions', 'ร่วมมือ วิชาการ งานอาชีพ ด้วยปัญญา', 'มุ่งพัฒนาผู้เรียนให้มีคุณภาพตามมาตรฐานการศึกษา ส่งเสริมคุณธรรม น้อมนำหลักปรัชญาของเศรษฐกิจพอเพียง พร้อมก้าวทันเทคโนโลยี', 'เปิดรับสมัครนักเรียนใหม่ · ปีการศึกษา 2569', 'ร่วมมือ วิชาการ งานอาชีพ · โรงเรียนบ้านหาดเค็ด', '', 'สมัครเรียนออนไลน์', '/enrollment', 'เกี่ยวกับโรงเรียน', '/about', 'นักเรียนปัจจุบัน', '74 คน', 'ระยะเวลาหลักสูตร', '9 ปี', true, 1),
+  ('slide-academic', 'มุ่งเน้นความเป็นเลิศทางวิชาการและเทคโนโลยี', 'ส่งเสริมการเรียนรู้วิทยาศาสตร์ คณิตศาสตร์ ภาษาต่างประเทศ และนวัตกรรมดิจิทัลเพื่ออนาคต', 'พัฒนาศักยภาพผู้เรียนรอบด้าน', 'ห้องปฏิบัติการวิทยาศาสตร์ และคอมพิวเตอร์ทันสมัย', '', 'ดูหลักสูตรการศึกษา', '/curriculum', 'ผลงานนักเรียน', '/news', 'ปีแห่งความเป็นเลิศ', 'พัฒนาต่อเนื่อง', 'อัตราศึกษาต่อ', '100 %', true, 2),
+  ('slide-activities', 'กิจกรรมส่งเสริมทักษะชีวิตและคุณธรรม', 'ปลูกฝังวินัย คุณธรรม จริยธรรม และการทำงานร่วมกันผ่านกิจกรรมลูกเสือ กีฬา และศิลปวัฒนธรรม', 'กิจกรรมพัฒนาผู้เรียนรอบด้าน', 'ดนตรี กีฬา ศิลปะ จิตอาสา', '', 'คลังภาพกิจกรรม', '/gallery', 'ติดต่อโรงเรียน', '/contact', 'ศิษย์เก่าโรงเรียน', 'เครือข่ายเข้มแข็ง', 'กิจกรรมสภานักเรียน', 'พัฒนาผู้เรียนรอบด้าน', true, 3)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.hero_slides';
+  END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;

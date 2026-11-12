@@ -27,7 +27,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -46,10 +53,11 @@ import {
   RotateCcw,
   Save,
   ExternalLink,
-  Eye,
   Image as ImageIcon,
   Play,
   Layers,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';
@@ -69,6 +77,70 @@ const PRESET_IMAGES = [
   { label: 'ห้องปฏิบัติการวิทยาศาสตร์ / AI', url: studentScienceLab },
   { label: 'กิจกรรมพัฒนาผู้เรียนและบัณฑิตน้อย', url: studentGraduationActivity },
 ];
+
+export interface HeroSlideRecord {
+  id: string;
+  title: string;
+  subtitle: string;
+  kicker: string;
+  subline: string;
+  image_url: string;
+  primary_label: string;
+  primary_href: string;
+  secondary_label: string;
+  secondary_href: string;
+  track1_name: string;
+  track1_range: string;
+  track2_name: string;
+  track2_range: string;
+  is_active: boolean;
+  order_position: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function recordToItem(rec: any, index: number): HeroSlideItem {
+  return {
+    id: String(rec.id || `slide-${index + 1}`),
+    title: rec.title || '',
+    subtitle: rec.subtitle || '',
+    kicker: rec.kicker || '',
+    subline: rec.subline || '',
+    image: rec.image_url || rec.image || '',
+    primaryLabel: rec.primary_label || rec.primaryLabel || '',
+    primaryHref: rec.primary_href || rec.primaryHref || '',
+    secondaryLabel: rec.secondary_label || rec.secondaryLabel || '',
+    secondaryHref: rec.secondary_href || rec.secondaryHref || '',
+    track1Name: rec.track1_name || rec.track1Name || '',
+    track1Range: rec.track1_range || rec.track1Range || '',
+    track2Name: rec.track2_name || rec.track2Name || '',
+    track2Range: rec.track2_range || rec.track2Range || '',
+    enabled: rec.is_active !== undefined ? Boolean(rec.is_active) : (rec.enabled !== false),
+    order: rec.order_position || rec.order || index + 1,
+  };
+}
+
+function itemToRecord(item: HeroSlideItem, index: number): HeroSlideRecord {
+  return {
+    id: item.id || `slide-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    title: item.title || '',
+    subtitle: item.subtitle || '',
+    kicker: item.kicker || '',
+    subline: item.subline || '',
+    image_url: item.image || '',
+    primary_label: item.primaryLabel || '',
+    primary_href: item.primaryHref || '',
+    secondary_label: item.secondaryLabel || '',
+    secondary_href: item.secondaryHref || '',
+    track1_name: item.track1Name || '',
+    track1_range: item.track1Range || '',
+    track2_name: item.track2Name || '',
+    track2_range: item.track2Range || '',
+    is_active: item.enabled !== false,
+    order_position: index + 1,
+    updated_at: new Date().toISOString(),
+  };
+}
 
 interface SortableHeroSlideRowProps {
   slide: HeroSlideItem;
@@ -229,6 +301,7 @@ export const HeroSliderManagement = () => {
   const [saving, setSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSlide, setEditingSlide] = useState<HeroSlideItem | null>(null);
+  const [slideToDelete, setSlideToDelete] = useState<HeroSlideItem | null>(null);
 
   const [formData, setFormData] = useState<HeroSlideItem>({
     id: '',
@@ -261,21 +334,46 @@ export const HeroSliderManagement = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // 1. Try to load from dedicated hero_slides table first
+      let loadedSlides: HeroSlideItem[] = [];
+      let tableLoaded = false;
+
+      try {
+        const { data: tableData, error: tableErr } = await (supabase as any)
+          .from('hero_slides')
+          .select('*')
+          .order('order_position', { ascending: true });
+
+        if (!tableErr && Array.isArray(tableData) && tableData.length > 0) {
+          loadedSlides = tableData.map((row: any, idx: number) => recordToItem(row, idx));
+          tableLoaded = true;
+        }
+      } catch (tErr) {
+        console.warn('hero_slides table not ready yet, falling back to school_settings:', tErr);
+      }
+
+      // 2. Load settings for autoplay and fallback slides
+      const { data: settingsData } = await supabase
         .from('school_settings')
         .select('key, value')
         .in('key', ['hero_slides_json', 'hero_autoplay_enabled', 'hero_autoplay_interval']);
 
-      if (error) throw error;
-
       const map: Record<string, string> = {};
-      data?.forEach((row: any) => {
+      settingsData?.forEach((row: any) => {
         map[row.key] = row.value || '';
       });
 
-      setSlides(parseHeroSlides(map.hero_slides_json));
       setAutoplayEnabled(map.hero_autoplay_enabled !== 'false');
       setAutoplayInterval(map.hero_autoplay_interval || '6000');
+
+      if (!tableLoaded) {
+        // Fallback from school_settings.hero_slides_json or defaults
+        const parsed = parseHeroSlides(map.hero_slides_json);
+        loadedSlides = parsed.length > 0 ? parsed : DEFAULT_HERO_SLIDES;
+      }
+
+      setSlides(loadedSlides);
     } catch (error: any) {
       console.error('Error loading hero slides:', error);
       toast({
@@ -290,9 +388,14 @@ export const HeroSliderManagement = () => {
 
   useEffect(() => {
     loadData();
-    return subscribeToRealtimeTables('realtime_hero_slider_admin', ['school_settings'], loadData);
+    return subscribeToRealtimeTables(
+      'realtime_hero_slider_admin',
+      ['hero_slides', 'school_settings'],
+      loadData
+    );
   }, [loadData]);
 
+  // Sync to both hero_slides table and school_settings
   const persistSlides = async (
     newSlides: HeroSlideItem[],
     newAutoplay = autoplayEnabled,
@@ -303,6 +406,21 @@ export const HeroSliderManagement = () => {
     setSlides(newSlides);
     try {
       setSaving(true);
+
+      // 1. Persist to hero_slides table
+      try {
+        const records = newSlides.map((s, idx) => itemToRecord(s, idx));
+        // Upsert records to hero_slides
+        if (records.length > 0) {
+          await (supabase as any)
+            .from('hero_slides')
+            .upsert(records, { onConflict: 'id' });
+        }
+      } catch (tableErr) {
+        console.warn('hero_slides table direct upsert skipped:', tableErr);
+      }
+
+      // 2. Persist to school_settings for backward compatibility
       const entries = [
         {
           key: 'hero_slides_json',
@@ -322,7 +440,7 @@ export const HeroSliderManagement = () => {
       ];
 
       for (const entry of entries) {
-        const { error } = await supabase.from('school_settings').upsert(
+        await supabase.from('school_settings').upsert(
           {
             key: entry.key,
             value: entry.value,
@@ -330,12 +448,12 @@ export const HeroSliderManagement = () => {
           } as any,
           { onConflict: 'key' }
         );
-        if (error) throw error;
       }
 
       // Clear cached settings and notify realtime subscribers
       localStorage.removeItem('school_settings_cache');
       localStorage.removeItem('school_settings_cache_v3');
+      notifyLocalRealtimeListeners('hero_slides');
       notifyLocalRealtimeListeners('school_settings');
 
       if (showToast) {
@@ -373,6 +491,17 @@ export const HeroSliderManagement = () => {
 
   const handleToggleSlide = async (slideId: string, checked: boolean) => {
     const updated = slides.map((s) => (s.id === slideId ? { ...s, enabled: checked } : s));
+    
+    // Also update hero_slides table directly
+    try {
+      await (supabase as any)
+        .from('hero_slides')
+        .update({ is_active: checked })
+        .eq('id', slideId);
+    } catch (e) {
+      console.warn('Error updating hero_slides is_active:', e);
+    }
+
     await persistSlides(
       updated,
       autoplayEnabled,
@@ -423,8 +552,28 @@ export const HeroSliderManagement = () => {
     let updated: HeroSlideItem[] = [];
     if (editingSlide) {
       updated = slides.map((s) => (s.id === editingSlide.id ? { ...formData } : s));
+      // Direct table update
+      try {
+        const rec = itemToRecord(formData, formData.order - 1);
+        await (supabase as any)
+          .from('hero_slides')
+          .update(rec)
+          .eq('id', editingSlide.id);
+      } catch (e) {
+        console.warn('Direct update to hero_slides failed:', e);
+      }
     } else {
-      updated = [...slides, { ...formData, order: slides.length + 1 }];
+      const newSlide = { ...formData, id: formData.id || `slide-${Date.now()}`, order: slides.length + 1 };
+      updated = [...slides, newSlide];
+      // Direct table insert
+      try {
+        const rec = itemToRecord(newSlide, updated.length - 1);
+        await (supabase as any)
+          .from('hero_slides')
+          .insert(rec);
+      } catch (e) {
+        console.warn('Direct insert to hero_slides failed:', e);
+      }
     }
 
     setIsDialogOpen(false);
@@ -437,30 +586,55 @@ export const HeroSliderManagement = () => {
     );
   };
 
-  const handleDeleteSlide = async (slideId: string, slideTitle: string) => {
-    if (slides.length <= 1) {
+  const confirmDeleteSlide = async () => {
+    if (!slideToDelete) return;
+    const targetId = slideToDelete.id;
+    const targetTitle = slideToDelete.title;
+
+    try {
+      setSaving(true);
+      // 1. Delete from hero_slides table directly
+      try {
+        await (supabase as any)
+          .from('hero_slides')
+          .delete()
+          .eq('id', targetId);
+      } catch (e) {
+        console.warn('Direct delete from hero_slides failed:', e);
+      }
+
+      // 2. Filter remaining and re-order
+      const remaining = slides
+        .filter((s) => s.id !== targetId)
+        .map((s, idx) => ({ ...s, order: idx + 1 }));
+
+      setSlideToDelete(null);
+      await persistSlides(remaining, autoplayEnabled, autoplayInterval, true, `ลบสไลด์ "${targetTitle || ''}" เรียบร้อยแล้ว`);
+    } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'ไม่สามารถลบสไลด์ทั้งหมดได้',
-        description: 'ต้องมีสไลด์อย่างน้อย 1 รายการบนหัวเว็บ',
+        title: 'ลบสไลด์ไม่สำเร็จ',
+        description: error?.message || 'เกิดข้อผิดพลาดในการลบสไลด์',
       });
-      return;
+    } finally {
+      setSaving(false);
     }
-
-    if (!confirm(`ต้องการลบสไลด์ "${slideTitle || 'นี้'}" หรือไม่?`)) return;
-
-    const remaining = slides
-      .filter((s) => s.id !== slideId)
-      .map((s, idx) => ({ ...s, order: idx + 1 }));
-
-    await persistSlides(remaining, autoplayEnabled, autoplayInterval, true, 'ลบสไลด์เรียบร้อยแล้ว');
   };
 
   const handleResetDefaults = async () => {
-    if (!confirm('ต้องการรีเซ็ตภาพสไลด์กลับเป็นค่ามาตรฐาน 3 สไลด์ของโรงเรียนหรือไม่?')) return;
-    const defaults = DEFAULT_HERO_SLIDES.map((s) => ({ ...s }));
+    const defaults = DEFAULT_HERO_SLIDES.map((s, idx) => ({ ...s, order: idx + 1 }));
     setAutoplayEnabled(true);
     setAutoplayInterval('6000');
+
+    // Clean table and insert defaults
+    try {
+      await (supabase as any).from('hero_slides').delete().neq('id', 'keep_none');
+      const records = defaults.map((s, idx) => itemToRecord(s, idx));
+      await (supabase as any).from('hero_slides').insert(records);
+    } catch (e) {
+      console.warn('Failed resetting hero_slides table:', e);
+    }
+
     await persistSlides(defaults, true, '6000', true, 'รีเซ็ตภาพสไลด์เป็นค่าเริ่มต้นเรียบร้อยแล้ว');
   };
 
@@ -476,8 +650,9 @@ export const HeroSliderManagement = () => {
 
   if (loading) {
     return (
-      <div className="p-8 text-center text-muted-foreground">
-        กำลังโหลดข้อมูลภาพสไลด์บนหัวเว็บจาก Supabase...
+      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+        <Sparkles className="w-8 h-8 text-primary animate-spin" />
+        <p>กำลังโหลดข้อมูลภาพสไลด์บนหัวเว็บจาก Supabase (hero_slides)...</p>
       </div>
     );
   }
@@ -485,16 +660,25 @@ export const HeroSliderManagement = () => {
   const enabledCount = slides.filter((s) => s.enabled).length;
 
   return (
-    <div className="p-8 max-w-5xl space-y-6">
+    <div className="p-4 sm:p-8 max-w-5xl space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2.5">
-            <Sparkles className="w-8 h-8 text-primary" />
-            จัดการภาพสไลด์บนหัวเว็บ (Hero Slider Showcase)
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Full Control System
+            </Badge>
+            <Badge variant="outline" className="text-muted-foreground text-xs">
+              Table: hero_slides
+            </Badge>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2.5 mt-1.5">
+            <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
+            จัดการภาพสไลด์บนหัวเว็บ (Hero Slider)
           </h1>
-          <p className="text-muted-foreground mt-1">
-            อัปโหลดรูปภาพ ปรับเปลี่ยนข้อความ และจัดลำดับแบนเนอร์สไลด์ขนาดใหญ่บนหน้าแรกของโรงเรียน
+          <p className="text-muted-foreground text-sm mt-1">
+            ปรับแต่ง เพิ่ม ลบ แก้ไขภาพสไลด์บนหัวเว็บไซต์ จัดลำดับ และอัปโหลดรูปภาพได้อิสระโดยไม่จำกัดขนาด
           </p>
         </div>
 
@@ -503,13 +687,13 @@ export const HeroSliderManagement = () => {
             type="button"
             variant="outline"
             onClick={() => window.open('/', '_blank')}
-            className="gap-1.5"
+            className="gap-1.5 text-xs sm:text-sm"
           >
             <ExternalLink className="w-4 h-4" />
             ดูหน้าเว็บจริง
           </Button>
 
-          <Button type="button" onClick={handleSaveAll} disabled={saving} className="gap-2">
+          <Button type="button" onClick={handleSaveAll} disabled={saving} className="gap-2 text-xs sm:text-sm">
             <Save className="w-4 h-4" />
             {saving ? 'กำลังบันทึก...' : 'บันทึกภาพสไลด์'}
           </Button>
@@ -611,25 +795,43 @@ export const HeroSliderManagement = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={slides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-3">
-                {slides.map((slide, idx) => (
-                  <SortableHeroSlideRow
-                    key={slide.id}
-                    slide={slide}
-                    index={idx}
-                    total={slides.length}
-                    onMoveUp={() => handleMoveSlide(idx, 'up')}
-                    onMoveDown={() => handleMoveSlide(idx, 'down')}
-                    onToggle={(checked) => handleToggleSlide(slide.id, checked)}
-                    onEdit={() => handleOpenDialog(slide)}
-                    onDelete={() => handleDeleteSlide(slide.id, slide.title)}
-                  />
-                ))}
+          {slides.length === 0 ? (
+            <div className="p-8 text-center border-2 border-dashed border-border rounded-xl bg-secondary/20">
+              <ImageIcon className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-60" />
+              <p className="text-sm font-semibold text-foreground">ยังไม่มีภาพสไลด์บนหัวเว็บ</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">กดปุ่มด้านล่างเพื่อเพิ่มภาพสไลด์ใหม่ หรือรีเซ็ตเป็นค่าเริ่มต้น</p>
+              <div className="flex justify-center gap-2">
+                <Button size="sm" onClick={() => handleOpenDialog()}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  เพิ่มภาพสไลด์แรก
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleResetDefaults}>
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  คืนค่าเริ่มต้น 3 ภาพ
+                </Button>
               </div>
-            </SortableContext>
-          </DndContext>
+            </div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={slides.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {slides.map((slide, idx) => (
+                    <SortableHeroSlideRow
+                      key={slide.id}
+                      slide={slide}
+                      index={idx}
+                      total={slides.length}
+                      onMoveUp={() => handleMoveSlide(idx, 'up')}
+                      onMoveDown={() => handleMoveSlide(idx, 'down')}
+                      onToggle={(checked) => handleToggleSlide(slide.id, checked)}
+                      onEdit={() => handleOpenDialog(slide)}
+                      onDelete={() => setSlideToDelete(slide)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
         </CardContent>
       </Card>
 
@@ -637,10 +839,13 @@ export const HeroSliderManagement = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-lg">
               <ImageIcon className="w-5 h-5 text-primary" />
               {editingSlide ? 'แก้ไขภาพสไลด์หัวเว็บ' : 'เพิ่มภาพสไลด์หัวเว็บใหม่'}
             </DialogTitle>
+            <DialogDescription>
+              กำหนดรูปภาพ ข้อความ และปุ่มกดบนแบนเนอร์ภาพสไลด์หัวเว็บ บันทึกจัดเก็บในตาราง hero_slides
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveSlideForm} className="space-y-5 pt-2">
@@ -664,6 +869,7 @@ export const HeroSliderManagement = () => {
                 ))}
               </div>
 
+              {/* Enhanced ImageUpload component */}
               <ImageUpload
                 currentImage={formData.image}
                 onUploadComplete={(url) => setFormData({ ...formData, image: url })}
@@ -673,15 +879,18 @@ export const HeroSliderManagement = () => {
               />
 
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>รองรับรูปภาพทุกประเภทและทุกขนาด (JPG, PNG, WebP, HEIC/iPhone/iPad) โดยไม่จำกัดขนาด</span>
+                <span>รองรับรูปภาพทุกประเภทและทุกขนาด (JPG, PNG, WebP, HEIC/iPhone/iPad) ไม่จำกัดขนาด</span>
                 <span className="text-primary font-medium">Full Control</span>
               </div>
 
-              <Input
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                placeholder="หรือวางลิงก์รูปภาพโดยตรง (https://... หรือ /assets/...)"
-              />
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">หรือวาง URL ลิงก์รูปภาพโดยตรง:</Label>
+                <Input
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  placeholder="https://images.unsplash.com/... หรือ URL รูปภาพ"
+                />
+              </div>
             </div>
 
             {/* Slide Texts */}
@@ -827,6 +1036,58 @@ export const HeroSliderManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* In-app Delete Confirmation Modal (solves confirm() block on iOS/Dialogs) */}
+      <Dialog open={!!slideToDelete} onOpenChange={(open) => !open && setSlideToDelete(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              ยืนยันการลบภาพสไลด์
+            </DialogTitle>
+            <DialogDescription>
+              คุณแน่ใจหรือไม่ว่าต้องการลบสไลด์นี้ออกจากหน้าแรกของโรงเรียน? การลบนี้จะมีผลทันที
+            </DialogDescription>
+          </DialogHeader>
+
+          {slideToDelete && (
+            <div className="p-3 rounded-lg border bg-secondary/30 flex items-center gap-3 my-2">
+              <div className="w-16 h-12 rounded-md overflow-hidden bg-slate-900 border shrink-0">
+                <img
+                  src={slideToDelete.image || heroImage}
+                  alt={slideToDelete.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-sm truncate">{slideToDelete.title || 'สไลด์ไม่มีหัวข้อ'}</p>
+                <p className="text-xs text-muted-foreground truncate">{slideToDelete.subtitle || 'ไม่มีคำอธิบาย'}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSlideToDelete(null)}
+              disabled={saving}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDeleteSlide}
+              disabled={saving}
+              className="gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              {saving ? 'กำลังลบ...' : 'ยืนยันลบสไลด์นี้'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Bottom Sticky Save */}
       <div className="flex justify-end pt-2">
         <Button type="button" onClick={handleSaveAll} disabled={saving} className="gap-2">
@@ -837,4 +1098,3 @@ export const HeroSliderManagement = () => {
     </div>
   );
 };
-

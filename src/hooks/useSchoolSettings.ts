@@ -282,7 +282,39 @@ export const useSchoolSettings = () => {
         const navbarMenuItems = parseNavbarMenuItems(settingsMap.navbar_menu_items);
         const newsletterDisplay = parseNewsletterDisplayConfig(settingsMap);
         let welcomePopup = parseWelcomePopupConfig(settingsMap, heroImage);
-        const heroSlides = parseHeroSlides(settingsMap.hero_slides_json);
+        let heroSlides = parseHeroSlides(settingsMap.hero_slides_json);
+
+        // Directly query hero_slides table for realtime full control
+        try {
+          const { data: slidesData, error: slidesErr } = await (supabase as any)
+            .from('hero_slides')
+            .select('*')
+            .order('order_position', { ascending: true });
+
+          if (!slidesErr && Array.isArray(slidesData) && slidesData.length > 0) {
+            heroSlides = slidesData.map((row: any, idx: number) => ({
+              id: String(row.id || `slide-${idx + 1}`),
+              title: row.title || '',
+              subtitle: row.subtitle || '',
+              kicker: row.kicker || '',
+              subline: row.subline || '',
+              image: row.image_url || row.image || '',
+              primaryLabel: row.primary_label || '',
+              primaryHref: row.primary_href || '',
+              secondaryLabel: row.secondary_label || '',
+              secondaryHref: row.secondary_href || '',
+              track1Name: row.track1_name || '',
+              track1Range: row.track1_range || '',
+              track2Name: row.track2_name || '',
+              track2Range: row.track2_range || '',
+              enabled: row.is_active !== undefined ? Boolean(row.is_active) : true,
+              order: row.order_position || idx + 1,
+            }));
+          }
+        } catch (sErr) {
+          console.warn('Falling back to hero_slides_json:', sErr);
+        }
+
         const extendedTablesReady = settingsMap.extended_tables_ready === 'true';
 
         let resolvedVercelUrl = settingsMap.vercel_site_url || defaultSettings.vercel_site_url;
@@ -465,14 +497,14 @@ export const useSchoolSettings = () => {
 
     const unsubscribeRealtime = subscribeToRealtimeTables(
       'realtime_school_settings',
-      ['school_settings', 'homepage_sections', 'site_popups', 'deployment_configs'],
+      ['school_settings', 'hero_slides', 'homepage_sections', 'site_popups', 'deployment_configs'],
       () => {
         fetchSettings();
       }
     );
 
     const handleStorage = (e: StorageEvent) => {
-      if (!e.key || e.key.includes('school_settings')) {
+      if (!e.key || e.key.includes('school_settings') || e.key.includes('hero_slides')) {
         fetchSettings();
       }
     };
