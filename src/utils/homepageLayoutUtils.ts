@@ -721,3 +721,215 @@ export const parseHeroSlides = (rawJson?: string | null): HeroSlideItem[] => {
     return DEFAULT_HERO_SLIDES.map((s) => ({ ...s }));
   }
 };
+
+export interface FeaturedHighlightItem {
+  id: string;
+  badge: string;
+  titleHighlight: string;
+  title: string;
+  description: string;
+  image: string;
+  imageCaption: string;
+  imagePosition?: string;
+  imageScale?: number;
+  showOverlay?: boolean;
+  showCaption?: boolean;
+  showBadge?: boolean;
+  showPlayButton?: boolean;
+  playActionType?: 'link' | 'gallery' | 'modal' | 'video';
+  mediaLinkUrl?: string;
+  syncCurriculum?: boolean;
+  syncActivities?: boolean;
+  syncGrades?: boolean;
+  autoCaptionFromDb?: boolean;
+  autoDescriptionFromDb?: boolean;
+  customTags?: string[];
+  primaryLabel: string;
+  primaryHref: string;
+  showPrimaryBtn?: boolean;
+  secondaryLabel: string;
+  secondaryHref: string;
+  showSecondaryBtn?: boolean;
+  enabled: boolean;
+  order: number;
+}
+
+export const DEFAULT_FEATURED_HIGHLIGHT: FeaturedHighlightItem = {
+  id: 'highlight-curriculum-main',
+  badge: 'CURRICULUM & HIGHLIGHT ACTIVITIES',
+  titleHighlight: 'หลักสูตรและกิจกรรมเด่น',
+  title: 'โรงเรียนบ้านหาดเค็ด',
+  description: '',
+  image: '',
+  imageCaption: '',
+  imagePosition: 'center center',
+  imageScale: 1,
+  showOverlay: true,
+  showCaption: true,
+  showBadge: true,
+  showPlayButton: false,
+  playActionType: 'link',
+  mediaLinkUrl: '/curriculum',
+  syncCurriculum: true,
+  syncActivities: true,
+  syncGrades: true,
+  autoCaptionFromDb: true,
+  autoDescriptionFromDb: true,
+  customTags: ['ระดับปฐมวัย (อ.2-อ.3)', 'ระดับประถมศึกษา (ป.1-ป.6)', 'ระดับมัธยมศึกษาตอนต้น (ม.1-ม.3)'],
+  primaryLabel: 'ดูหลักสูตรที่เปิดสอน',
+  primaryHref: '/curriculum',
+  showPrimaryBtn: true,
+  secondaryLabel: 'ประมวลภาพกิจกรรม',
+  secondaryHref: '/gallery',
+  showSecondaryBtn: true,
+  enabled: true,
+  order: 1,
+};
+
+export const parseFeaturedHighlights = (rawJson?: string | null): FeaturedHighlightItem[] => {
+  if (!rawJson || !rawJson.trim()) {
+    return [{ ...DEFAULT_FEATURED_HIGHLIGHT }];
+  }
+
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return [{ ...DEFAULT_FEATURED_HIGHLIGHT, ...parsed }];
+      }
+      return [{ ...DEFAULT_FEATURED_HIGHLIGHT }];
+    }
+
+    return parsed
+      .map((item, idx) => ({
+        id: typeof item?.id === 'string' && item.id.trim() ? item.id : `highlight-${idx + 1}`,
+        badge: typeof item?.badge === 'string' ? item.badge : DEFAULT_FEATURED_HIGHLIGHT.badge,
+        titleHighlight:
+          typeof item?.titleHighlight === 'string' || typeof item?.title_highlight === 'string'
+            ? item.titleHighlight || item.title_highlight
+            : DEFAULT_FEATURED_HIGHLIGHT.titleHighlight,
+        title: typeof item?.title === 'string' ? item.title : DEFAULT_FEATURED_HIGHLIGHT.title,
+        description: typeof item?.description === 'string' ? item.description : '',
+        image:
+          typeof item?.image === 'string' && item.image.trim()
+            ? item.image.trim()
+            : typeof item?.image_url === 'string' && item.image_url.trim()
+            ? item.image_url.trim()
+            : '',
+        imageCaption:
+          typeof item?.imageCaption === 'string'
+            ? item.imageCaption
+            : typeof item?.image_caption === 'string'
+            ? item.image_caption
+            : '',
+        imagePosition:
+          typeof item?.imagePosition === 'string' && item.imagePosition
+            ? item.imagePosition
+            : typeof item?.image_position === 'string' && item.image_position
+            ? item.image_position
+            : 'center center',
+        imageScale:
+          typeof item?.imageScale === 'number' && !isNaN(item.imageScale)
+            ? item.imageScale
+            : typeof item?.image_scale === 'number' && !isNaN(item.image_scale)
+            ? item.image_scale
+            : 1,
+        showOverlay:
+          item?.showOverlay !== undefined
+            ? Boolean(item.showOverlay)
+            : item?.show_overlay !== undefined
+            ? Boolean(item.show_overlay)
+            : true,
+        showCaption:
+          item?.showCaption !== undefined
+            ? Boolean(item.showCaption)
+            : item?.show_caption !== undefined
+            ? Boolean(item.show_caption)
+            : true,
+        showBadge:
+          item?.showBadge !== undefined
+            ? Boolean(item.showBadge)
+            : item?.show_badge !== undefined
+            ? Boolean(item.show_badge)
+            : true,
+        showPlayButton:
+          item?.showPlayButton !== undefined
+            ? Boolean(item.showPlayButton)
+            : item?.show_play_button !== undefined
+            ? Boolean(item.show_play_button)
+            : false,
+        playActionType:
+          item?.playActionType || item?.play_action_type || DEFAULT_FEATURED_HIGHLIGHT.playActionType,
+        mediaLinkUrl:
+          item?.mediaLinkUrl || item?.media_link_url || DEFAULT_FEATURED_HIGHLIGHT.mediaLinkUrl,
+        syncCurriculum:
+          item?.syncCurriculum !== undefined
+            ? Boolean(item.syncCurriculum)
+            : item?.sync_curriculum !== undefined
+            ? Boolean(item.sync_curriculum)
+            : true,
+        syncActivities:
+          item?.syncActivities !== undefined
+            ? Boolean(item.syncActivities)
+            : item?.sync_activities !== undefined
+            ? Boolean(item.sync_activities)
+            : true,
+        syncGrades:
+          item?.syncGrades !== undefined
+            ? Boolean(item.syncGrades)
+            : item?.sync_grades !== undefined
+            ? Boolean(item.sync_grades)
+            : true,
+        autoCaptionFromDb:
+          item?.autoCaptionFromDb !== undefined
+            ? Boolean(item.autoCaptionFromDb)
+            : item?.auto_caption_from_db !== undefined
+            ? Boolean(item.auto_caption_from_db)
+            : true,
+        autoDescriptionFromDb:
+          item?.autoDescriptionFromDb !== undefined
+            ? Boolean(item.autoDescriptionFromDb)
+            : item?.auto_description_from_db !== undefined
+            ? Boolean(item.auto_description_from_db)
+            : true,
+        customTags:
+          Array.isArray(item?.customTags)
+            ? item.customTags
+            : Array.isArray(item?.custom_tags)
+            ? item.custom_tags
+            : DEFAULT_FEATURED_HIGHLIGHT.customTags,
+        primaryLabel:
+          item?.primaryLabel || item?.primary_label || DEFAULT_FEATURED_HIGHLIGHT.primaryLabel,
+        primaryHref:
+          item?.primaryHref || item?.primary_href || DEFAULT_FEATURED_HIGHLIGHT.primaryHref,
+        showPrimaryBtn:
+          item?.showPrimaryBtn !== undefined
+            ? Boolean(item.showPrimaryBtn)
+            : item?.show_primary_btn !== undefined
+            ? Boolean(item.show_primary_btn)
+            : true,
+        secondaryLabel:
+          item?.secondaryLabel || item?.secondary_label || DEFAULT_FEATURED_HIGHLIGHT.secondaryLabel,
+        secondaryHref:
+          item?.secondaryHref || item?.secondary_href || DEFAULT_FEATURED_HIGHLIGHT.secondaryHref,
+        showSecondaryBtn:
+          item?.showSecondaryBtn !== undefined
+            ? Boolean(item.showSecondaryBtn)
+            : item?.show_secondary_btn !== undefined
+            ? Boolean(item.show_secondary_btn)
+            : true,
+        enabled:
+          item?.enabled !== undefined
+            ? Boolean(item.enabled)
+            : item?.is_active !== undefined
+            ? Boolean(item.is_active)
+            : true,
+        order: typeof item?.order === 'number' ? item.order : typeof item?.order_position === 'number' ? item.order_position : idx + 1,
+      }))
+      .sort((a, b) => a.order - b.order)
+      .map((item, idx) => ({ ...item, order: idx + 1 }));
+  } catch {
+    return [{ ...DEFAULT_FEATURED_HIGHLIGHT }];
+  }
+};
+

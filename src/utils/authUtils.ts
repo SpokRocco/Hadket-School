@@ -60,6 +60,7 @@ export const ALL_ADMIN_MENUS: AdminMenuDefinition[] = [
   { id: 'homepage_layout', label: 'จัดลำดับหน้าแรก & ป๊อปอัป', description: 'เรียงลำดับข้อมูลหน้าแรก ป๊อปอัปต้อนรับ และเชื่อมต่อ Realtime/Vercel/GitHub', adminOnly: true },
   { id: 'hero_slider', label: 'ภาพสไลด์หัวเว็บ (Hero Slider)', description: 'แก้ไขภาพและเนื้อหาสไลด์บนแบนเนอร์หน้าแรก', adminOnly: true },
   { id: 'subhero_images', label: '2 รูปไฮไลท์ใต้ภาพสไลด์', description: 'แก้ไขรูปภาพบรรยากาศและกิจกรรมนักเรียนใต้ภาพสไลด์', adminOnly: true },
+  { id: 'highlight_showcase', label: 'แบนเนอร์กิจกรรมเด่น & หลักสูตร', description: 'แก้ไขภาพและข้อความแบนเนอร์กิจกรรมเด่น ซิงค์ Supabase แบบ Full Control', adminOnly: true },
   { id: 'settings', label: 'ตั้งค่าระบบโรงเรียน', description: 'แก้ไขชื่อโรงเรียน โลโก้ และข้อมูลติดต่อ', adminOnly: true },
 ];
 

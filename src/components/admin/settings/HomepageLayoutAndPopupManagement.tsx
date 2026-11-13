@@ -1438,6 +1438,12 @@ export const HomepageLayoutAndPopupManagement = () => {
                   เรียงลำดับกิจกรรมเสริม
                 </Button>
               </Link>
+              <Link to="/admin/dashboard?tab=highlight_showcase">
+                <Button type="button" variant="outline" className="w-full justify-start gap-2 border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/30">
+                  <Sparkles className="w-4 h-4 text-sky-600" />
+                  แบนเนอร์กิจกรรมเด่น & หลักสูตร
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </TabsContent>

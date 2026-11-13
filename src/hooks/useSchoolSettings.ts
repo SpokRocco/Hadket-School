@@ -8,6 +8,7 @@ import {
   DEFAULT_NEWS_HUB_SUBSECTIONS,
   DEFAULT_WELCOME_POPUP_CONFIG,
   DEFAULT_HERO_SLIDES,
+  DEFAULT_FEATURED_HIGHLIGHT,
   mergeHomepageSectionsFromTable,
   parseHomepageSections,
   parseNavbarMenuItems,
@@ -15,12 +16,14 @@ import {
   parseNewsHubSubSections,
   parseWelcomePopupConfig,
   parseHeroSlides,
+  parseFeaturedHighlights,
   type HomepageSectionConfig,
   type NavbarMenuItemConfig,
   type NewsletterDisplayConfig,
   type NewsHubSubSectionConfig,
   type WelcomePopupConfig,
   type HeroSlideItem,
+  type FeaturedHighlightItem,
 } from '@/utils/homepageLayoutUtils';
 
 export interface SocialLink {
@@ -114,12 +117,14 @@ export interface SchoolSettings {
   hero_slides_json: string;
   hero_autoplay_enabled: string;
   hero_autoplay_interval: string;
+  featured_highlights_json: string;
   homepageSections: HomepageSectionConfig[];
   newsHubSubSections: NewsHubSubSectionConfig[];
   navbarMenuItems: NavbarMenuItemConfig[];
   newsletterDisplay: NewsletterDisplayConfig;
   welcomePopup: WelcomePopupConfig;
   heroSlides: HeroSlideItem[];
+  featuredHighlights: FeaturedHighlightItem[];
 
   // Quick Chat Widget (Floating LINE & Direct Inquiry)
   quick_chat_enabled: string;
@@ -220,6 +225,7 @@ const defaultSettings: SchoolSettings = {
   hero_slides_json: JSON.stringify(DEFAULT_HERO_SLIDES),
   hero_autoplay_enabled: 'true',
   hero_autoplay_interval: '6000',
+  featured_highlights_json: JSON.stringify([DEFAULT_FEATURED_HIGHLIGHT]),
   homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
   newsHubSubSections: DEFAULT_NEWS_HUB_SUBSECTIONS,
   navbarMenuItems: DEFAULT_NAVBAR_MENU_ITEMS,
@@ -229,6 +235,7 @@ const defaultSettings: SchoolSettings = {
     imageUrl: heroImage,
   },
   heroSlides: DEFAULT_HERO_SLIDES,
+  featuredHighlights: [DEFAULT_FEATURED_HIGHLIGHT],
   quick_chat_enabled: 'true',
   quick_chat_title: 'แชทด่วนสอบถามข้อมูล',
   quick_chat_greeting: 'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่โรงเรียนบ้านหาดเค็ด มีข้อสงสัยหรือต้องการสอบถามข้อมูล สามารถแชทคุยกับเราได้เลยครับ',
@@ -267,6 +274,7 @@ const getCachedSettings = (): SchoolSettings | null => {
         newsletterDisplay: parseNewsletterDisplayConfig(parsed),
         welcomePopup: parseWelcomePopupConfig(parsed, heroImage),
         heroSlides: parseHeroSlides(parsed.hero_slides_json),
+        featuredHighlights: parseFeaturedHighlights(parsed.featured_highlights_json),
       };
     }
   } catch (error) {
@@ -353,6 +361,52 @@ export const useSchoolSettings = () => {
           console.warn('Falling back to hero_slides_json:', sErr);
         }
 
+        let featuredHighlights = parseFeaturedHighlights(settingsMap.featured_highlights_json);
+
+        // Directly query homepage_highlights table for realtime full control
+        try {
+          const { data: highlightsData, error: highlightsErr } = await (supabase as any)
+            .from('homepage_highlights')
+            .select('*')
+            .order('order_position', { ascending: true });
+
+          if (!highlightsErr && Array.isArray(highlightsData) && highlightsData.length > 0) {
+            featuredHighlights = highlightsData.map((row: any, idx: number) => ({
+              id: String(row.id || `highlight-${idx + 1}`),
+              badge: row.badge || DEFAULT_FEATURED_HIGHLIGHT.badge,
+              titleHighlight: row.title_highlight || DEFAULT_FEATURED_HIGHLIGHT.titleHighlight,
+              title: row.title || DEFAULT_FEATURED_HIGHLIGHT.title,
+              description: row.description || '',
+              image: row.image_url || '',
+              imageCaption: row.image_caption || '',
+              imagePosition: row.image_position || 'center center',
+              imageScale: typeof row.image_scale === 'number' && !isNaN(row.image_scale) ? row.image_scale : 1,
+              showOverlay: row.show_overlay !== undefined ? Boolean(row.show_overlay) : true,
+              showCaption: row.show_caption !== undefined ? Boolean(row.show_caption) : true,
+              showBadge: row.show_badge !== undefined ? Boolean(row.show_badge) : true,
+              showPlayButton: row.show_play_button !== undefined ? Boolean(row.show_play_button) : false,
+              playActionType: row.play_action_type || 'link',
+              mediaLinkUrl: row.media_link_url || '/curriculum',
+              syncCurriculum: row.sync_curriculum !== undefined ? Boolean(row.sync_curriculum) : true,
+              syncActivities: row.sync_activities !== undefined ? Boolean(row.sync_activities) : true,
+              syncGrades: row.sync_grades !== undefined ? Boolean(row.sync_grades) : true,
+              autoCaptionFromDb: row.auto_caption_from_db !== undefined ? Boolean(row.auto_caption_from_db) : true,
+              autoDescriptionFromDb: row.auto_description_from_db !== undefined ? Boolean(row.auto_description_from_db) : true,
+              customTags: Array.isArray(row.custom_tags) ? row.custom_tags : DEFAULT_FEATURED_HIGHLIGHT.customTags,
+              primaryLabel: row.primary_label || DEFAULT_FEATURED_HIGHLIGHT.primaryLabel,
+              primaryHref: row.primary_href || DEFAULT_FEATURED_HIGHLIGHT.primaryHref,
+              showPrimaryBtn: row.show_primary_btn !== undefined ? Boolean(row.show_primary_btn) : true,
+              secondaryLabel: row.secondary_label || DEFAULT_FEATURED_HIGHLIGHT.secondaryLabel,
+              secondaryHref: row.secondary_href || DEFAULT_FEATURED_HIGHLIGHT.secondaryHref,
+              showSecondaryBtn: row.show_secondary_btn !== undefined ? Boolean(row.show_secondary_btn) : true,
+              enabled: row.is_active !== undefined ? Boolean(row.is_active) : true,
+              order: row.order_position || idx + 1,
+            }));
+          }
+        } catch (hErr) {
+          console.warn('Falling back to featured_highlights_json:', hErr);
+        }
+
         // Harmonize with local storage live cache if present
         try {
           const liveRaw = localStorage.getItem('kk_school_hero_slides_live');
@@ -360,6 +414,13 @@ export const useSchoolSettings = () => {
             const liveParsed = parseHeroSlides(liveRaw);
             if (liveParsed.length >= heroSlides.length && liveParsed.length > 0) {
               heroSlides = liveParsed;
+            }
+          }
+          const liveHighlightRaw = localStorage.getItem('kk_school_featured_highlights_live');
+          if (liveHighlightRaw) {
+            const liveHighlightParsed = parseFeaturedHighlights(liveHighlightRaw);
+            if (liveHighlightParsed.length > 0) {
+              featuredHighlights = liveHighlightParsed;
             }
           }
         } catch {
@@ -519,6 +580,7 @@ export const useSchoolSettings = () => {
             settingsMap.hero_autoplay_enabled || defaultSettings.hero_autoplay_enabled,
           hero_autoplay_interval:
             settingsMap.hero_autoplay_interval || defaultSettings.hero_autoplay_interval,
+          featured_highlights_json: settingsMap.featured_highlights_json || defaultSettings.featured_highlights_json,
           quick_chat_enabled:
             settingsMap.quick_chat_enabled ?? defaultSettings.quick_chat_enabled,
           quick_chat_title:
@@ -550,6 +612,7 @@ export const useSchoolSettings = () => {
           newsletterDisplay,
           welcomePopup,
           heroSlides,
+          featuredHighlights,
           supabase_project_ref: resolvedProjectRef,
           vercel_site_url: resolvedVercelUrl,
           vercel_deploy_hook_url: resolvedDeployHook,
@@ -573,14 +636,14 @@ export const useSchoolSettings = () => {
 
     const unsubscribeRealtime = subscribeToRealtimeTables(
       'realtime_school_settings',
-      ['school_settings', 'hero_slides', 'homepage_sections', 'site_popups', 'deployment_configs'],
+      ['school_settings', 'hero_slides', 'homepage_highlights', 'homepage_sections', 'site_popups', 'deployment_configs', 'curriculum_programs', 'curriculum_activities', 'grade_data'],
       () => {
         fetchSettings();
       }
     );
 
     const handleStorage = (e: StorageEvent) => {
-      if (!e.key || e.key.includes('school_settings') || e.key.includes('hero_slides')) {
+      if (!e.key || e.key.includes('school_settings') || e.key.includes('hero_slides') || e.key.includes('highlights')) {
         fetchSettings();
       }
     };
@@ -598,13 +661,28 @@ export const useSchoolSettings = () => {
       }
     };
 
+    const handleHighlightsUpdated = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      if (Array.isArray(customEvt.detail) && customEvt.detail.length > 0) {
+        setSettings((prev) => ({
+          ...prev,
+          featuredHighlights: customEvt.detail,
+          featured_highlights_json: JSON.stringify(customEvt.detail),
+        }));
+      } else {
+        fetchSettings();
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
     window.addEventListener('hero-slides-updated', handleHeroSlidesUpdated);
+    window.addEventListener('homepage-highlights-updated', handleHighlightsUpdated);
 
     return () => {
       unsubscribeRealtime();
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('hero-slides-updated', handleHeroSlidesUpdated);
+      window.removeEventListener('homepage-highlights-updated', handleHighlightsUpdated);
     };
   }, [fetchSettings]);
 

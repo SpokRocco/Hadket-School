@@ -75,6 +75,7 @@ export type Database = {
                     color: string | null
                     subjects: string[] | null
                     careers: string[] | null
+                    image_url: string | null
                     order_position: number
                     is_active: boolean
                     created_at: string
@@ -88,6 +89,7 @@ export type Database = {
                     color?: string | null
                     subjects?: string[] | null
                     careers?: string[] | null
+                    image_url?: string | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -101,6 +103,7 @@ export type Database = {
                     color?: string | null
                     subjects?: string[] | null
                     careers?: string[] | null
+                    image_url?: string | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -114,6 +117,7 @@ export type Database = {
                     name: string
                     description: string | null
                     icon: string | null
+                    image_url: string | null
                     order_position: number
                     is_active: boolean
                     created_at: string
@@ -124,6 +128,7 @@ export type Database = {
                     name: string
                     description?: string | null
                     icon?: string | null
+                    image_url?: string | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -134,6 +139,7 @@ export type Database = {
                     name?: string
                     description?: string | null
                     icon?: string | null
+                    image_url?: string | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -822,6 +828,108 @@ export type Database = {
                     permissions?: string[]
                     is_active?: boolean
                     last_login?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
+            homepage_highlights: {
+                Row: {
+                    id: string
+                    badge: string | null
+                    title_highlight: string | null
+                    title: string
+                    description: string | null
+                    image_url: string | null
+                    image_caption: string | null
+                    image_position: string | null
+                    image_scale: number | null
+                    show_overlay: boolean
+                    show_caption: boolean
+                    show_badge: boolean
+                    show_play_button: boolean
+                    play_action_type: string | null
+                    media_link_url: string | null
+                    sync_curriculum: boolean
+                    sync_activities: boolean
+                    sync_grades: boolean
+                    auto_caption_from_db: boolean
+                    auto_description_from_db: boolean
+                    custom_tags: string[] | null
+                    primary_label: string | null
+                    primary_href: string | null
+                    show_primary_btn: boolean
+                    secondary_label: string | null
+                    secondary_href: string | null
+                    show_secondary_btn: boolean
+                    is_active: boolean
+                    order_position: number
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    badge?: string | null
+                    title_highlight?: string | null
+                    title?: string
+                    description?: string | null
+                    image_url?: string | null
+                    image_caption?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
+                    show_overlay?: boolean
+                    show_caption?: boolean
+                    show_badge?: boolean
+                    show_play_button?: boolean
+                    play_action_type?: string | null
+                    media_link_url?: string | null
+                    sync_curriculum?: boolean
+                    sync_activities?: boolean
+                    sync_grades?: boolean
+                    auto_caption_from_db?: boolean
+                    auto_description_from_db?: boolean
+                    custom_tags?: string[] | null
+                    primary_label?: string | null
+                    primary_href?: string | null
+                    show_primary_btn?: boolean
+                    secondary_label?: string | null
+                    secondary_href?: string | null
+                    show_secondary_btn?: boolean
+                    is_active?: boolean
+                    order_position?: number
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    badge?: string | null
+                    title_highlight?: string | null
+                    title?: string
+                    description?: string | null
+                    image_url?: string | null
+                    image_caption?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
+                    show_overlay?: boolean
+                    show_caption?: boolean
+                    show_badge?: boolean
+                    show_play_button?: boolean
+                    play_action_type?: string | null
+                    media_link_url?: string | null
+                    sync_curriculum?: boolean
+                    sync_activities?: boolean
+                    sync_grades?: boolean
+                    auto_caption_from_db?: boolean
+                    auto_description_from_db?: boolean
+                    custom_tags?: string[] | null
+                    primary_label?: string | null
+                    primary_href?: string | null
+                    show_primary_btn?: boolean
+                    secondary_label?: string | null
+                    secondary_href?: string | null
+                    show_secondary_btn?: boolean
+                    is_active?: boolean
+                    order_position?: number
                     created_at?: string
                     updated_at?: string
                 }

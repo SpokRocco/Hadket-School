@@ -11,6 +11,10 @@ import {
   Phone,
   Mail,
   Newspaper,
+  BookOpen,
+  GraduationCap,
+  Palette,
+  Sparkles,
 } from 'lucide-react';
 import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -52,8 +56,42 @@ const NewsSection = () => {
   const [prPage, setPrPage] = useState(0);
   const [actPage, setActPage] = useState(0);
   const [selectedNewsForModal, setSelectedNewsForModal] = useState<NewsItem | null>(null);
+
+  // Live Supabase curriculum and grade data for dynamic synchronization
+  const [liveCurriculums, setLiveCurriculums] = useState<any[]>([]);
+  const [liveActivities, setLiveActivities] = useState<any[]>([]);
+  const [liveGrades, setLiveGrades] = useState<any[]>([]);
+
   const navigate = useNavigate();
   const { settings } = useSchoolSettings();
+
+  const fetchCurriculumData = useCallback(async () => {
+    try {
+      const [currRes, actRes, gradeRes] = await Promise.all([
+        supabase
+          .from('curriculum_programs')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('curriculum_activities')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+        supabase
+          .from('grade_data')
+          .select('*')
+          .eq('is_active', true)
+          .order('order_position', { ascending: true }),
+      ]);
+
+      if (!currRes.error && currRes.data) setLiveCurriculums(currRes.data);
+      if (!actRes.error && actRes.data) setLiveActivities(actRes.data);
+      if (!gradeRes.error && gradeRes.data) setLiveGrades(gradeRes.data);
+    } catch (e) {
+      console.warn('Error fetching live curriculum in NewsSection:', e);
+    }
+  }, []);
 
   const fetchNews = useCallback(async () => {
     try {
@@ -104,14 +142,16 @@ const NewsSection = () => {
 
   useEffect(() => {
     fetchNews();
+    fetchCurriculumData();
     return subscribeToRealtimeTables(
       'realtime_home_news',
-      ['news', 'news_categories'],
+      ['news', 'news_categories', 'curriculum_programs', 'curriculum_activities', 'grade_data', 'homepage_highlights'],
       () => {
         fetchNews();
+        fetchCurriculumData();
       }
     );
-  }, [fetchNews]);
+  }, [fetchNews, fetchCurriculumData]);
 
   if (isLoading) {
     return (
@@ -296,62 +336,197 @@ const NewsSection = () => {
       </div>
     ),
 
-    featured_highlight: (
-      <div className="rounded-3xl overflow-hidden bg-slate-900 text-white border border-slate-800 shadow-lg">
-        <div className="grid lg:grid-cols-12 items-stretch">
-          <div className="lg:col-span-7 relative min-h-[300px] sm:min-h-[360px] bg-slate-950 overflow-hidden group">
-            <img
-              src={studentGraduationActivity}
-              alt={`กิจกรรมเด่นของ${settings.school_name}`}
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent" />
-            <button
-              type="button"
-              onClick={() => navigate('/gallery')}
-              aria-label="เปิดชมประมวลภาพกิจกรรมเด่น"
-              className="absolute inset-0 flex items-center justify-center"
-            >
-              <span className="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-xl transition-transform group-hover:scale-110">
-                <Play className="w-7 h-7 fill-current ml-0.5" />
-              </span>
-            </button>
-            <div className="absolute bottom-5 left-6 right-6 text-xs sm:text-sm text-slate-200">
-              กิจกรรมพัฒนาผู้เรียน · งานวิชาการ ดนตรี กีฬา และศิลปวัฒนธรรม · {settings.school_name}
-            </div>
-          </div>
+    featured_highlight: (() => {
+      const highlight = settings.featuredHighlights?.[0];
+      if (highlight && highlight.enabled === false) {
+        return null;
+      }
 
-          <div className="lg:col-span-5 p-8 sm:p-10 lg:p-12 flex flex-col justify-center">
-            <p className="text-xs font-semibold uppercase tracking-wider text-sky-400 mb-2">
-              HIGHLIGHT ACTIVITIES
-            </p>
-            <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              <strong className="text-amber-400">กิจกรรมเด่น</strong> {settings.school_name}
-            </h3>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-8">
-              ส่งเสริมการเรียนรู้ผ่านการปฏิบัติจริง ทั้งกิจกรรมวิชาการ ดนตรี กีฬา ศิลปะ งานอาชีพ
-              และทักษะเทคโนโลยี เพื่อให้ผู้เรียนพัฒนาศักยภาพได้อย่างเต็มที่
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                to="/gallery"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-colors whitespace-nowrap"
-              >
-                <span>ดูประมวลภาพกิจกรรม</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/events"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-colors whitespace-nowrap"
-              >
-                <span>ปฏิทินกิจกรรม</span>
-              </Link>
+      // Compute dynamic curriculum summary from live Supabase data
+      const levelsSummary = (() => {
+        const levels: string[] = [];
+        if (liveGrades.some((g) => g.level.includes('อนุบาล') || g.level.includes('ปฐมวัย'))) {
+          levels.push('ปฐมวัย (อนุบาล)');
+        }
+        if (liveGrades.some((g) => g.level.includes('ประถม') || /^ป\.\s*\d/.test(g.level.trim()))) {
+          levels.push('ประถมศึกษา (ป.1 - ป.6)');
+        }
+        if (liveGrades.some((g) => /มัธยมศึกษาปีที่\s*[1-3]|ม\.\s*[1-3]/.test(g.level))) {
+          levels.push('มัธยมศึกษาตอนต้น (ม.1 - ม.3)');
+        }
+        if (levels.length === 0) {
+          levels.push('ระดับปฐมวัย', 'ระดับประถมศึกษา', 'ระดับมัธยมศึกษาตอนต้น');
+        }
+        return levels.join(' · ');
+      })();
+
+      const currTitles = liveCurriculums.map((c) => c.title).slice(0, 4).join(', ');
+      const actTitles = liveActivities.map((a) => a.name).slice(0, 4).join(', ');
+
+      const autoSyncedDesc = `โรงเรียนบ้านหาดเค็ด เปิดสอนครอบคลุม ${levelsSummary} ${
+        currTitles ? `มุ่งเน้น ${currTitles}` : 'มุ่งเน้นวิชาการ ทักษะชีวิต และงานอาชีพ'
+      } พร้อมกิจกรรมพัฒนาผู้เรียนรอบด้าน ${actTitles ? `(เช่น ${actTitles})` : ''}`;
+
+      const autoSyncedCaption = `หลักสูตรและกิจกรรมพัฒนาผู้เรียน · ${levelsSummary} · ${settings.school_name}`;
+
+      const bannerImage = highlight?.image?.trim() || studentGraduationActivity;
+      const bannerBadge = highlight?.badge || 'HIGHLIGHT ACTIVITIES';
+      const titleHighlight = highlight?.titleHighlight || 'กิจกรรมเด่น';
+      const mainTitle = highlight?.title || settings.school_name;
+
+      const displayDesc =
+        highlight?.syncCurriculum && highlight?.autoDescriptionFromDb
+          ? autoSyncedDesc
+          : highlight?.description?.trim()
+          ? highlight.description
+          : 'ส่งเสริมการเรียนรู้ผ่านการปฏิบัติจริง ทั้งกิจกรรมวิชาการ ดนตรี กีฬา ศิลปะ งานอาชีพ และทักษะเทคโนโลยี เพื่อให้ผู้เรียนพัฒนาศักยภาพได้อย่างเต็มที่';
+
+      const displayCaption =
+        highlight?.syncCurriculum && highlight?.autoCaptionFromDb
+          ? autoSyncedCaption
+          : highlight?.imageCaption?.trim()
+          ? highlight.imageCaption
+          : `กิจกรรมพัฒนาผู้เรียน · งานวิชาการ ดนตรี กีฬา และศิลปวัฒนธรรม · ${settings.school_name}`;
+
+      const showPlay = highlight?.showPlayButton ?? true;
+      const playUrl = highlight?.mediaLinkUrl?.trim() || '/gallery';
+
+      const showPrimary = highlight?.showPrimaryBtn ?? true;
+      const primaryText = highlight?.primaryLabel || 'ดูประมวลภาพกิจกรรม';
+      const primaryUrl = highlight?.primaryHref || '/gallery';
+
+      const showSecondary = highlight?.showSecondaryBtn ?? true;
+      const secondaryText = highlight?.secondaryLabel || 'ปฏิทินกิจกรรม';
+      const secondaryUrl = highlight?.secondaryHref || '/events';
+
+      const tags =
+        Array.isArray(highlight?.customTags) && highlight.customTags.length > 0
+          ? highlight.customTags
+          : ['ระดับปฐมวัย (อ.2-อ.3)', 'ระดับประถมศึกษา (ป.1-ป.6)', 'ระดับมัธยมศึกษาตอนต้น (ม.1-ม.3)'];
+
+      return (
+        <div className="rounded-3xl overflow-hidden bg-slate-900 text-white border border-slate-800 shadow-xl">
+          <div className="grid lg:grid-cols-12 items-stretch">
+            {/* Left Photo Banner */}
+            <div className="lg:col-span-7 relative min-h-[320px] sm:min-h-[380px] bg-slate-950 overflow-hidden group">
+              <img
+                src={bannerImage}
+                alt={`${titleHighlight} ${mainTitle}`}
+                referrerPolicy="no-referrer"
+                style={{
+                  objectPosition: highlight?.imagePosition || 'center center',
+                  transform: `scale(${highlight?.imageScale || 1})`,
+                }}
+                className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
+              />
+              {(highlight?.showOverlay ?? true) && (
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
+              )}
+
+              {showPlay && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (playUrl.startsWith('http')) {
+                      window.open(playUrl, '_blank');
+                    } else {
+                      navigate(playUrl);
+                    }
+                  }}
+                  aria-label="เปิดชมสื่อประมวลภาพกิจกรรมเด่น"
+                  className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                >
+                  <span className="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110">
+                    <Play className="w-7 h-7 fill-current ml-0.5" />
+                  </span>
+                </button>
+              )}
+
+              {(highlight?.showCaption ?? true) && (
+                <div className="absolute bottom-5 left-6 right-6 text-xs sm:text-sm text-slate-200 drop-shadow-md">
+                  {displayCaption}
+                </div>
+              )}
+            </div>
+
+            {/* Right Information Panel */}
+            <div className="lg:col-span-5 p-8 sm:p-10 lg:p-12 flex flex-col justify-center bg-slate-900">
+              {(highlight?.showBadge ?? true) && (
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400 mb-2">
+                  {bannerBadge}
+                </p>
+              )}
+
+              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3 leading-snug">
+                <strong className="text-amber-400">{titleHighlight}</strong> {mainTitle}
+              </h3>
+
+              {/* Tags */}
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-sky-300 border border-slate-700/80"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-8">
+                {displayDesc}
+              </p>
+
+              <div className="flex flex-wrap gap-3">
+                {showPrimary && (
+                  primaryUrl.startsWith('http') ? (
+                    <a
+                      href={primaryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-colors whitespace-nowrap shadow-md"
+                    >
+                      <span>{primaryText}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </a>
+                  ) : (
+                    <Link
+                      to={primaryUrl}
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-colors whitespace-nowrap shadow-md"
+                    >
+                      <span>{primaryText}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  )
+                )}
+
+                {showSecondary && (
+                  secondaryUrl.startsWith('http') ? (
+                    <a
+                      href={secondaryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-colors whitespace-nowrap border border-white/10"
+                    >
+                      <span>{secondaryText}</span>
+                    </a>
+                  ) : (
+                    <Link
+                      to={secondaryUrl}
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-colors whitespace-nowrap border border-white/10"
+                    >
+                      <span>{secondaryText}</span>
+                    </Link>
+                  )
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    ),
+      );
+    })(),
 
     spotlight_columns: (
       <div className="grid lg:grid-cols-3 gap-8 pt-4">
