@@ -736,8 +736,99 @@ ON admissions FOR ALL
 USING (true)
 WITH CHECK (true);
 -- 007_curriculum.sql
--- Create curriculum_programs table for managing study programs
+-- Create curriculum_levels table (synced with homepage & grade_data)
 
+CREATE TABLE IF NOT EXISTS public.curriculum_levels (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    subtitle TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    level_pattern TEXT NOT NULL DEFAULT 'custom',
+    subjects TEXT[] DEFAULT '{}',
+    highlights TEXT[] DEFAULT '{}',
+    image_url TEXT DEFAULT '',
+    image_position TEXT DEFAULT 'center center',
+    image_scale NUMERIC DEFAULT 1,
+    href TEXT DEFAULT '/curriculum',
+    icon VARCHAR(50) DEFAULT 'GraduationCap',
+    color VARCHAR(50) DEFAULT 'bg-sky-600',
+    sync_grade_stats BOOLEAN NOT NULL DEFAULT true,
+    order_position INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.curriculum_levels ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow full access for curriculum_levels" ON public.curriculum_levels;
+CREATE POLICY "Allow full access for curriculum_levels"
+    ON public.curriculum_levels
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+INSERT INTO public.curriculum_levels (
+  id, title, subtitle, description, level_pattern, subjects, highlights,
+  image_url, image_position, image_scale, href, icon, color, sync_grade_stats, order_position, is_active
+) VALUES
+(
+  'kindergarten',
+  'ระดับปฐมวัย (อนุบาล)',
+  'เตรียมความพร้อมด้านพัฒนาการและทักษะพื้นฐาน',
+  'จัดการเรียนการสอนมุ่งเน้นพัฒนาการทั้ง 4 ด้าน (ร่างกาย อารมณ์ จิตใจ สังคม และสติปัญญา) ผ่านกิจกรรมสร้างสรรค์และการเรียนรู้เชิงประสบการณ์อย่างมีความสุข',
+  'kindergarten',
+  ARRAY['กิจกรรมเคลื่อนไหวและจังหวะ', 'ประสบการณ์สำคัญปฐมวัย (EF)', 'ศิลปะสร้างสรรค์และงานประดิษฐ์', 'คณิตศาสตร์และเกมการศึกษาปฐมวัย', 'ทักษะภาษาและการสื่อสารเบื้องต้น', 'ปลูกฝังคุณธรรม วินัย และสุขนิสัย'],
+  ARRAY['เน้นพัฒนาการ 4 ด้านอย่างสมดุลตามช่วงวัย', 'เรียนรู้ผ่านการเล่น (Play-Based Learning)', 'ดูแลเอาใจใส่รายบุคคลอย่างใกล้ชิด'],
+  '',
+  'center center',
+  1,
+  '/curriculum#kindergarten',
+  'Palette',
+  'bg-amber-500',
+  true,
+  1,
+  true
+),
+(
+  'primary',
+  'ระดับประถมศึกษา (ป.1 – ป.6)',
+  'ปูพื้นฐานวิชาการ คุณธรรม และทักษะการเรียนรู้ตลอดชีวิต',
+  'จัดการเรียนรู้ครบทั้ง 8 กลุ่มสาระการเรียนรู้ตามหลักสูตรแกนกลาง พัฒนาการอ่านออก เขียนได้ คิดคำนวณเป็น ภาษาอังกฤษ และเทคโนโลยีดิจิทัลอย่างมั่นคง',
+  'primary',
+  ARRAY['ภาษาไทย', 'คณิตศาสตร์', 'วิทยาศาสตร์และเทคโนโลยี', 'สังคมศึกษา ศาสนา และวัฒนธรรม', 'สุขศึกษาและพลศึกษา', 'ศิลปะและดนตรี', 'การงานอาชีพ', 'ภาษาต่างประเทศ (ภาษาอังกฤษ)'],
+  ARRAY['พัฒนาทักษะอ่านออก เขียนได้ และคิดวิเคราะห์เป็นระบบ', 'ฝึกปฏิบัติการวิทยาศาสตร์ คอมพิวเตอร์ และเกษตรพอเพียง', 'ปลูกฝังคุณธรรม จริยธรรม และค่านิยมอันดีงาม'],
+  '',
+  'center center',
+  1,
+  '/curriculum#primary',
+  'BookOpen',
+  'bg-sky-600',
+  true,
+  2,
+  true
+),
+(
+  'lower-sec',
+  'ระดับมัธยมศึกษาตอนต้น (ม.1 – ม.3)',
+  'ค้นพบศักยภาพ วิทยาศาสตร์ คอมพิวเตอร์ และงานอาชีพ',
+  'มุ่งต่อยอดองค์ความรู้เชิงลึกทั้ง 8 กลุ่มสาระการเรียนรู้ เสริมสมรรถนะด้านเทคโนโลยี วิทยาการคำนวณ โครงงานวิทยาศาสตร์ และทักษะงานอาชีพ เพื่อเตรียมความพร้อมศึกษาต่อ 100%',
+  'lower-sec',
+  ARRAY['วิทยาศาสตร์และโครงงานนวัตกรรม', 'คณิตศาสตร์ประยุกต์', 'เทคโนโลยี วิทยาการคำนวณ และ AI', 'ภาษาไทยและหลักการใช้ภาษา', 'ภาษาอังกฤษเพื่อการสื่อสาร', 'สังคมศึกษา หน้าที่พลเมือง และประวัติศาสตร์', 'การงานอาชีพและทักษะวิชาชีพพื้นฐาน', 'ศิลปะ ดนตรี และสุขศึกษา-พลศึกษา'],
+  ARRAY['เน้นโครงงานวิทยาศาสตร์ เทคโนโลยีดิจิทัล และ AI', 'บูรณาการงานอาชีพและเศรษฐกิจพอเพียงในชีวิตจริง', 'แนะแนวศึกษาต่อ ม.ปลาย และสายอาชีพ'],
+  '',
+  'center center',
+  1,
+  '/curriculum#lower-sec',
+  'FlaskConical',
+  'bg-indigo-600',
+  true,
+  3,
+  true
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Create curriculum_programs table for managing study programs
 DROP TABLE IF EXISTS curriculum_programs CASCADE;
 
 CREATE TABLE curriculum_programs (
@@ -748,6 +839,10 @@ CREATE TABLE curriculum_programs (
     color VARCHAR(50) DEFAULT 'bg-blue-500',
     subjects TEXT[] DEFAULT '{}',
     careers TEXT[] DEFAULT '{}',
+    target_level TEXT DEFAULT 'all',
+    image_url TEXT,
+    image_position TEXT DEFAULT 'center center',
+    image_scale NUMERIC DEFAULT 1,
     order_position INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -757,19 +852,18 @@ CREATE TABLE curriculum_programs (
 -- Enable RLS
 ALTER TABLE curriculum_programs ENABLE ROW LEVEL SECURITY;
 
--- Allow full public access (for development, same as other tables)
+-- Allow full public access
 CREATE POLICY "Allow full access for curriculum_programs"
     ON curriculum_programs
-    FOR ALL 
-    USING (true) 
+    FOR ALL
+    USING (true)
     WITH CHECK (true);
 
--- Insert default programs with subjects and careers
-INSERT INTO curriculum_programs (title, description, icon, color, subjects, careers, order_position) VALUES
-('วิทย์-คณิต', 'หลักสูตรเน้นวิทยาศาสตร์และคณิตศาสตร์ เตรียมความพร้อมสู่คณะแพทย์ วิศวกรรม และวิทยาศาสตร์', 'FlaskConical', 'bg-blue-500', ARRAY['ฟิสิกส์', 'เคมี', 'ชีววิทยา', 'คณิตศาสตร์ขั้นสูง'], ARRAY['แพทย์', 'วิศวกร', 'นักวิทยาศาสตร์', 'เภสัชกร'], 1),
-('ศิลป์-ภาษา', 'เน้นทักษะภาษาอังกฤษ จีน ญี่ปุ่น และฝรั่งเศส พร้อมสู่ความเป็นสากล', 'Languages', 'bg-purple-500', ARRAY['ภาษาอังกฤษ', 'ภาษาจีน', 'ภาษาญี่ปุ่น', 'ภาษาฝรั่งเศส'], ARRAY['นักแปล', 'มัคคุเทศก์', 'นักการทูต', 'ครูสอนภาษา'], 2),
-('ศิลป์-คำนวณ', 'รวมศาสตร์สังคมศึกษากับคณิตศาสตร์ เตรียมพร้อมสู่คณะบริหาร เศรษฐศาสตร์ และนิติศาสตร์', 'Calculator', 'bg-green-500', ARRAY['สังคมศึกษา', 'เศรษฐศาสตร์', 'คณิตศาสตร์', 'การบัญชี'], ARRAY['นักบัญชี', 'นักเศรษฐศาสตร์', 'ทนายความ', 'นักธุรกิจ'], 3),
-('คอมพิวเตอร์', 'หลักสูตรเทคโนโลยีสารสนเทศ เขียนโปรแกรม และ AI เตรียมความพร้อมสู่โลกดิจิทัล', 'Monitor', 'bg-orange-500', ARRAY['การเขียนโปรแกรม', 'AI และ Machine Learning', 'Web Development', 'Cybersecurity'], ARRAY['โปรแกรมเมอร์', 'นักวิเคราะห์ข้อมูล', 'UX Designer', 'AI Engineer'], 4);
+-- Insert Hadket School default programs
+INSERT INTO curriculum_programs (title, description, icon, color, subjects, careers, target_level, order_position) VALUES
+('วิทยาศาสตร์ โครงงาน และเกษตรพอเพียง', 'ส่งเสริมการทดลองทางวิทยาศาสตร์ กระบวนการคิดเชิงเหตุผล และการเรียนรู้เกษตรอินทรีย์ตามหลักปรัชญาของเศรษฐกิจพอเพียง', 'FlaskConical', 'bg-green-500', ARRAY['วิทยาศาสตร์ปฏิบัติการ', 'โครงงานวิทยาศาสตร์และสิ่งแวดล้อม', 'เกษตรอินทรีย์และเศรษฐกิจพอเพียง'], ARRAY['ทักษะการคิดวิเคราะห์และการทดลอง', 'พื้นฐานวิทยาศาสตร์ระดับมัธยมศึกษาตอนปลาย', 'การประยุกต์ใช้องค์ความรู้ในชุมชน'], 'primary', 1),
+('เทคโนโลยี วิทยาการคำนวณ และนวัตกรรมดิจิทัล', 'พัฒนาทักษะการใช้เทคโนโลยีสารสนเทศ โค้ดดิ้งเบื้องต้น สื่อดิจิทัล และปัญญาประดิษฐ์ (AI) อย่างสร้างสรรค์และปลอดภัย', 'Monitor', 'bg-blue-500', ARRAY['วิทยาการคำนวณ (Coding)', 'การใช้งาน AI เพื่อการเรียนรู้', 'การสร้างสื่อดิจิทัลและนำเสนอ'], ARRAY['ทักษะดิจิทัลในศตวรรษที่ 21', 'การต่อยอดสายเทคโนโลยีและคอมพิวเตอร์', 'นักสร้างสรรค์สื่อดิจิทัล'], 'lower-sec', 2),
+('การงานอาชีพและภาษาเพื่อการสื่อสาร', 'บูรณาการทักษะอาชีพท้องถิ่น งานช่างพื้นฐาน คหกรรม ร่วมกับภาษาไทยและภาษาอังกฤษเพื่อเตรียมความพร้อมศึกษาต่อและประกอบอาชีพ', 'Languages', 'bg-purple-500', ARRAY['ภาษาอังกฤษเพื่อการสื่อสาร', 'ทักษะอาชีพและผู้ประกอบการน้อย', 'โครงงานพัฒนาทักษะชีวิต'], ARRAY['ศึกษาต่อระดับ ม.ปลาย และ ปวช.', 'ทักษะสื่อสารและงานอาชีพ', 'การทำงานร่วมกับผู้อื่น'], 'lower-sec', 3);
 
 -- Create curriculum_activities table for extra-curricular activities
 DROP TABLE IF EXISTS curriculum_activities CASCADE;
@@ -779,6 +873,9 @@ CREATE TABLE curriculum_activities (
     name VARCHAR(100) NOT NULL,
     description TEXT,
     icon VARCHAR(50) DEFAULT 'BookOpen',
+    image_url TEXT,
+    image_position TEXT DEFAULT 'center center',
+    image_scale NUMERIC DEFAULT 1,
     order_position INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -791,16 +888,16 @@ ALTER TABLE curriculum_activities ENABLE ROW LEVEL SECURITY;
 -- Allow full public access
 CREATE POLICY "Allow full access for curriculum_activities"
     ON curriculum_activities
-    FOR ALL 
-    USING (true) 
+    FOR ALL
+    USING (true)
     WITH CHECK (true);
 
 -- Insert default activities
 INSERT INTO curriculum_activities (name, description, icon, order_position) VALUES
-('ชมรมศิลปะ', 'วาดภาพ ปั้น และงานหัตถกรรม', 'Palette', 1),
-('วงดนตรี', 'ดนตรีสากลและดนตรีไทย', 'Music', 2),
-('กีฬา', 'ฟุตบอล บาสเกตบอล ว่ายน้ำ', 'Dumbbell', 3),
-('ห้องสมุด', 'ชมรมหนังสือและการอ่าน', 'BookOpen', 4);
+('ชมรมศิลปะและหัตถกรรม', 'วาดภาพ ปั้น และงานประดิษฐ์สร้างสรรค์', 'Palette', 1),
+('ดนตรีและศิลปวัฒนธรรม', 'ดนตรีสากลและดนตรีพื้นบ้านน่าน', 'Music', 2),
+('กีฬาและส่งเสริมสุขภาพ', 'ฟุตซอล วอลเลย์บอล เปตอง และกรีฑา', 'Dumbbell', 3),
+('รักการอ่านและห้องสมุด', 'ส่งเสริมนิสัยรักการอ่านและการค้นคว้า', 'BookOpen', 4);
 
 -- Create FAQ table for frequently asked questions
 DROP TABLE IF EXISTS faq CASCADE;

@@ -66,6 +66,69 @@ export type Database = {
                 }
                 Relationships: []
             }
+            curriculum_levels: {
+                Row: {
+                    id: string
+                    title: string
+                    subtitle: string | null
+                    description: string | null
+                    level_pattern: string
+                    subjects: string[] | null
+                    highlights: string[] | null
+                    image_url: string | null
+                    image_position: string | null
+                    image_scale: number | null
+                    href: string | null
+                    icon: string | null
+                    color: string | null
+                    sync_grade_stats: boolean
+                    order_position: number
+                    is_active: boolean
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    title: string
+                    subtitle?: string | null
+                    description?: string | null
+                    level_pattern?: string
+                    subjects?: string[] | null
+                    highlights?: string[] | null
+                    image_url?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
+                    href?: string | null
+                    icon?: string | null
+                    color?: string | null
+                    sync_grade_stats?: boolean
+                    order_position?: number
+                    is_active?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    title?: string
+                    subtitle?: string | null
+                    description?: string | null
+                    level_pattern?: string
+                    subjects?: string[] | null
+                    highlights?: string[] | null
+                    image_url?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
+                    href?: string | null
+                    icon?: string | null
+                    color?: string | null
+                    sync_grade_stats?: boolean
+                    order_position?: number
+                    is_active?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
             curriculum_programs: {
                 Row: {
                     id: string
@@ -75,7 +138,10 @@ export type Database = {
                     color: string | null
                     subjects: string[] | null
                     careers: string[] | null
+                    target_level: string | null
                     image_url: string | null
+                    image_position: string | null
+                    image_scale: number | null
                     order_position: number
                     is_active: boolean
                     created_at: string
@@ -89,7 +155,10 @@ export type Database = {
                     color?: string | null
                     subjects?: string[] | null
                     careers?: string[] | null
+                    target_level?: string | null
                     image_url?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -103,7 +172,10 @@ export type Database = {
                     color?: string | null
                     subjects?: string[] | null
                     careers?: string[] | null
+                    target_level?: string | null
                     image_url?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -118,6 +190,8 @@ export type Database = {
                     description: string | null
                     icon: string | null
                     image_url: string | null
+                    image_position: string | null
+                    image_scale: number | null
                     order_position: number
                     is_active: boolean
                     created_at: string
@@ -129,6 +203,8 @@ export type Database = {
                     description?: string | null
                     icon?: string | null
                     image_url?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string
@@ -140,6 +216,8 @@ export type Database = {
                     description?: string | null
                     icon?: string | null
                     image_url?: string | null
+                    image_position?: string | null
+                    image_scale?: number | null
                     order_position?: number
                     is_active?: boolean
                     created_at?: string

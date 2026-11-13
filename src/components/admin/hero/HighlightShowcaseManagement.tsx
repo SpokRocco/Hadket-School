@@ -557,11 +557,39 @@ export const HighlightShowcaseManagement = () => {
             <div className="space-y-2">
               <Label>อัปโหลดรูปภาพไฮไลท์ใหม่</Label>
               <ImageUpload
-                value={highlightData.image}
-                onChange={(url) => updateField('image', url)}
-                onRemove={() => updateField('image', '')}
+                currentImage={highlightData.image}
+                onUploadComplete={(url) => updateField('image', url)}
+                bucket="images"
                 folder="highlights"
+                maxSizeMB={0}
+                compressionPreset="cover"
               />
+              <div className="space-y-1.5 pt-2">
+                <Label htmlFor="highlight_image_url" className="text-xs text-muted-foreground">
+                  หรือวาง URL ลิงก์รูปภาพโดยตรง (Google Drive / เว็บไซต์ภายนอก)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="highlight_image_url"
+                    value={highlightData.image || ''}
+                    onChange={(e) => updateField('image', e.target.value)}
+                    placeholder="https://... หรือลิงก์รูปภาพ"
+                    className="text-xs"
+                  />
+                  {highlightData.image && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateField('image', '')}
+                      className="text-xs text-destructive hover:text-destructive shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      ลบรูป
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Presets */}

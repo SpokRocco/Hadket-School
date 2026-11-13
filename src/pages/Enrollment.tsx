@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,6 +36,11 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
+import {
+  fetchSyncedCurriculumBundle,
+  HADKET_DEFAULT_GRADE_OPTIONS,
+  type CurriculumLevelItem,
+} from '@/utils/curriculumUtils';
 
 const enrollmentSchema = z.object({
   // Student Info
@@ -59,11 +64,11 @@ const enrollmentSchema = z.object({
   motherOccupation: z.string().min(1, 'กรุณากรอกอาชีพ'),
 
   // Academic Info
-  previousSchool: z.string().min(2, 'กรุณากรอกชื่อโรงเรียนเดิม'),
+  previousSchool: z.string().min(1, 'กรุณากรอกชื่อโรงเรียนเดิม (หรือระบุ "-")'),
   previousLevel: z.string().min(1, 'กรุณาเลือกระดับชั้นที่จบ'),
-  gpa: z.string().min(1, 'กรุณากรอกเกรดเฉลี่ย'),
+  gpa: z.string().min(1, 'กรุณากรอกเกรดเฉลี่ย (หรือระบุ "-")'),
   enrollLevel: z.string().min(1, 'กรุณาเลือกระดับชั้นที่ต้องการสมัคร'),
-  program: z.string().min(1, 'กรุณาเลือกแผนการเรียน'),
+  program: z.string().min(1, 'กรุณาเลือกแผนการเรียน / หลักสูตร'),
 
   // Agreements
   agreeTerms: z.boolean().refine(val => val === true, 'กรุณายอมรับข้อตกลง'),
@@ -82,9 +87,12 @@ const steps = [
 interface ProgramOption {
   value: string;
   label: string;
+  target_level?: string;
 }
 
 const Enrollment = () => {
+  const [searchParams] = useSearchParams();
+  const levelParam = (searchParams.get('level') || '').trim();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,49 +101,14 @@ const Enrollment = () => {
   const [foundAdmission, setFoundAdmission] = useState<any>(null);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
+  const [curriculumLevels, setCurriculumLevels] = useState<CurriculumLevelItem[]>([]);
+  const [gradeOptions, setGradeOptions] = useState<string[]>(HADKET_DEFAULT_GRADE_OPTIONS);
   const { toast } = useToast();
   const { settings } = useSchoolSettings();
 
   // Scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
-
-  // Fetch programs from database
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('curriculum_programs')
-          .select('id, title')
-          .eq('is_active', true)
-          .order('order_position', { ascending: true });
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          setPrograms(data.map(p => ({ value: p.id, label: p.title })));
-        } else {
-          // Fallback to default programs if none in database
-          setPrograms([
-            { value: 'sci-math', label: 'วิทย์-คณิต' },
-            { value: 'arts-lang', label: 'ศิลป์-ภาษา' },
-            { value: 'arts-calc', label: 'ศิลป์-คำนวณ' },
-            { value: 'computer', label: 'คอมพิวเตอร์' },
-          ]);
-        }
-      } catch (error) {
-        console.error('Error fetching programs:', error);
-        // Use default programs on error
-        setPrograms([
-          { value: 'sci-math', label: 'วิทย์-คณิต' },
-          { value: 'arts-lang', label: 'ศิลป์-ภาษา' },
-          { value: 'arts-calc', label: 'ศิลป์-คำนวณ' },
-          { value: 'computer', label: 'คอมพิวเตอร์' },
-        ]);
-      }
-    };
-    fetchPrograms();
   }, []);
 
   const searchAdmission = async () => {
@@ -215,6 +188,96 @@ const Enrollment = () => {
       agreePrivacy: false,
     },
   });
+
+  // Fetch synchronized curriculum levels, programs, and live grade_data options
+  useEffect(() => {
+    const fetchEnrollmentOptions = async () => {
+      try {
+        const bundle = await fetchSyncedCurriculumBundle({ activeOnly: true });
+        setCurriculumLevels(bundle.levels);
+
+        const resolvedGrades =
+          bundle.grades.length > 0
+            ? Array.from(new Set(bundle.grades.map((g) => g.level.trim()).filter(Boolean)))
+            : HADKET_DEFAULT_GRADE_OPTIONS;
+        setGradeOptions(resolvedGrades);
+
+        const dbProgramOpts: ProgramOption[] = bundle.programs.map((p) => ({
+          value: p.id,
+          label: p.title,
+          target_level: p.target_level,
+        }));
+
+        const coveredLevels = new Set(
+          dbProgramOpts.map((p) => p.target_level).filter((t): t is string => Boolean(t && t !== 'all'))
+        );
+
+        const levelFallbackOpts: ProgramOption[] = bundle.levels
+          .filter((lvl) => !coveredLevels.has(lvl.id))
+          .map((lvl) => ({
+            value: lvl.id,
+            label: lvl.title,
+            target_level: lvl.id,
+          }));
+
+        const resolvedPrograms: ProgramOption[] =
+          dbProgramOpts.length > 0
+            ? [...dbProgramOpts, ...levelFallbackOpts]
+            : bundle.levels.length > 0
+            ? bundle.levels.map((lvl) => ({
+                value: lvl.id,
+                label: lvl.title,
+                target_level: lvl.id,
+              }))
+            : [
+                { value: 'kindergarten', label: 'หลักสูตรปฐมวัย (อนุบาล)', target_level: 'kindergarten' },
+                { value: 'primary', label: 'หลักสูตรประถมศึกษา (ป.1 – ป.6)', target_level: 'primary' },
+                { value: 'lower-sec', label: 'หลักสูตรมัธยมศึกษาตอนต้น (ม.1 – ม.3)', target_level: 'lower-sec' },
+                { value: 'integrated-skills', label: 'หลักสูตรบูรณาการทักษะอาชีพและเทคโนโลยี', target_level: 'all' },
+              ];
+
+        setPrograms(resolvedPrograms);
+
+        if (levelParam) {
+          const matchedLevel = bundle.levels.find((l) => l.id === levelParam);
+          const pattern = matchedLevel?.level_pattern || levelParam;
+
+          if (!form.getValues('enrollLevel')) {
+            const matchedGrade = resolvedGrades.find((grade) => {
+              if (pattern === 'kindergarten') return grade.includes('อนุบาล') || grade.includes('ปฐมวัย');
+              if (pattern === 'primary') return grade.includes('ประถม') || /^ป\.\s*\d/.test(grade);
+              if (pattern === 'lower-sec') return /มัธยมศึกษาปีที่\s*[1-3]|ม\.\s*[1-3]/.test(grade);
+              if (pattern === 'upper-sec') return /มัธยมศึกษาปีที่\s*[4-6]|ม\.\s*[4-6]/.test(grade);
+              return false;
+            });
+            if (matchedGrade) {
+              form.setValue('enrollLevel', matchedGrade);
+            }
+          }
+
+          if (!form.getValues('program')) {
+            const matchedProgram = resolvedPrograms.find(
+              (p) => p.target_level === levelParam || p.value === levelParam
+            );
+            if (matchedProgram) {
+              form.setValue('program', matchedProgram.value);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching synchronized enrollment options:', error);
+        setGradeOptions(HADKET_DEFAULT_GRADE_OPTIONS);
+        setPrograms([
+          { value: 'kindergarten', label: 'หลักสูตรปฐมวัย (อนุบาล)', target_level: 'kindergarten' },
+          { value: 'primary', label: 'หลักสูตรประถมศึกษา (ป.1 – ป.6)', target_level: 'primary' },
+          { value: 'lower-sec', label: 'หลักสูตรมัธยมศึกษาตอนต้น (ม.1 – ม.3)', target_level: 'lower-sec' },
+          { value: 'integrated-skills', label: 'หลักสูตรบูรณาการทักษะอาชีพและเทคโนโลยี', target_level: 'all' },
+        ]);
+      }
+    };
+
+    fetchEnrollmentOptions();
+  }, [levelParam, form]);
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof EnrollmentFormData)[] = [];
@@ -477,7 +540,10 @@ const Enrollment = () => {
             สมัครเรียนออนไลน์
           </h1>
           <p className="text-card/80 text-lg max-w-2xl mx-auto mb-6">
-            ปีการศึกษา {settings.academic_year} | รับสมัครนักเรียนชั้น ม.1 และ ม.4
+            ปีการศึกษา {settings.academic_year} |{' '}
+            {curriculumLevels.length > 0
+              ? curriculumLevels.map((l) => l.title).join(' · ')
+              : 'เปิดรับสมัครระดับปฐมวัย (อนุบาล) – ประถมศึกษา (ป.1–ป.6) – มัธยมศึกษาตอนต้น (ม.1–ม.3)'}
           </p>
 
           {/* Search existing admission */}
@@ -677,7 +743,7 @@ const Enrollment = () => {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>คำนำหน้า</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="เลือกคำนำหน้า" />
@@ -936,7 +1002,7 @@ const Enrollment = () => {
                             <FormItem className="md:col-span-2">
                               <FormLabel>โรงเรียนเดิม</FormLabel>
                               <FormControl>
-                                <Input placeholder="ชื่อโรงเรียน" {...field} />
+                                <Input placeholder='ชื่อโรงเรียนเดิม (หรือระบุ "-" หากเข้าเรียนครั้งแรก)' {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -948,15 +1014,21 @@ const Enrollment = () => {
                           name="previousLevel"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>ระดับชั้นที่จบ</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormLabel>ระดับชั้นเดิม / ชั้นที่จบ</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="เลือกระดับชั้น" />
+                                    <SelectValue placeholder="เลือกระดับชั้นเดิม" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
+                                  <SelectItem value="ยังไม่เคยเข้าเรียน / เตรียมอนุบาล">ยังไม่เคยเข้าเรียน / เตรียมอนุบาล</SelectItem>
+                                  <SelectItem value="อนุบาล 1">อนุบาล 1</SelectItem>
+                                  <SelectItem value="อนุบาล 2">อนุบาล 2</SelectItem>
+                                  <SelectItem value="อนุบาล 3">อนุบาล 3</SelectItem>
+                                  <SelectItem value="ประถมศึกษาปีที่ 1–5 (ย้ายสถานศึกษา)">ประถมศึกษาปีที่ 1–5 (ย้ายสถานศึกษา)</SelectItem>
                                   <SelectItem value="ป.6">ประถมศึกษาปีที่ 6</SelectItem>
+                                  <SelectItem value="มัธยมศึกษาปีที่ 1–2 (ย้ายสถานศึกษา)">มัธยมศึกษาปีที่ 1–2 (ย้ายสถานศึกษา)</SelectItem>
                                   <SelectItem value="ม.3">มัธยมศึกษาปีที่ 3</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -972,7 +1044,7 @@ const Enrollment = () => {
                             <FormItem>
                               <FormLabel>เกรดเฉลี่ยสะสม (GPA)</FormLabel>
                               <FormControl>
-                                <Input placeholder="0.00" {...field} />
+                                <Input placeholder='เช่น 3.50 (หรือระบุ "-" กรณีระดับปฐมวัย)' {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -985,15 +1057,18 @@ const Enrollment = () => {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>ระดับชั้นที่ต้องการสมัคร</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="เลือกระดับชั้น" />
+                                    <SelectValue placeholder="เลือกระดับชั้นที่สมัคร" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="ม.1">มัธยมศึกษาปีที่ 1</SelectItem>
-                                  <SelectItem value="ม.4">มัธยมศึกษาปีที่ 4</SelectItem>
+                                  {gradeOptions.map((grade) => (
+                                    <SelectItem key={grade} value={grade}>
+                                      {grade}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -1006,11 +1081,11 @@ const Enrollment = () => {
                           name="program"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>แผนการเรียนที่ต้องการ</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormLabel>หลักสูตร / แผนการเรียนที่ต้องการ</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="เลือกแผนการเรียน" />
+                                    <SelectValue placeholder="เลือกหลักสูตร / แผนการเรียน" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>

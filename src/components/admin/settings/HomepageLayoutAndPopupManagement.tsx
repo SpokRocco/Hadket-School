@@ -65,6 +65,7 @@ import {
   Menu,
   FileText,
   Sliders,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/admin/shared/ImageUpload';

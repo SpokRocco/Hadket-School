@@ -636,7 +636,7 @@ export const useSchoolSettings = () => {
 
     const unsubscribeRealtime = subscribeToRealtimeTables(
       'realtime_school_settings',
-      ['school_settings', 'hero_slides', 'homepage_highlights', 'homepage_sections', 'site_popups', 'deployment_configs', 'curriculum_programs', 'curriculum_activities', 'grade_data'],
+      ['school_settings', 'hero_slides', 'homepage_highlights', 'homepage_sections', 'site_popups', 'deployment_configs', 'curriculum_levels', 'curriculum_programs', 'curriculum_activities', 'grade_data'],
       () => {
         fetchSettings();
       }

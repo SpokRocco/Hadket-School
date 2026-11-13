@@ -2,6 +2,7 @@ import {
   DEFAULT_LOGIN_PORTALS,
   SEED_ADMIN_USERS,
 } from '@/utils/authUtils';
+import { DEFAULT_CURRICULUM_LEVELS } from '@/utils/curriculumUtils';
 import heroSchool1 from '@/assets/hero-school-1.jpg';
 import heroSchool2 from '@/assets/hero-school.jpg';
 // real school campus hero uses heroSchool2
@@ -136,6 +137,11 @@ export const INITIAL_SEED_DATA: Record<string, any[]> = {
   student_achievements: [],
   student_activities: [],
   student_council: [],
+  curriculum_levels: DEFAULT_CURRICULUM_LEVELS.map((lvl) => ({
+    ...lvl,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  })),
   curriculum_programs: [],
   curriculum_activities: [],
   events: [],

@@ -9,54 +9,27 @@ import {
   Monitor,
   Dumbbell,
   GraduationCap,
+  Heart,
+  Trophy,
+  Users,
+  Gamepad2,
   LucideIcon,
   ChevronRight,
 } from 'lucide-react';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
-import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
+import { subscribeToRealtimeTables } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
-import heroImage from '@/assets/hero-school.jpg';
-import studentScienceLab from '@/assets/images/student_science_lab_1794379512287.jpg';
-import studentGraduationActivity from '@/assets/images/student_graduation_activity_1794379513899.jpg';
-
-interface CurriculumProgram {
-  id: string;
-  title: string;
-  description: string | null;
-  icon: string;
-  color: string;
-  image_url?: string | null;
-  is_active: boolean;
-}
-
-interface Activity {
-  id: string;
-  name: string;
-  description: string | null;
-  icon: string;
-  image_url?: string | null;
-  is_active: boolean;
-}
-
-interface GradeRow {
-  id: string;
-  level: string;
-  rooms: number;
-  students: number;
-  boys?: number;
-  girls?: number;
-  is_active?: boolean;
-  order_position?: number;
-}
-
-interface LevelShowcaseCard {
-  id: string;
-  title: string;
-  subtitle: string;
-  summary: string;
-  image: string;
-  href: string;
-}
+import {
+  fetchSyncedCurriculumBundle,
+  getCurriculumImageStyle,
+  matchGradesToLevel,
+  normalizeDirectImageUrl,
+  resolveLevelHref,
+  type CurriculumActivityItem,
+  type CurriculumLevelItem,
+  type CurriculumProgramItem,
+  type GradeDataRow,
+} from '@/utils/curriculumUtils';
 
 const iconMap: Record<string, LucideIcon> = {
   FlaskConical,
@@ -68,117 +41,27 @@ const iconMap: Record<string, LucideIcon> = {
   Music,
   Dumbbell,
   GraduationCap,
-};
-
-const buildLevelCardsFromGrades = (grades: GradeRow[]): LevelShowcaseCard[] => {
-  if (!grades || grades.length === 0) return [];
-
-  const kinderRows = grades.filter(
-    (g) => g.level.includes('อนุบาล') || g.level.includes('ปฐมวัย')
-  );
-  const primaryRows = grades.filter(
-    (g) => g.level.includes('ประถม') || /^ป\.\s*\d/.test(g.level.trim())
-  );
-  const lowerSecRows = grades.filter((g) =>
-    /มัธยมศึกษาปีที่\s*[1-3]|ม\.\s*[1-3]/.test(g.level)
-  );
-  const upperSecRows = grades.filter((g) =>
-    /มัธยมศึกษาปีที่\s*[4-6]|ม\.\s*[4-6]/.test(g.level)
-  );
-
-  const cards: LevelShowcaseCard[] = [];
-
-  if (kinderRows.length > 0) {
-    const rooms = kinderRows.reduce((sum, r) => sum + (Number(r.rooms) || 0), 0);
-    const students = kinderRows.reduce((sum, r) => sum + (Number(r.students) || 0), 0);
-    cards.push({
-      id: 'kindergarten',
-      title: 'ระดับปฐมวัย (อนุบาล)',
-      subtitle: 'เตรียมความพร้อมด้านพัฒนาการและทักษะพื้นฐาน',
-      summary: `${kinderRows.map((r) => r.level).join(', ')} · ${rooms} ห้องเรียน · ${students} คน`,
-      image: heroImage,
-      href: '/students',
-    });
-  }
-
-  if (primaryRows.length > 0) {
-    const rooms = primaryRows.reduce((sum, r) => sum + (Number(r.rooms) || 0), 0);
-    const students = primaryRows.reduce((sum, r) => sum + (Number(r.students) || 0), 0);
-    cards.push({
-      id: 'primary',
-      title: 'ระดับประถมศึกษา (ป.1 – ป.6)',
-      subtitle: 'ปูพื้นฐานวิชาการ คุณธรรม และทักษะการเรียนรู้ตลอดชีวิต',
-      summary: `${primaryRows.length} ระดับชั้น · ${rooms} ห้องเรียน · ${students} คน`,
-      image: studentGraduationActivity,
-      href: '/students',
-    });
-  }
-
-  if (lowerSecRows.length > 0) {
-    const rooms = lowerSecRows.reduce((sum, r) => sum + (Number(r.rooms) || 0), 0);
-    const students = lowerSecRows.reduce((sum, r) => sum + (Number(r.students) || 0), 0);
-    cards.push({
-      id: 'lower-sec',
-      title: 'ระดับมัธยมศึกษาตอนต้น (ม.1 – ม.3)',
-      subtitle: 'ค้นพบศักยภาพ วิทยาศาสตร์ คอมพิวเตอร์ และงานอาชีพ',
-      summary: `${lowerSecRows.length} ระดับชั้น · ${rooms} ห้องเรียน · ${students} คน`,
-      image: studentScienceLab,
-      href: '/curriculum',
-    });
-  }
-
-  if (upperSecRows.length > 0) {
-    const rooms = upperSecRows.reduce((sum, r) => sum + (Number(r.rooms) || 0), 0);
-    const students = upperSecRows.reduce((sum, r) => sum + (Number(r.students) || 0), 0);
-    cards.push({
-      id: 'upper-sec',
-      title: 'ระดับมัธยมศึกษาตอนปลาย (ม.4 – ม.6)',
-      subtitle: 'เตรียมความพร้อมสู่ระดับอุดมศึกษาและสายอาชีพ',
-      summary: `${upperSecRows.length} ระดับชั้น · ${rooms} ห้องเรียน · ${students} คน`,
-      image: studentGraduationActivity,
-      href: '/curriculum',
-    });
-  }
-
-  return cards;
+  Heart,
+  Trophy,
+  Users,
+  Gamepad2,
 };
 
 const CurriculumSection = () => {
   const { settings } = useSchoolSettings();
-  const [programs, setPrograms] = useState<CurriculumProgram[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [gradeData, setGradeData] = useState<GradeRow[]>([]);
+  const [levels, setLevels] = useState<CurriculumLevelItem[]>([]);
+  const [programs, setPrograms] = useState<CurriculumProgramItem[]>([]);
+  const [activities, setActivities] = useState<CurriculumActivityItem[]>([]);
+  const [gradeData, setGradeData] = useState<GradeDataRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [programsRes, activitiesRes, gradesRes] = await Promise.all([
-        supabase
-          .from('curriculum_programs')
-          .select('*')
-          .eq('is_active', true)
-          .order('order_position', { ascending: true }),
-        supabase
-          .from('curriculum_activities')
-          .select('*')
-          .eq('is_active', true)
-          .order('order_position', { ascending: true }),
-        supabase
-          .from('grade_data')
-          .select('*')
-          .eq('is_active', true)
-          .order('order_position', { ascending: true }),
-      ]);
-
-      if (!programsRes.error) {
-        setPrograms((programsRes.data as CurriculumProgram[]) || []);
-      }
-      if (!activitiesRes.error) {
-        setActivities((activitiesRes.data as Activity[]) || []);
-      }
-      if (!gradesRes.error) {
-        setGradeData((gradesRes.data as GradeRow[]) || []);
-      }
+      const bundle = await fetchSyncedCurriculumBundle({ activeOnly: true });
+      setLevels(bundle.levels);
+      setPrograms(bundle.programs);
+      setActivities(bundle.activities);
+      setGradeData(bundle.grades);
     } catch (error) {
       console.error('Error fetching curriculum data:', error);
     } finally {
@@ -190,16 +73,34 @@ const CurriculumSection = () => {
     fetchData();
     return subscribeToRealtimeTables(
       'realtime_curriculum_home',
-      ['curriculum_programs', 'curriculum_activities', 'grade_data'],
+      ['curriculum_levels', 'curriculum_programs', 'curriculum_activities', 'grade_data', 'school_settings'],
       fetchData
     );
   }, [fetchData]);
 
-  const getIconComponent = (iconName: string) => {
-    return iconMap[iconName] || BookOpen;
+  const getIconComponent = (iconName?: string | null) => {
+    return (iconName && iconMap[iconName]) || BookOpen;
   };
 
-  const levelCards = buildLevelCardsFromGrades(gradeData);
+  // Combine synced levels with live Supabase `grade_data` statistics
+  const levelCards = levels.map((lvl) => {
+    const stats = lvl.sync_grade_stats
+      ? matchGradesToLevel(gradeData, lvl.level_pattern || lvl.id)
+      : null;
+    const summaryText =
+      stats && stats.levelCount > 0
+        ? stats.summaryText
+        : lvl.subjects && lvl.subjects.length > 0
+        ? `${lvl.subjects.length} กลุ่มสาระการเรียนรู้ · คลิกดูรายละเอียด`
+        : 'คลิกดูรายละเอียดหลักสูตร';
+
+    return {
+      ...lvl,
+      resolvedHref: resolveLevelHref(lvl),
+      resolvedImage: normalizeDirectImageUrl(lvl.image_url),
+      summaryText,
+    };
+  });
 
   const levelGridClass =
     levelCards.length >= 4
@@ -245,39 +146,63 @@ const CurriculumSection = () => {
           </Link>
         </div>
 
-        {/* Dynamic School Levels Showcase from Live Supabase `grade_data` */}
+        {/* Dynamic School Levels Showcase synced 1:1 with `/curriculum` & Supabase `grade_data` */}
         {!loading && levelCards.length > 0 && (
           <div className={levelGridClass}>
-            {levelCards.map((card) => (
-              <Link
-                key={card.id}
-                to={card.href}
-                className="group relative rounded-3xl overflow-hidden aspect-[4/3] sm:aspect-[4/4.2] bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-end"
-              >
-                <img
-                  src={card.image}
-                  alt={card.title}
-                  referrerPolicy="no-referrer"
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
-                <div className="relative z-10 p-6">
-                  <p className="text-xs font-medium text-sky-300 mb-1">
-                    {card.subtitle}
-                  </p>
-                  <h3 className="text-xl font-bold text-white group-hover:text-amber-300 transition-colors mb-1.5">
-                    {card.title}
-                  </h3>
-                  <p className="text-xs font-mono text-slate-200/90">
-                    {card.summary}
-                  </p>
-                </div>
-              </Link>
-            ))}
+            {levelCards.map((card, idx) => {
+              const IconComponent = getIconComponent(card.icon);
+              return (
+                <Link
+                  key={card.id}
+                  to={card.resolvedHref}
+                  className="group relative rounded-3xl overflow-hidden aspect-[4/3] sm:aspect-[4/4.2] bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-end"
+                >
+                  {card.resolvedImage ? (
+                    <img
+                      src={card.resolvedImage}
+                      alt={card.title}
+                      referrerPolicy="no-referrer"
+                      style={getCurriculumImageStyle(card.image_position, card.image_scale)}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex flex-col items-center justify-center p-6 pb-20">
+                      <div
+                        className={`w-16 h-16 rounded-2xl ${card.color || 'bg-sky-600'} text-white flex items-center justify-center shadow-lg mb-3 group-hover:scale-110 transition-transform duration-300`}
+                      >
+                        <IconComponent className="w-8 h-8" />
+                      </div>
+                      <span className="text-[11px] font-mono tracking-wider uppercase text-sky-300/80">
+                        LEVEL {String(idx + 1).padStart(2, '0')} · หลักสูตรสถานศึกษา
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/45 to-transparent" />
+
+                  <div className="relative z-10 p-6">
+                    <p className="text-xs font-medium text-sky-300 mb-1 line-clamp-1">
+                      {card.subtitle}
+                    </p>
+                    <h3 className="text-xl font-bold text-white group-hover:text-amber-300 transition-colors mb-1.5">
+                      {card.title}
+                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-mono text-slate-200/90">
+                        {card.summaryText}
+                      </p>
+                      <span className="w-7 h-7 rounded-full bg-white/10 text-white flex items-center justify-center shrink-0 group-hover:bg-sky-500 transition-colors">
+                        <ChevronRight className="w-4 h-4" />
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
 
-        {/* Specialized Study Plans / Curriculum Tracks from Supabase */}
+        {/* Specialized Study Plans / Additional Subjects from Supabase */}
         {loading ? (
           <div className="text-center py-10 text-slate-500">กำลังโหลดข้อมูลหลักสูตร...</div>
         ) : programs.length > 0 ? (
@@ -288,22 +213,25 @@ const CurriculumSection = () => {
             <div className={programGridClass}>
               {programs.map((program, idx) => {
                 const IconComponent = getIconComponent(program.icon);
+                const imgUrl = normalizeDirectImageUrl(program.image_url);
+                const targetLevelObj = levels.find((l) => l.id === program.target_level);
                 return (
                   <div
                     key={program.id}
                     className="group bg-slate-50/90 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 hover:border-sky-500/60 transition-all duration-200 flex flex-col shadow-xs hover:shadow-md"
                   >
-                    {program.image_url ? (
+                    {imgUrl ? (
                       <div className="relative w-full h-44 overflow-hidden bg-slate-900 shrink-0">
                         <img
-                          src={program.image_url}
+                          src={imgUrl}
                           alt={program.title}
                           referrerPolicy="no-referrer"
+                          style={getCurriculumImageStyle(program.image_position, program.image_scale)}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-                        <span className="absolute top-3 left-3 text-[11px] font-mono font-bold bg-black/60 backdrop-blur-xs text-white px-2 py-0.5 rounded-full">
-                          {String(idx + 1).padStart(2, '0')}. PROGRAM
+                        <span className="absolute top-3 left-3 text-[11px] font-mono font-bold bg-black/60 backdrop-blur-xs text-white px-2.5 py-0.5 rounded-full">
+                          {targetLevelObj ? targetLevelObj.title : `${String(idx + 1).padStart(2, '0')}. PROGRAM`}
                         </span>
                         <div className="absolute bottom-3 right-3 w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow">
                           <IconComponent className="w-4 h-4" />
@@ -312,10 +240,12 @@ const CurriculumSection = () => {
                     ) : null}
 
                     <div className="p-6 flex-1 flex flex-col">
-                      {!program.image_url && (
+                      {!imgUrl && (
                         <div className="flex items-center justify-between mb-4">
                           <span className="text-xs font-mono font-bold text-sky-600">
-                            {String(idx + 1).padStart(2, '0')}. PROGRAM
+                            {targetLevelObj
+                              ? targetLevelObj.title
+                              : `${String(idx + 1).padStart(2, '0')}. PROGRAM`}
                           </span>
                           <IconComponent className="w-5 h-5 text-sky-600" />
                         </div>
@@ -330,7 +260,7 @@ const CurriculumSection = () => {
                         to={`/curriculum#${program.id}`}
                         className="text-xs font-bold text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 mt-auto"
                       >
-                        <span>ดูรายละเอียดแผนการเรียน</span>
+                        <span>ดูรายละเอียดรายวิชา / แผนการเรียน</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>
@@ -345,31 +275,36 @@ const CurriculumSection = () => {
           </div>
         ) : null}
 
-        {/* Extracurricular Clubs Strip */}
+        {/* Extracurricular Clubs Strip (Links directly to /curriculum#activities) */}
         {activities.length > 0 && (
           <div className="rounded-2xl bg-slate-50 dark:bg-slate-900 p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                กิจกรรมชมรมและพัฒนาผู้เรียนรอบด้าน
-              </h3>
+              <Link to="/curriculum#activities" className="group inline-flex items-center gap-1.5">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-sky-600 transition-colors">
+                  กิจกรรมชมรมและพัฒนาผู้เรียนรอบด้าน
+                </h3>
+                <ChevronRight className="w-4 h-4 text-sky-600" />
+              </Link>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 ส่งเสริมทักษะดนตรี กีฬา ศิลปะ และการค้นคว้าทางวิชาการนอกห้องเรียน
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
               {activities.map((activity) => {
                 const IconComponent = getIconComponent(activity.icon);
+                const imgUrl = normalizeDirectImageUrl(activity.image_url);
                 return (
                   <Link
                     key={activity.id}
-                    to="/students"
-                    className="inline-flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-sky-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800"
+                    to={`/curriculum#activity-${activity.id}`}
+                    className="inline-flex items-center gap-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-sky-600 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800"
                   >
-                    {activity.image_url ? (
+                    {imgUrl ? (
                       <img
-                        src={activity.image_url}
+                        src={imgUrl}
                         alt={activity.name}
                         referrerPolicy="no-referrer"
+                        style={getCurriculumImageStyle(activity.image_position, activity.image_scale)}
                         className="w-6 h-6 rounded-md object-cover border border-slate-300 dark:border-slate-700"
                       />
                     ) : (
