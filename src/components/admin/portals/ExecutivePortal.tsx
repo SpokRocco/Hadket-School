@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { supabase, subscribeToRealtimeTables } from '@/integrations/supabase/client';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Briefcase,
   Users,
@@ -14,6 +17,8 @@ import {
   BarChart3,
   ExternalLink,
   ShieldCheck,
+  FileText,
+  Calendar,
 } from 'lucide-react';
 import { getLocalTeacherMedia, TeacherMediaItem } from './TeacherPortal';
 import {
@@ -22,9 +27,26 @@ import {
   SaphaProject,
   SaphaSystemLink,
 } from '../saphaplus/SaphaPlusDashboard';
-import { getLocalUsers } from '@/utils/authUtils';
+import { getCurrentAdminUser, getLocalUsers } from '@/utils/authUtils';
+import { useToast } from '@/hooks/use-toast';
+import {
+  DEFAULT_NEWSLETTER_ORG_SETTINGS,
+  NEWSLETTER_STATUS_META,
+  parseImageUrlsList,
+  type NewsletterOrgSettings,
+  type SchoolNewsletter,
+} from '@/utils/newsletterUtils';
+import {
+  fetchNewslettersWithCompat,
+  saveNewsletterWithCompat,
+} from '@/utils/newsletterStorage';
+import { NewsletterA4PreviewModal } from '../newsletters/NewsletterA4PreviewModal';
 
 export const ExecutivePortal = () => {
+  const { settings } = useSchoolSettings();
+  const currentUser = getCurrentAdminUser();
+  const { toast } = useToast();
+
   const [counts, setCounts] = useState({
     staffCount: 12,
     councilMembers: 15,
@@ -37,13 +59,14 @@ export const ExecutivePortal = () => {
   const [teacherMedia, setTeacherMedia] = useState<TeacherMediaItem[]>([]);
   const [saphaProjects, setSaphaProjects] = useState<SaphaProject[]>([]);
   const [saphaLinks, setSaphaLinks] = useState<SaphaSystemLink[]>([]);
+  const [newsletters, setNewsletters] = useState<SchoolNewsletter[]>([]);
+  const [orgSettings, setOrgSettings] = useState<NewsletterOrgSettings>(
+    DEFAULT_NEWSLETTER_ORG_SETTINGS
+  );
+  const [reviewingNewsletter, setReviewingNewsletter] = useState<SchoolNewsletter | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadExecutiveOverview();
-  }, []);
-
-  const loadExecutiveOverview = async () => {
+  const loadExecutiveOverview = useCallback(async () => {
     setLoading(true);
     const localMedia = getLocalTeacherMedia();
     const localProjects = getLocalSaphaProjects();
@@ -55,7 +78,7 @@ export const ExecutivePortal = () => {
     setSaphaLinks(localLinks);
 
     try {
-      const [staffRes, councilRes, mediaRes, newsRes] = await Promise.all([
+      const [staffRes, councilRes, mediaRes, newsRes, nlBundle] = await Promise.all([
         supabase.from('staff').select('id', { count: 'exact', head: true }),
         supabase.from('student_council').select('id', { count: 'exact', head: true }),
         (supabase as any).from('media_resources').select('id', { count: 'exact', head: true }),
@@ -64,10 +87,17 @@ export const ExecutivePortal = () => {
           .select('id, title, category, created_at, views, published')
           .order('created_at', { ascending: false })
           .limit(5),
+        fetchNewslettersWithCompat().catch(() => ({
+          newsletters: [] as SchoolNewsletter[],
+          orgSettings: DEFAULT_NEWSLETTER_ORG_SETTINGS,
+          nativeSchemaReady: false,
+        })),
       ]);
 
       const googleSiteCount = mediaRes.count || 4;
       setRecentNews(newsRes.data || []);
+      setNewsletters(nlBundle.newsletters);
+      setOrgSettings(nlBundle.orgSettings);
 
       setCounts({
         staffCount: (staffRes.count || 0) + localAccounts.length,
@@ -87,7 +117,98 @@ export const ExecutivePortal = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadExecutiveOverview();
+    return subscribeToRealtimeTables(
+      'realtime_executive_newsletters',
+      ['newsletters', 'school_settings'],
+      loadExecutiveOverview
+    );
+  }, [loadExecutiveOverview]);
+
+  const handleApproveNewsletter = async (item: SchoolNewsletter) => {
+    try {
+      await saveNewsletterWithCompat(
+        {
+          issue_no: item.issue_no,
+          academic_year: item.academic_year,
+          issue_date: item.issue_date,
+          title: item.title,
+          summary: item.summary,
+          content: item.content,
+          category: item.category,
+          image_urls: parseImageUrlsList(item.image_urls, item.image_url),
+          template_type: item.template_type || 'template_1',
+          status: 'approved',
+          revision_note: null,
+          approved_by: currentUser?.display_name || 'ผู้บริหารสถานศึกษา',
+          approved_at: new Date().toISOString(),
+          created_by: item.created_by,
+          created_by_name: item.created_by_name,
+          file_url: item.file_url,
+          is_published: true,
+          order_position: item.order_position,
+        },
+        item.id
+      );
+      toast({
+        title: 'อนุมัติเผยแพร่จดหมายข่าวแล้ว',
+        description: `ฉบับที่ ${item.issue_no}/${item.academic_year} แสดงผลบนหน้าเว็บไซต์ทันที`,
+      });
+      await loadExecutiveOverview();
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'อนุมัติไม่สำเร็จ',
+        description: err?.message || 'เกิดข้อผิดพลาด',
+      });
+    }
   };
+
+  const handleRequestRevision = async (item: SchoolNewsletter, note: string) => {
+    try {
+      await saveNewsletterWithCompat(
+        {
+          issue_no: item.issue_no,
+          academic_year: item.academic_year,
+          issue_date: item.issue_date,
+          title: item.title,
+          summary: item.summary,
+          content: item.content,
+          category: item.category,
+          image_urls: parseImageUrlsList(item.image_urls, item.image_url),
+          template_type: item.template_type || 'template_1',
+          status: 'revision',
+          revision_note: note,
+          approved_by: null,
+          approved_at: null,
+          created_by: item.created_by,
+          created_by_name: item.created_by_name,
+          file_url: item.file_url,
+          is_published: false,
+          order_position: item.order_position,
+        },
+        item.id
+      );
+      toast({
+        title: 'ส่งกลับให้แก้ไขแล้ว',
+        description: 'บันทึกหมายเหตุแก้ไขส่งถึงผู้จัดทำเรียบร้อยแล้ว',
+      });
+      await loadExecutiveOverview();
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'ส่งกลับไม่สำเร็จ',
+        description: err?.message || 'เกิดข้อผิดพลาด',
+      });
+    }
+  };
+
+  const pendingNewsletters = newsletters.filter((n) => n.status === 'pending');
+  const displayReviewList =
+    pendingNewsletters.length > 0 ? pendingNewsletters : newsletters.slice(0, 4);
 
   return (
     <div className="p-8 space-y-8">
@@ -179,6 +300,101 @@ export const ExecutivePortal = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Executive Newsletter Approval & Review Queue */}
+      <Card className="border-amber-300/70 dark:border-amber-700/60 shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                  รอการอนุมัติ / ตรวจสอบจดหมายข่าว
+                  {pendingNewsletters.length > 0 && (
+                    <Badge className="bg-amber-500 text-slate-950 font-bold">
+                      รออนุมัติ {pendingNewsletters.length} ฉบับ
+                    </Badge>
+                  )}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  กดตรวจสอบพรีวิวขนาด A4 จริง เพื่ออนุมัติเผยแพร่ ส่งกลับแก้ไข หรือดาวน์โหลดฉบับ PDF
+                </p>
+              </div>
+            </div>
+
+            <Link to="/admin/dashboard?tab=newsletters">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                <FileText className="w-3.5 h-3.5 text-primary" />
+                เปิดหน้าจัดการอนุมัติจดหมายข่าวทั้งหมด
+              </Button>
+            </Link>
+          </div>
+
+          {displayReviewList.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              ยังไม่มีรายการจดหมายข่าวที่รอการตรวจสอบในขณะนี้
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {displayReviewList.map((nl) => {
+                const st = nl.status || (nl.is_published ? 'approved' : 'draft');
+                const stMeta = NEWSLETTER_STATUS_META[st];
+                const urls = parseImageUrlsList(nl.image_urls, nl.image_url);
+                return (
+                  <div
+                    key={nl.id}
+                    className="p-4 rounded-xl bg-secondary/40 border border-border flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {urls[0] ? (
+                        <img
+                          src={urls[0]}
+                          alt={nl.title}
+                          referrerPolicy="no-referrer"
+                          className="w-14 h-14 rounded-lg object-cover border shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <FileText className="w-6 h-6 text-primary" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                          <Badge variant="outline" className={`text-[10px] ${stMeta.badgeClass}`}>
+                            {stMeta.label}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            ฉบับที่ {nl.issue_no}/{nl.academic_year}
+                          </span>
+                        </div>
+                        <p className="font-bold text-sm text-foreground truncate">{nl.title}</p>
+                        {nl.created_by_name && (
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            ผู้จัดทำ: {nl.created_by_name} • {urls.length} ภาพ
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setReviewingNewsletter(nl)}
+                      className="text-xs gap-1 shrink-0"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      ตรวจสอบ A4
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 3 Read-Only Executive Report Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -328,6 +544,17 @@ export const ExecutivePortal = () => {
           )}
         </CardContent>
       </Card>
+
+      <NewsletterA4PreviewModal
+        open={Boolean(reviewingNewsletter)}
+        onOpenChange={(open) => !open && setReviewingNewsletter(null)}
+        newsletter={reviewingNewsletter}
+        settings={settings}
+        orgSettings={orgSettings}
+        canReview={true}
+        onApprove={handleApproveNewsletter}
+        onRequestRevision={handleRequestRevision}
+      />
     </div>
   );
 };

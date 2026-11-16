@@ -202,3 +202,45 @@
     }
   }
 }
+
+/* Strict 1-Page A4 Portrait Print Support for School Newsletters */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  body.printing-newsletter-a4 > *:not(.newsletter-print-portal) {
+    display: none !important;
+  }
+
+  body.printing-newsletter-a4 {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .newsletter-print-portal {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: center;
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .newsletter-print-portal > * {
+    width: 210mm !important;
+    height: 297mm !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

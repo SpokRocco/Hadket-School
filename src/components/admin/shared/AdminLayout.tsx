@@ -128,7 +128,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                                     }`}
                             >
                                 <item.icon className="w-4 h-4 flex-shrink-0" />
-                                <span className="text-xs sm:text-sm truncate">{item.label}</span>
+                                <span className="text-xs sm:text-sm truncate">
+                                    {normalizedRole === 'executive' && item.id === 'newsletters'
+                                        ? 'อนุมัติจดหมายข่าว'
+                                        : item.label}
+                                </span>
                             </Link>
                         );
                     })}

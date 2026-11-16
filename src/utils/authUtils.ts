@@ -142,10 +142,10 @@ export const ROLE_INFO: Record<
 };
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<AdminRole, string[]> = {
-  executive: ['dashboard', 'executive_view'],
+  executive: ['dashboard', 'executive_view', 'newsletters'],
   admin: ALL_ADMIN_MENUS.map((m) => m.id),
   super_admin: ALL_ADMIN_MENUS.map((m) => m.id),
-  teacher: ['dashboard', 'teacher_workspace', 'media'],
+  teacher: ['dashboard', 'teacher_workspace', 'media', 'newsletters'],
   staff: ['dashboard', 'news', 'newsletters', 'gallery', 'events', 'login_portals'],
   sapha_plus: ['dashboard', 'sapha_plus', 'students'],
 };
@@ -364,8 +364,10 @@ export const hasMenuPermission = (user: AdminUser | null, menuId: string): boole
   if (menuId === 'dashboard') return true;
 
   // Role-specific core tabs are always accessible for that role
-  if (role === 'executive' && menuId === 'executive_view') return true;
-  if (role === 'teacher' && (menuId === 'teacher_workspace' || menuId === 'media')) return true;
+  if (role === 'executive' && (menuId === 'executive_view' || menuId === 'newsletters')) return true;
+  if (role === 'teacher' && (menuId === 'teacher_workspace' || menuId === 'media' || menuId === 'newsletters')) {
+    return true;
+  }
   if (role === 'sapha_plus' && (menuId === 'sapha_plus' || menuId === 'students')) return true;
   if (role === 'staff' && ['news', 'newsletters', 'gallery', 'events', 'login_portals'].includes(menuId)) {
     return true;

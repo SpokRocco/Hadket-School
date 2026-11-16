@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase, notifyLocalRealtimeListeners } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -407,6 +408,20 @@ export const TeacherPortal = () => {
                 {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copiedLink ? 'คัดลอกแล้ว' : 'คัดลอก'}
               </Button>
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/15 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-white/80">ต้องการออกจดหมายข่าวส่งผู้บริหาร?</span>
+              <Link to="/admin/dashboard?tab=newsletters">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs gap-1"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  จดหมายข่าว (A4)
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

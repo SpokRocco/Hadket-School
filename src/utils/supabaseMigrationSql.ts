@@ -26,7 +26,28 @@ CREATE TABLE IF NOT EXISTS public.newsletters (
 
 ALTER TABLE public.newsletters
   ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS order_position INTEGER NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS order_position INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS image_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS template_type TEXT NOT NULL DEFAULT 'template_1',
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft',
+  ADD COLUMN IF NOT EXISTS revision_note TEXT,
+  ADD COLUMN IF NOT EXISTS approved_by TEXT,
+  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS created_by TEXT,
+  ADD COLUMN IF NOT EXISTS created_by_name TEXT;
+
+UPDATE public.newsletters
+SET status = 'approved'
+WHERE is_published = true AND status = 'draft';
+
+UPDATE public.newsletters
+SET image_urls = jsonb_build_array(image_url)
+WHERE image_url IS NOT NULL
+  AND image_url <> ''
+  AND (image_urls IS NULL OR jsonb_array_length(image_urls) = 0);
+
+CREATE INDEX IF NOT EXISTS idx_newsletters_status ON public.newsletters(status);
+CREATE INDEX IF NOT EXISTS idx_newsletters_created_by ON public.newsletters(created_by);
 
 ALTER TABLE public.newsletters ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow full access for newsletters" ON public.newsletters;

@@ -775,6 +775,14 @@ export type Database = {
                     content: string | null
                     category: string
                     image_url: string | null
+                    image_urls: Json
+                    template_type: string
+                    status: string
+                    revision_note: string | null
+                    approved_by: string | null
+                    approved_at: string | null
+                    created_by: string | null
+                    created_by_name: string | null
                     file_url: string | null
                     views: number
                     is_published: boolean
@@ -792,6 +800,14 @@ export type Database = {
                     content?: string | null
                     category?: string
                     image_url?: string | null
+                    image_urls?: Json
+                    template_type?: string
+                    status?: string
+                    revision_note?: string | null
+                    approved_by?: string | null
+                    approved_at?: string | null
+                    created_by?: string | null
+                    created_by_name?: string | null
                     file_url?: string | null
                     views?: number
                     is_published?: boolean
@@ -809,6 +825,14 @@ export type Database = {
                     content?: string | null
                     category?: string
                     image_url?: string | null
+                    image_urls?: Json
+                    template_type?: string
+                    status?: string
+                    revision_note?: string | null
+                    approved_by?: string | null
+                    approved_at?: string | null
+                    created_by?: string | null
+                    created_by_name?: string | null
                     file_url?: string | null
                     views?: number
                     is_published?: boolean

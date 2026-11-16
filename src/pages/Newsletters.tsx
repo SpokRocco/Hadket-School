@@ -15,40 +15,27 @@ import {
   Eye,
   ExternalLink,
   Download,
-  BookOpen,
   PlusCircle,
   ZoomIn,
   Printer,
   Hash,
+  Images,
+  Loader2,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
+import {
+  DEFAULT_NEWSLETTER_ORG_SETTINGS,
+  NEWSLETTER_CATEGORIES,
+  formatThaiDate,
+  isNewsletterPubliclyVisible,
+  parseImageUrlsList,
+  type NewsletterOrgSettings,
+  type SchoolNewsletter,
+} from '@/utils/newsletterUtils';
+import { fetchNewslettersWithCompat } from '@/utils/newsletterStorage';
+import { ScaledNewsletterA4Preview } from '@/components/admin/newsletters/NewsletterA4Sheet';
+import { useNewsletterPrintAndPdf } from '@/components/admin/newsletters/NewsletterA4PreviewModal';
 
-export interface SchoolNewsletter {
-  id: string;
-  issue_no: string;
-  academic_year: string;
-  issue_date: string;
-  title: string;
-  summary: string | null;
-  content: string | null;
-  category: string;
-  image_url: string | null;
-  file_url: string | null;
-  views: number;
-  is_published: boolean;
-  order_position: number;
-  created_at?: string;
-}
-
-export const NEWSLETTER_CATEGORIES = [
-  'ทั้งหมด',
-  'กิจกรรมสถานศึกษา',
-  'งานวิชาการ',
-  'กิจการนักเรียน',
-  'ผลงานและความภูมิใจ',
-  'บริหารทั่วไปและชุมชนสัมพันธ์',
-];
+export { NEWSLETTER_CATEGORIES, formatThaiDate, type SchoolNewsletter };
 
 export const DEFAULT_NEWSLETTERS: SchoolNewsletter[] = [
   {
@@ -63,6 +50,9 @@ export const DEFAULT_NEWSLETTERS: SchoolNewsletter[] = [
       'ทางโรงเรียนได้จัดกิจกรรมปฐมนิเทศนักเรียนใหม่และประชุมผู้ปกครองประจำภาคเรียนที่ 1 เพื่อสร้างความเข้าใจอันดีระหว่างบ้านและโรงเรียน พร้อมแนะนำคณะครูประจำชั้นและแนวทางการส่งเสริมการเรียนรู้ในยุคดิจิทัล',
     category: 'กิจกรรมสถานศึกษา',
     image_url: null,
+    image_urls: [],
+    template_type: 'template_1',
+    status: 'approved',
     file_url: null,
     views: 156,
     is_published: true,
@@ -80,6 +70,9 @@ export const DEFAULT_NEWSLETTERS: SchoolNewsletter[] = [
       'คณะครูทุกกลุ่มสาระการเรียนรู้เข้าร่วมกิจกรรมพัฒนาวิชาชีพ (PLC) ในการสร้างและพัฒนาคลังสื่อการสอนออนไลน์ เพื่อให้นักเรียนสามารถทบทวนบทเรียนได้ทุกที่ทุกเวลา',
     category: 'งานวิชาการ',
     image_url: null,
+    image_urls: [],
+    template_type: 'template_2',
+    status: 'approved',
     file_url: null,
     views: 142,
     is_published: true,
@@ -97,6 +90,9 @@ export const DEFAULT_NEWSLETTERS: SchoolNewsletter[] = [
       'โรงเรียนขอแสดงความยินดีกับนักเรียนและครูผู้ฝึกซ้อมที่ได้รับรางวัลเหรียญทองชนะเลิศจากการแข่งขันทักษะวิชาการ เป็นแบบอย่างที่ดีด้านความมุ่งมั่นตั้งใจศึกษาเล่าเรียน',
     category: 'ผลงานและความภูมิใจ',
     image_url: null,
+    image_urls: [],
+    template_type: 'template_4',
+    status: 'approved',
     file_url: null,
     views: 218,
     is_published: true,
@@ -104,17 +100,12 @@ export const DEFAULT_NEWSLETTERS: SchoolNewsletter[] = [
   },
 ];
 
-export const formatThaiDate = (dateStr: string) => {
-  try {
-    return format(new Date(dateStr), 'd MMMM yyyy', { locale: th });
-  } catch {
-    return dateStr;
-  }
-};
-
 const Newsletters = () => {
   const { settings } = useSchoolSettings();
   const [newsletters, setNewsletters] = useState<SchoolNewsletter[]>([]);
+  const [orgSettings, setOrgSettings] = useState<NewsletterOrgSettings>(
+    DEFAULT_NEWSLETTER_ORG_SETTINGS
+  );
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
@@ -123,29 +114,22 @@ const Newsletters = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const { sheetRef, exportingPdf, handlePrintA4, handleExportPdf, printPortal } =
+    useNewsletterPrintAndPdf(selectedNewsletter, settings, orgSettings);
+
   const fetchNewsletters = useCallback(async () => {
     try {
-      let { data, error } = await (supabase as any)
-        .from('newsletters')
-        .select('*')
-        .eq('is_published', true)
-        .order('issue_date', { ascending: false })
-        .order('order_position', { ascending: false });
+      const bundle = await fetchNewslettersWithCompat({ onlyPublished: true });
+      const visible = bundle.newsletters
+        .filter(isNewsletterPubliclyVisible)
+        .sort((a, b) => {
+          const dateDiff = String(b.issue_date).localeCompare(String(a.issue_date));
+          if (dateDiff !== 0) return dateDiff;
+          return (b.order_position || 0) - (a.order_position || 0);
+        });
 
-      if (error) {
-        const retry = await (supabase as any)
-          .from('newsletters')
-          .select('*')
-          .eq('is_published', true)
-          .order('issue_date', { ascending: false });
-        data = retry.data;
-        error = retry.error;
-      }
-
-      if (error) throw error;
-
-      // Always use data from DB if available (even empty array means user deleted all items)
-      setNewsletters(data || []);
+      setNewsletters(visible);
+      setOrgSettings(bundle.orgSettings);
     } catch (error) {
       console.error('Error fetching newsletters:', error);
       setNewsletters([]);
@@ -158,7 +142,7 @@ const Newsletters = () => {
     fetchNewsletters();
     return subscribeToRealtimeTables(
       'realtime_newsletters_page',
-      ['newsletters'],
+      ['newsletters', 'school_settings'],
       fetchNewsletters
     );
   }, [fetchNewsletters]);
@@ -217,6 +201,7 @@ const Newsletters = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {printPortal}
       <Navbar />
       <main className="flex-1 pt-20">
         {/* Hero Header */}
@@ -299,108 +284,148 @@ const Newsletters = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredNewsletters.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => handleViewNewsletter(item)}
-                    className="group cursor-pointer bg-card rounded-2xl overflow-hidden border-2 border-border hover:border-primary/60 shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col"
-                  >
-                    {/* Official Thai School Newsletter Masthead Banner */}
-                    <div className="bg-gradient-to-r from-primary via-primary to-navy-light px-5 py-3.5 text-primary-foreground border-b-4 border-accent flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {settings.school_logo_url ? (
+                {filteredNewsletters.map((item) => {
+                  const photos = parseImageUrlsList(item.image_urls, item.image_url);
+                  const coverPhoto = photos[0];
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => void handleViewNewsletter(item)}
+                      className="group cursor-pointer bg-card rounded-2xl overflow-hidden border-2 border-border hover:border-primary/60 shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col"
+                    >
+                      {/* Official Thai School Newsletter Masthead Banner */}
+                      <div className="bg-gradient-to-r from-primary via-primary to-navy-light px-5 py-3.5 text-primary-foreground border-b-4 border-accent flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {settings.school_logo_url ? (
+                            <img
+                              src={settings.school_logo_url}
+                              alt={settings.school_name}
+                              referrerPolicy="no-referrer"
+                              className="w-9 h-9 rounded-full object-contain bg-white p-0.5 flex-shrink-0 shadow"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center flex-shrink-0 shadow">
+                              {settings.school_short_name || 'บหค'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-[11px] text-accent font-semibold tracking-wider uppercase leading-none">
+                              {orgSettings.headerTitle || 'จดหมายข่าวประชาสัมพันธ์'}
+                            </p>
+                            <p className="text-sm font-bold truncate mt-0.5">{settings.school_name}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 bg-white/10 px-2.5 py-1 rounded-lg border border-white/15">
+                          <span className="block text-[10px] text-primary-foreground/80 leading-none">
+                            ฉบับที่
+                          </span>
+                          <span className="text-xs font-bold text-accent">
+                            {item.issue_no}/{item.academic_year}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Issue Date & Category Sub-bar */}
+                      <div className="bg-secondary/70 px-5 py-2 text-xs flex items-center justify-between border-b border-border">
+                        <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          {formatThaiDate(item.issue_date)}
+                        </span>
+                        <Badge variant="secondary" className="text-[11px] font-medium">
+                          {item.category}
+                        </Badge>
+                      </div>
+
+                      {/* Multi-Photo Collage or Cover Image Area */}
+                      <div className="relative bg-secondary/30 overflow-hidden aspect-[4/3]">
+                        {photos.length >= 3 ? (
+                          <div className="w-full h-full grid grid-cols-12 grid-rows-2 gap-1 p-1 bg-slate-200/70 dark:bg-slate-800">
+                            <img
+                              src={photos[0]}
+                              alt={item.title}
+                              referrerPolicy="no-referrer"
+                              className="col-span-8 row-span-2 w-full h-full object-cover rounded-lg group-hover:scale-[1.02] transition-transform duration-500"
+                            />
+                            <img
+                              src={photos[1]}
+                              alt={`${item.title} 2`}
+                              referrerPolicy="no-referrer"
+                              className="col-span-4 row-span-1 w-full h-full object-cover rounded-lg"
+                            />
+                            <div className="col-span-4 row-span-1 relative overflow-hidden rounded-lg">
+                              <img
+                                src={photos[2]}
+                                alt={`${item.title} 3`}
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                              />
+                              {photos.length > 3 && (
+                                <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center text-white text-xs font-bold">
+                                  +{photos.length - 3} ภาพ
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : coverPhoto ? (
                           <img
-                            src={settings.school_logo_url}
-                            alt={settings.school_name}
+                            src={coverPhoto}
+                            alt={item.title}
                             referrerPolicy="no-referrer"
-                            className="w-9 h-9 rounded-full object-contain bg-white p-0.5 flex-shrink-0 shadow"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-accent text-accent-foreground font-bold text-xs flex items-center justify-center flex-shrink-0 shadow">
-                            {settings.school_short_name || 'บหค'}
+                          <div className="w-full h-full bg-gradient-to-br from-primary/5 via-accent/10 to-primary/10 flex flex-col items-center justify-center p-6 text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                              <FileText className="w-8 h-8 text-primary" />
+                            </div>
+                            <p className="text-xs font-semibold text-primary">
+                              ฉบับที่ {item.issue_no} ปีการศึกษา {item.academic_year}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                              {item.title}
+                            </p>
                           </div>
                         )}
-                        <div className="min-w-0">
-                          <p className="text-[11px] text-accent font-semibold tracking-wider uppercase leading-none">
-                            จดหมายข่าวประชาสัมพันธ์
-                          </p>
-                          <p className="text-sm font-bold truncate mt-0.5">{settings.school_name}</p>
+
+                        {photos.length > 1 && (
+                          <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-950/80 text-white text-[11px] font-semibold backdrop-blur-xs">
+                            <Images className="w-3 h-3 text-amber-400" />
+                            {photos.length} รูป
+                          </span>
+                        )}
+
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-card/95 text-foreground text-xs font-semibold shadow-lg">
+                            <ZoomIn className="w-4 h-4 text-primary" />
+                            คลิกเพื่ออ่านจดหมายข่าว A4 ฉบับเต็ม
+                          </span>
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0 bg-white/10 px-2.5 py-1 rounded-lg border border-white/15">
-                        <span className="block text-[10px] text-primary-foreground/80 leading-none">
-                          ฉบับที่
-                        </span>
-                        <span className="text-xs font-bold text-accent">
-                          {item.issue_no}/{item.academic_year}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Issue Date & Category Sub-bar */}
-                    <div className="bg-secondary/70 px-5 py-2 text-xs flex items-center justify-between border-b border-border">
-                      <span className="flex items-center gap-1.5 text-muted-foreground font-medium">
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                        {formatThaiDate(item.issue_date)}
-                      </span>
-                      <Badge variant="secondary" className="text-[11px] font-medium">
-                        {item.category}
-                      </Badge>
-                    </div>
+                      {/* Newsletter Content Preview */}
+                      <div className="p-5 flex-1 flex flex-col">
+                        <h3 className="font-bold text-lg text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                          {item.title}
+                        </h3>
+                        {item.summary && (
+                          <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1 leading-relaxed">
+                            {item.summary}
+                          </p>
+                        )}
 
-                    {/* Poster / Activity Image Area */}
-                    <div className="relative bg-secondary/30 overflow-hidden aspect-[4/3]">
-                      {item.image_url ? (
-                        <img
-                          src={item.image_url}
-                          alt={item.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary/5 via-accent/10 to-primary/10 flex flex-col items-center justify-center p-6 text-center">
-                          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
-                            <FileText className="w-8 h-8 text-primary" />
-                          </div>
-                          <p className="text-xs font-semibold text-primary">
-                            ฉบับที่ {item.issue_no} ปีการศึกษา {item.academic_year}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                            {item.title}
-                          </p>
+                        <div className="pt-3 border-t border-border mt-auto flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-primary" />
+                            อ่านแล้ว {item.views || 0} ครั้ง
+                          </span>
+                          <span className="font-semibold text-primary group-hover:translate-x-1 transition-transform">
+                            เปิดอ่านฉบับนี้ →
+                          </span>
                         </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-card/95 text-foreground text-xs font-semibold shadow-lg">
-                          <ZoomIn className="w-4 h-4 text-primary" />
-                          คลิกเพื่ออ่านจดหมายข่าวฉบับเต็ม
-                        </span>
                       </div>
                     </div>
-
-                    {/* Newsletter Content Preview */}
-                    <div className="p-5 flex-1 flex flex-col">
-                      <h3 className="font-bold text-lg text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                        {item.title}
-                      </h3>
-                      {item.summary && (
-                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1 leading-relaxed">
-                          {item.summary}
-                        </p>
-                      )}
-
-                      <div className="pt-3 border-t border-border mt-auto flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Eye className="w-3.5 h-3.5 text-primary" />
-                          อ่านแล้ว {item.views || 0} ครั้ง
-                        </span>
-                        <span className="font-semibold text-primary group-hover:translate-x-1 transition-transform">
-                          เปิดอ่านฉบับนี้ →
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -420,131 +445,92 @@ const Newsletters = () => {
           }
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 border-0 rounded-2xl">
+        <DialogContent className="max-w-4xl max-h-[94vh] overflow-y-auto p-4 sm:p-6">
           {selectedNewsletter && (
-            <div className="bg-card overflow-hidden">
-              {/* Official School Newsletter Header */}
-              <div className="bg-gradient-to-r from-primary via-primary to-navy-light p-6 text-primary-foreground border-b-4 border-accent">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    {settings.school_logo_url ? (
-                      <img
-                        src={settings.school_logo_url}
-                        alt={settings.school_name}
-                        referrerPolicy="no-referrer"
-                        className="w-14 h-14 rounded-full object-contain bg-white p-0.5 shadow-lg"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-accent text-accent-foreground font-bold text-xl flex items-center justify-center shadow-lg">
-                        {settings.school_short_name || 'บหค'}
-                      </div>
-                    )}
-                    <div>
-                      <span className="inline-block text-xs font-bold tracking-widest uppercase text-accent">
-                        SCHOOL NEWSLETTER • จดหมายข่าวประชาสัมพันธ์
+            <div className="space-y-4">
+              <DialogHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
+                  <div>
+                    <DialogTitle className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      {selectedNewsletter.title}
+                    </DialogTitle>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                      <span className="inline-flex items-center gap-1">
+                        <Hash className="w-3.5 h-3.5" />
+                        ฉบับที่ {selectedNewsletter.issue_no}/{selectedNewsletter.academic_year}
                       </span>
-                      <DialogHeader>
-                        <DialogTitle className="text-xl sm:text-2xl font-bold text-primary-foreground mt-0.5 text-left">
-                          {settings.school_name}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <p className="text-xs text-primary-foreground/80">{settings.school_tagline}</p>
-                    </div>
+                      <span>•</span>
+                      <span>วันที่ {formatThaiDate(selectedNewsletter.issue_date)}</span>
+                      <span>•</span>
+                      <span>เข้าชม {selectedNewsletter.views || 0} ครั้ง</span>
+                    </p>
                   </div>
-
-                  <div className="bg-white/10 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-white/20 text-left sm:text-right">
-                    <div className="text-xs text-accent font-semibold flex items-center sm:justify-end gap-1">
-                      <Hash className="w-3.5 h-3.5" />
-                      ฉบับที่ {selectedNewsletter.issue_no} / ปีการศึกษา {selectedNewsletter.academic_year}
-                    </div>
-                    <div className="text-xs text-primary-foreground/90 mt-1">
-                      วันที่ {formatThaiDate(selectedNewsletter.issue_date)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Body of the Newsletter Sheet */}
-              <div className="p-6 sm:p-8 space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Badge className="bg-primary text-primary-foreground">
                     {selectedNewsletter.category}
                   </Badge>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Eye className="w-4 h-4" />
-                    เข้าชม {selectedNewsletter.views || 0} ครั้ง
-                  </span>
                 </div>
+              </DialogHeader>
 
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-snug">
-                  {selectedNewsletter.title}
-                </h2>
-
-                {selectedNewsletter.image_url && (
-                  <div className="rounded-2xl overflow-hidden border border-border shadow-md bg-secondary/20">
-                    <img
-                      src={selectedNewsletter.image_url}
-                      alt={selectedNewsletter.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full max-h-[750px] object-contain mx-auto"
-                    />
-                  </div>
-                )}
-
-                {selectedNewsletter.summary && (
-                  <div className="p-5 rounded-xl bg-secondary/60 border-l-4 border-primary text-foreground font-medium leading-relaxed">
-                    {selectedNewsletter.summary}
-                  </div>
-                )}
-
-                {selectedNewsletter.content && (
-                  <div className="prose max-w-none text-foreground/90 whitespace-pre-line leading-relaxed">
-                    {selectedNewsletter.content}
-                  </div>
-                )}
-
-                {/* Footer of Newsletter Sheet */}
-                <div className="pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-                  <div>
-                    งานประชาสัมพันธ์ {settings.school_name} • โทร {settings.contact_phone}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedNewsletter.file_url && (
-                      <a
-                        href={selectedNewsletter.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button size="sm" className="gap-1.5">
-                          <Download className="w-4 h-4" />
-                          ดาวน์โหลดเอกสาร / PDF
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Button>
-                      </a>
-                    )}
-                    {selectedNewsletter.image_url && (
-                      <a
-                        href={selectedNewsletter.image_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button size="sm" variant="outline" className="gap-1.5">
-                          <ExternalLink className="w-4 h-4" />
-                          ดูภาพขนาดเต็ม
-                        </Button>
-                      </a>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.print()}
-                      className="gap-1.5"
+              {/* Toolbar: Print A4 / Download PDF / Attachment */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-secondary/50 border border-border">
+                <div className="flex flex-wrap gap-2">
+                  {selectedNewsletter.file_url && (
+                    <a
+                      href={selectedNewsletter.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
-                      <Printer className="w-4 h-4" />
-                      พิมพ์จดหมายข่าว
-                    </Button>
-                  </div>
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        เปิดไฟล์แนบเพิ่มเติม
+                      </Button>
+                    </a>
+                  )}
                 </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handlePrintA4(selectedNewsletter)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    พิมพ์จดหมายข่าว (Print A4)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleExportPdf(selectedNewsletter)}
+                    disabled={exportingPdf}
+                    className="gap-1.5 text-xs"
+                  >
+                    {exportingPdf ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        กำลังสร้าง PDF...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-3.5 h-3.5" />
+                        ดาวน์โหลด PDF (A4)
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* A4 Sheet Display (supports both 4-6 multi-image templates & legacy single image) */}
+              <div className="bg-slate-100/80 dark:bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-border">
+                <ScaledNewsletterA4Preview
+                  newsletter={selectedNewsletter}
+                  settings={settings}
+                  orgSettings={orgSettings}
+                  sheetRef={sheetRef}
+                  maxWidth={720}
+                />
               </div>
             </div>
           )}
@@ -557,4 +543,3 @@ const Newsletters = () => {
 };
 
 export default Newsletters;
-
