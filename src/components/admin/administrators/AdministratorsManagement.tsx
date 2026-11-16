@@ -240,7 +240,7 @@ export const AdministratorsManagement = () => {
                             เพิ่มผู้บริหาร
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>
                                 {editingAdmin ? 'แก้ไขผู้บริหาร' : 'เพิ่มผู้บริหารใหม่'}
@@ -293,6 +293,16 @@ export const AdministratorsManagement = () => {
                                     folder="administrators"
                                     maxSizeMB={0}
                                     compressionPreset="profile"
+                                    cropOptions={{
+                                        enabled: true,
+                                        aspect: 1,
+                                        shape: 'round',
+                                        title: 'ปรับแต่งและครอปรูปภาพผู้บริหาร',
+                                        description:
+                                            'จัดวางใบหน้าให้อยู่กึ่งกลางกรอบวงกลม เลื่อนลูกกลิ้งเมาส์ จีบนิ้ว หรือใช้แถบซูมเพื่อปรับขนาด',
+                                        outputWidth: 800,
+                                        outputHeight: 800,
+                                    }}
                                 />
                             </div>
                             <div className="flex gap-2 justify-end">
@@ -334,6 +344,7 @@ export const AdministratorsManagement = () => {
                                     <img
                                         src={admin.photo_url}
                                         alt={admin.name}
+                                        referrerPolicy="no-referrer"
                                         className="w-20 h-20 rounded-full object-cover border-4 border-white/50"
                                     />
                                 ) : (

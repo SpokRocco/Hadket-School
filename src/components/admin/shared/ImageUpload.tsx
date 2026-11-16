@@ -1,9 +1,28 @@
-import { useState, useRef, useEffect } from 'react';
-import { Upload, X, Loader2, CheckCircle2, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Upload,
+  X,
+  Loader2,
+  CheckCircle2,
+  Sparkles,
+  Crop,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { compressImage, compressionPresets, type CompressOptions } from '@/utils/imageUtils';
+import { compressImage, compressionPresets } from '@/utils/imageUtils';
+import { prepareImageFileForCrop } from '@/utils/imageCropUtils';
+import { ImageCropModal } from './ImageCropModal';
+
+export interface ImageUploadCropOptions {
+  enabled: boolean;
+  aspect?: number;
+  shape?: 'round' | 'rect';
+  title?: string;
+  description?: string;
+  outputWidth?: number;
+  outputHeight?: number;
+}
 
 interface ImageUploadProps {
   onUploadComplete: (url: string) => void;
@@ -12,7 +31,16 @@ interface ImageUploadProps {
   folder?: string;
   maxSizeMB?: number;
   compressionPreset?: keyof typeof compressionPresets;
+  cropOptions?: ImageUploadCropOptions;
 }
+
+const isValidImageFile = (file: File): boolean => {
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  return (
+    file.type.startsWith('image/') ||
+    ['heic', 'heif', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext || '')
+  );
+};
 
 export const ImageUpload = ({
   onUploadComplete,
@@ -21,28 +49,116 @@ export const ImageUpload = ({
   folder = 'uploads',
   maxSizeMB = 0, // 0 = unlimited size
   compressionPreset = 'cover',
+  cropOptions,
 }: ImageUploadProps) => {
   const [preview, setPreview] = useState<string | null>(currentImage || null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Interactive Cropper Modal states (used when cropOptions?.enabled is true)
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
+  const cropRevokeUrlRef = useRef<string | null>(null);
+  const cropSourceMetaRef = useRef<{ name: string; origSize: number } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Update preview when currentImage changes
+  // Sync preview with external currentImage changes
   useEffect(() => {
     setPreview(currentImage || null);
   }, [currentImage]);
 
+  const cleanupCropObjectUrl = useCallback(() => {
+    if (cropRevokeUrlRef.current) {
+      URL.revokeObjectURL(cropRevokeUrlRef.current);
+      cropRevokeUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cleanupCropObjectUrl();
+    };
+  }, [cleanupCropObjectUrl]);
+
+  const uploadProcessedBlob = async (
+    processedBlob: Blob,
+    sourceFileName: string,
+    origFileSize: number = 0,
+    successTitle: string = 'อัปโหลดสำเร็จ'
+  ) => {
+    const isWebP = processedBlob.type === 'image/webp';
+    const isPng = processedBlob.type === 'image/png';
+    const isSvg = processedBlob.type === 'image/svg+xml';
+    const fileExt = isSvg ? 'svg' : isPng ? 'png' : isWebP ? 'webp' : 'jpg';
+    const contentType = isSvg
+      ? 'image/svg+xml'
+      : isPng
+        ? 'image/png'
+        : isWebP
+          ? 'image/webp'
+          : 'image/jpeg';
+    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+    let finalUrl = '';
+
+    // 1. Try Supabase Storage upload
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, processedBlob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType,
+        });
+
+      if (error) {
+        console.warn('Supabase storage upload note:', error);
+      } else if (data?.path) {
+        const { data: publicData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(data.path);
+        finalUrl = publicData?.publicUrl || '';
+      }
+    } catch (storageErr) {
+      console.warn('Storage upload caught, switching to data URL fallback:', storageErr);
+    }
+
+    // 2. Fallback to persistent Data URL if storage was not configured or returned a temporary blob: URL
+    if (!finalUrl || finalUrl.startsWith('blob:')) {
+      finalUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(processedBlob);
+      });
+    }
+
+    if (!finalUrl) {
+      throw new Error('ไม่สามารถแปลงข้อมูลรูปภาพได้');
+    }
+
+    setPreview(finalUrl);
+    onUploadComplete(finalUrl);
+
+    const origSizeMB = (origFileSize / (1024 * 1024)).toFixed(1);
+    const compSizeKB = Math.round(processedBlob.size / 1024);
+    const sizeInfo =
+      origFileSize > 1.5 * 1024 * 1024
+        ? ` (ปรับขนาดจาก ${origSizeMB} MB เหลือ ${compSizeKB} KB)`
+        : '';
+
+    toast({
+      title: successTitle,
+      description: `ประมวลผลรูปภาพเรียบร้อย${sizeInfo}${sourceFileName ? ` (${sourceFileName})` : ''}`,
+    });
+  };
+
   const processFile = async (file: File) => {
     if (!file) return;
 
-    // Check if file is image (including iPhone/iPad formats)
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    const isImage =
-      file.type.startsWith('image/') ||
-      ['heic', 'heif', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext || '');
-
-    if (!isImage) {
+    if (!isValidImageFile(file)) {
       toast({
         title: 'ประเภทไฟล์ไม่ถูกต้อง',
         description: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WebP, HEIC, ฯลฯ)',
@@ -51,72 +167,39 @@ export const ImageUpload = ({
       return;
     }
 
+    // Interactive Crop Flow: open preview & crop modal BEFORE saving/uploading
+    if (cropOptions?.enabled) {
+      setIsUploading(true);
+      try {
+        const { objectUrl } = await prepareImageFileForCrop(file);
+        cleanupCropObjectUrl();
+        cropRevokeUrlRef.current = objectUrl;
+        cropSourceMetaRef.current = { name: file.name, origSize: file.size };
+        setCropSourceUrl(objectUrl);
+        setCropModalOpen(true);
+      } catch (error: any) {
+        console.error('Prepare crop error:', error);
+        toast({
+          title: 'ไม่สามารถเปิดไฟล์รูปภาพได้',
+          description: error?.message || 'กรุณาลองเลือกไฟล์รูปภาพอื่น',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+      return;
+    }
+
+    // Standard direct upload flow (for non-crop usages)
     setIsUploading(true);
     try {
-      // 1. Compress image before upload with preset
       const compressionOptions =
         compressionPresets[compressionPreset] || { maxWidth: 1920, maxHeight: 1080, quality: 0.85 };
       const compressedBlob = await compressImage(file, compressionOptions);
-
-      // Determine proper extension and content type directly from the compressed output
-      const isWebP = compressedBlob.type === 'image/webp';
-      const isPng = compressedBlob.type === 'image/png';
-      const isSvg = file.type === 'image/svg+xml';
-      const fileExt = isSvg ? 'svg' : isPng ? 'png' : isWebP ? 'webp' : 'jpg';
-      const contentType = isSvg ? 'image/svg+xml' : isPng ? 'image/png' : isWebP ? 'image/webp' : 'image/jpeg';
-      const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-      let finalUrl = '';
-
-      // 2. Try Supabase Storage upload
-      try {
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(fileName, compressedBlob, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType,
-          });
-
-        if (error) {
-          console.warn('Supabase storage upload note:', error);
-        } else if (data?.path) {
-          const { data: publicData } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(data.path);
-          finalUrl = publicData?.publicUrl || '';
-        }
-      } catch (storageErr) {
-        console.warn('Storage upload caught, switching to data URL fallback:', storageErr);
-      }
-
-      // 3. Fallback to persistent Data URL if storage was not configured or returned a temporary blob: URL
-      if (!finalUrl || finalUrl.startsWith('blob:')) {
-        finalUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve('');
-          reader.readAsDataURL(compressedBlob);
-        });
-      }
-
-      if (finalUrl) {
-        setPreview(finalUrl);
-        onUploadComplete(finalUrl);
-
-        const origSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        const compSizeKB = Math.round(compressedBlob.size / 1024);
-        const sizeInfo = file.size > 1.5 * 1024 * 1024
-          ? ` (ปรับขนาดจาก ${origSizeMB} MB เหลือ ${compSizeKB} KB)`
-          : '';
-
-        toast({
-          title: 'อัปโหลดสำเร็จ',
-          description: `ประมวลผลรูปภาพเรียบร้อย${sizeInfo} (${file.name})`,
-        });
-      } else {
-        throw new Error('ไม่สามารถแปลงข้อมูลรูปภาพได้');
-      }
+      await uploadProcessedBlob(compressedBlob, file.name, file.size);
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -125,6 +208,53 @@ export const ImageUpload = ({
         variant: 'destructive',
       });
       setPreview(currentImage || null);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleOpenCropForExisting = () => {
+    if (!preview || isUploading) return;
+    cleanupCropObjectUrl();
+    cropSourceMetaRef.current = { name: 'profile-cropped.webp', origSize: 0 };
+    setCropSourceUrl(preview);
+    setCropModalOpen(true);
+  };
+
+  const handleCropCancel = () => {
+    setCropModalOpen(false);
+    setCropSourceUrl(null);
+    cleanupCropObjectUrl();
+    cropSourceMetaRef.current = null;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCropConfirm = async (croppedBlob: Blob) => {
+    const meta = cropSourceMetaRef.current;
+    setIsUploading(true);
+    try {
+      await uploadProcessedBlob(
+        croppedBlob,
+        meta?.name || 'cropped-image.webp',
+        meta?.origSize || 0,
+        'บันทึกรูปภาพที่ปรับแต่งแล้วสำเร็จ'
+      );
+      setCropModalOpen(false);
+      setCropSourceUrl(null);
+      cleanupCropObjectUrl();
+      cropSourceMetaRef.current = null;
+    } catch (error: any) {
+      console.error('Cropped upload error:', error);
+      toast({
+        title: 'บันทึกรูปภาพไม่สำเร็จ',
+        description: error?.message || 'เกิดข้อผิดพลาดในการบันทึกรูปภาพที่ปรับแต่ง',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -171,6 +301,8 @@ export const ImageUpload = ({
     }
   };
 
+  const isRoundCropPreview = cropOptions?.enabled && cropOptions.shape !== 'rect';
+
   return (
     <div className="space-y-3">
       {/* Hidden File Input attached to ref */}
@@ -186,42 +318,94 @@ export const ImageUpload = ({
       {preview ? (
         <div className="space-y-2">
           {/* Image Display */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="relative rounded-2xl overflow-hidden border-2 border-border hover:border-primary/60 transition-all bg-slate-950/20 group cursor-pointer shadow-sm"
-            title="คลิกเพื่อเลือกไฟล์รูปใหม่จากเครื่อง"
-          >
-            <img
-              src={preview}
-              alt="Preview"
-              referrerPolicy="no-referrer"
-              className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-[1.01]"
-            />
-
-            {/* Uploading Spinner Overlay */}
-            {isUploading && (
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-20">
-                <Loader2 className="h-9 w-9 text-primary animate-spin" />
-                <p className="text-sm font-semibold">กำลังประมวลผลรูปภาพความละเอียดสูง...</p>
-                <p className="text-xs text-white/70">รองรับ Sony A7 / Lightroom / กล้อง Mirrorless ทุกรุ่น</p>
+          {isRoundCropPreview ? (
+            <div
+              onClick={handleOpenCropForExisting}
+              className="relative rounded-2xl overflow-hidden border-2 border-border hover:border-primary/60 transition-all bg-gradient-to-br from-primary to-navy-light group cursor-pointer shadow-sm py-6 px-4 flex flex-col items-center justify-center gap-2.5"
+              title="คลิกเพื่อปรับแต่งตำแหน่งและขนาดรูปภาพ"
+            >
+              <div className="relative">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  referrerPolicy="no-referrer"
+                  className="w-28 h-28 rounded-full object-cover border-4 border-white/85 shadow-lg transition-transform duration-300 group-hover:scale-[1.03]"
+                />
+                <span className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-accent text-accent-foreground flex items-center justify-center shadow-md border-2 border-white">
+                  <Crop className="w-4 h-4" />
+                </span>
               </div>
-            )}
 
-            {/* Click to change hint banner */}
-            <div className="absolute inset-x-0 bottom-0 py-1.5 px-3 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-white/90 text-xs">
-              <span className="flex items-center gap-1 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                รูปภาพที่เลือกอยู่ขณะนี้
-              </span>
-              <span className="text-[11px] text-white/75 group-hover:text-white transition-colors">
-                คลิกเพื่อเปลี่ยนรูป
-              </span>
+              <div className="flex items-center gap-2 text-white/95 text-xs">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                <span className="font-medium">ตัวอย่างรูปโปรไฟล์จริง (คลิกเพื่อปรับตำแหน่ง)</span>
+              </div>
+
+              {isUploading && (
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-20">
+                  <Loader2 className="h-9 w-9 text-accent animate-spin" />
+                  <p className="text-sm font-semibold">กำลังประมวลผลรูปภาพ...</p>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div
+              onClick={() =>
+                cropOptions?.enabled ? handleOpenCropForExisting() : fileInputRef.current?.click()
+              }
+              className="relative rounded-2xl overflow-hidden border-2 border-border hover:border-primary/60 transition-all bg-slate-950/20 group cursor-pointer shadow-sm"
+              title={
+                cropOptions?.enabled
+                  ? 'คลิกเพื่อปรับแต่งตำแหน่งรูปภาพ'
+                  : 'คลิกเพื่อเลือกไฟล์รูปใหม่จากเครื่อง'
+              }
+            >
+              <img
+                src={preview}
+                alt="Preview"
+                referrerPolicy="no-referrer"
+                className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+              />
+
+              {/* Uploading Spinner Overlay */}
+              {isUploading && (
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-white z-20">
+                  <Loader2 className="h-9 w-9 text-primary animate-spin" />
+                  <p className="text-sm font-semibold">กำลังประมวลผลรูปภาพความละเอียดสูง...</p>
+                  <p className="text-xs text-white/70">รองรับ Sony A7 / Lightroom / กล้อง Mirrorless ทุกรุ่น</p>
+                </div>
+              )}
+
+              {/* Click to change hint banner */}
+              <div className="absolute inset-x-0 bottom-0 py-1.5 px-3 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between text-white/90 text-xs">
+                <span className="flex items-center gap-1 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  รูปภาพที่เลือกอยู่ขณะนี้
+                </span>
+                <span className="text-[11px] text-white/75 group-hover:text-white transition-colors">
+                  {cropOptions?.enabled ? 'คลิกเพื่อปรับตำแหน่ง' : 'คลิกเพื่อเปลี่ยนรูป'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Action Bar (Always visible!) */}
           <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/50 border border-border">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {cropOptions?.enabled && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleOpenCropForExisting}
+                  disabled={isUploading}
+                  className="gap-1.5 text-xs bg-accent/15 hover:bg-accent/25 text-foreground border border-accent/40 shadow-xs"
+                >
+                  <Crop className="w-3.5 h-3.5 text-accent" />
+                  ปรับแต่งตำแหน่งรูปภาพ
+                </Button>
+              )}
+
               <Button
                 type="button"
                 size="sm"
@@ -294,6 +478,21 @@ export const ImageUpload = ({
             </div>
           )}
         </div>
+      )}
+
+      {cropOptions?.enabled && (
+        <ImageCropModal
+          open={cropModalOpen}
+          imageSrc={cropSourceUrl}
+          aspect={cropOptions.aspect ?? 1}
+          cropShape={cropOptions.shape ?? 'round'}
+          title={cropOptions.title ?? 'ปรับแต่งและครอปรูปภาพ'}
+          description={cropOptions.description}
+          outputWidth={cropOptions.outputWidth ?? 800}
+          outputHeight={cropOptions.outputHeight}
+          onCancel={handleCropCancel}
+          onConfirm={handleCropConfirm}
+        />
       )}
     </div>
   );

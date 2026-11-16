@@ -28,7 +28,7 @@ export const isHeicFile = (file: File | Blob): boolean => {
 /**
  * Helper to convert canvas to Blob with multiple fallback formats
  */
-const canvasToBlobWithFallback = (
+export const canvasToBlobWithFallback = (
     canvas: HTMLCanvasElement,
     quality: number = 0.85,
     preferredFormat: 'image/webp' | 'image/jpeg' = 'image/webp'

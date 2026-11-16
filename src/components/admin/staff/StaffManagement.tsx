@@ -447,6 +447,7 @@ export const StaffManagement = () => {
                     <img
                         src={person.photo_url}
                         alt={person.name}
+                        referrerPolicy="no-referrer"
                         className={`${
                             isFeaturedDirector ? 'w-24 h-24' : 'w-20 h-20'
                         } rounded-full object-cover border-2 border-white/70 shadow-md`}
@@ -738,6 +739,16 @@ export const StaffManagement = () => {
                                 folder={formData.staff_type === 'director' ? 'administrators' : 'staff'}
                                 maxSizeMB={0}
                                 compressionPreset="profile"
+                                cropOptions={{
+                                    enabled: true,
+                                    aspect: 1,
+                                    shape: 'round',
+                                    title: 'ปรับแต่งและครอปรูปภาพบุคลากร',
+                                    description:
+                                        'จัดวางใบหน้าให้อยู่กึ่งกลางกรอบวงกลม เลื่อนลูกกลิ้งเมาส์ จีบนิ้ว หรือใช้แถบซูมเพื่อปรับขนาด',
+                                    outputWidth: 800,
+                                    outputHeight: 800,
+                                }}
                             />
                         </div>
 
